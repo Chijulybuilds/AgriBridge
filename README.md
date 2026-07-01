@@ -1,1 +1,0 @@
-Now I need you to generate a detailed and well structured project.md file about everything this project entails also including how the frontend will interact with this contract and if its something I will need to deploy first and how the users, farmers, investors and verifiers will interact with this contract.
