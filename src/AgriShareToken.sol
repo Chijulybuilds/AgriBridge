@@ -24,7 +24,6 @@ interface IERC20Metadata {
  *      The LendingPool manages all dynamic exchange-rate calculations and interest-accrual variables.
  */
 contract AgriShareToken is ERC20, ERC20Permit {
-
     /*//////////////////////////////////////////////////////////////
                             IMMUTABLES
     //////////////////////////////////////////////////////////////*/
@@ -49,11 +48,17 @@ contract AgriShareToken is ERC20, ERC20Permit {
     error AgriShareToken__TransferDisabled();
 
     /*//////////////////////////////////////////////////////////////
-                             MODIFIERS
+                            MODIFIER HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    modifier onlyLendingPool() {
+    modifier onlyRoleEnforced() {
         if (msg.sender != i_lendingPool) revert AgriShareToken__NotLendingPool();
+        _;
+    }
+
+    modifier validationCheck(address _account, uint256 _amount) {
+        if (_account == address(0)) revert AgriShareToken__InvalidAddress();
+        if (_amount == 0) revert AgriShareToken__InvalidAmount();
         _;
     }
 
@@ -61,23 +66,18 @@ contract AgriShareToken is ERC20, ERC20Permit {
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(
-        address _lendingPool,
-        address _underlyingAsset,
-        string memory _name,
-        string memory _symbol
-    ) 
-        ERC20(_name, _symbol) 
-        ERC20Permit(_name) 
+    constructor(address _lendingPool, address _usdc, string memory _name, string memory _symbol)
+        ERC20(_name, _symbol)
+        ERC20Permit(_name)
     {
-        if (_lendingPool == address(0) || _underlyingAsset == address(0)) {
+        if (_lendingPool == address(0) || _usdc == address(0)) {
             revert AgriShareToken__InvalidAddress();
         }
-        
+
         i_lendingPool = _lendingPool;
-        
+
         // Dynamically matches underlying asset decimals configuration to prevent mathematical mismatch
-        i_decimals = IERC20Metadata(_underlyingAsset).decimals();
+        i_decimals = IERC20Metadata(_usdc).decimals();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -105,21 +105,6 @@ contract AgriShareToken is ERC20, ERC20Permit {
     }
 
     /*//////////////////////////////////////////////////////////////
-                            MODIFIER HELPERS
-    //////////////////////////////////////////////////////////////*/
-
-    modifier onlyRoleEnforced() {
-        if (msg.sender != i_lendingPool) revert AgriShareToken__NotLendingPool();
-        _;
-    }
-
-    modifier validationCheck(address _account, uint256 _amount) {
-        if (_account == address(0)) revert AgriShareToken__InvalidAddress();
-        if (_amount == 0) revert AgriShareToken__InvalidAmount();
-        _;
-    }
-
-    /*//////////////////////////////////////////////////////////////
                             EXTERNAL VIEWS
     //////////////////////////////////////////////////////////////*/
 
@@ -138,11 +123,7 @@ contract AgriShareToken is ERC20, ERC20Permit {
      * @dev Core transfer processing hook optimized for OpenZeppelin v5 architectures.
      *      Implements non-transferability constraint mechanics. Reverts user-to-user transfers.
      */
-    function _update(
-        address from,
-        address to,
-        uint256 value
-    ) internal override {
+    function _update(address from, address to, uint256 value) internal override {
         // Allow mint operations (from zero address) and burn operations (to zero address) initiated by LendingPool
         if (from != address(0) && to != address(0)) {
             revert AgriShareToken__TransferDisabled();

@@ -1,642 +1,445 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./CommodityRegistry.sol";
-import "./CommodityToken.sol";
-import "./LiquidityShareToken.sol";
-import "./CommodityPriceOracle.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
+/*//////////////////////////////////////////////////////////////
+                          INTERFACES
+//////////////////////////////////////////////////////////////*/
+
+interface ICommodityRegistry {
+    enum CommodityStatus { PENDING, VERIFIED, REJECTED, EXPIRED }
+    enum CommodityType { COCOA, RICE, MAIZE, CASHEW, YAM }
+
+    struct Commodity {
+        address farmer;
+        CommodityType commodityType;
+        uint256 quantity;
+        uint256 storageEndDate;
+        CommodityStatus status;
+        uint256 tokenId;
+    }
+
+    function getCommodity(uint256 commodityId) external view returns (Commodity memory);
+    function isCommodityValid(uint256 commodityId) external view returns (bool);
+    function isCommodityExpired(uint256 commodityId) external view returns (bool);
+}
+
+interface ICommodityToken {
+    function getAvailableBalance(address account, uint256 tokenId) external view returns (uint256);
+    function lockCollateral(address account, uint256 tokenId, uint256 amount) external;
+    function unlockCollateral(address account, uint256 tokenId, uint256 amount) external;
+    function safeTransferFrom(address from, address to, uint256 id, uint256 value, bytes calldata data) external;
+}
+
+interface IAgriShareToken {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function mintShares(address to, uint256 amount) external;
+    function burnShares(address from, uint256 amount) external;
+}
+
+interface ICommodityPriceOracle {
+    function getCollateralValue(uint256 commodityId, uint256 quantity) external view returns (uint256 usdValue);
+}
+
+/*//////////////////////////////////////////////////////////////
+                         MAIN CONTRACT
+//////////////////////////////////////////////////////////////*/
 
 /**
  * @title LendingPool
- * @author AgriDeFi Protocol Team
- * @notice Core lending pool contract - accepts USDC deposits, manages loans against commodity collateral
- * @dev Phase 2 Step 6: Main protocol contract with full lending mechanics
- *
- * SECURITY FEATURES:
- * - ReentrancyGuard: Protects all state-changing functions
- * - Ownable: Owner controls admin functions
- * - Pausable: Emergency pause mechanism
- * - CEI Pattern: All functions follow Checks → Effects → Interactions
- * - Health Factor: Liquidation protection (must stay > 1.0)
- * - Interest Accrual: Automatic interest calculation
+ * @author AgriDeFi Protocol Team / Senior Engineering Refactor
+ * @notice Core yield-vault and loan facility optimized with dynamic index math scaling.
  */
-contract LendingPool is Ownable, ReentrancyGuard {
+contract LendingPool is Pausable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     /*//////////////////////////////////////////////////////////////
                             CONSTANTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev USDC decimals (6)
-    uint8 private constant USDC_DECIMALS = 6;
+    uint256 private constant INDEX_PRECISION = 1e18;
+    uint256 private constant INTEREST_RATE_PRECISION = 1e18;
+    
+    uint256 private constant BASE_INTEREST_RATE = 5e16; // 5% base rate
+    uint256 private constant HIGH_UTIL_MULTIPLIER = 50e16; 
+    uint256 private constant UTILIZATION_KINK = 80e16; // 80% Kink boundary
 
-    /// @dev Base interest rate: 5% annually
-    uint256 private constant BASE_INTEREST_RATE = 5e16; // 5e16 = 5% in basis points
+    uint256 private constant LIQUIDATION_THRESHOLD = 1e18; // 1.0 Health factor scale
+    uint256 private constant LIQUIDATION_PENALTY = 10e16; // 10% penalty
+    uint256 private constant MAX_LTV = 70e16; // 70% Max Loan-To-Value
 
-    /// @dev Interest multiplier for utilization > 80%
-    uint256 private constant HIGH_UTIL_MULTIPLIER = 50e16; // 50x multiplier
-
-    /// @dev Default liquidation threshold: 1.0 (health factor)
-    uint256 private constant LIQUIDATION_THRESHOLD = 1e18;
-
-    /// @dev Liquidation penalty: 10%
-    uint256 private constant LIQUIDATION_PENALTY = 10e16; // 10%
-
-    /// @dev Maximum LTV: 70%
-    uint256 private constant MAX_LTV = 70e16; // 70%
-
-    /// @dev Minimum borrow amount: $100 (100 USDC)
-    uint256 private constant MIN_BORROW_AMOUNT = 100e6; // 100 USDC
-
-    /// @dev Maximum borrow amount: $10M (10M USDC)
-    uint256 private constant MAX_BORROW_AMOUNT = 10_000_000e6; // 10M USDC
+    uint256 private constant MIN_BORROW_AMOUNT = 100e6; // $100 Floor bound (Assuming 6 decimal USDC)
+    uint256 private constant MAX_BORROW_AMOUNT = 10_000_000e6; // $10M Ceiling bound
 
     /*//////////////////////////////////////////////////////////////
                             ENUMS
     //////////////////////////////////////////////////////////////*/
 
-    enum BorrowStatus {
-        ACTIVE,
-        REPAID,
-        LIQUIDATED
-    }
+    enum LoanStatus { ACTIVE, REPAID, LIQUIDATED }
 
     /*//////////////////////////////////////////////////////////////
                             STRUCTS
     //////////////////////////////////////////////////////////////*/
 
-    struct UserDeposit {
-        uint256 amount;
-        uint256 depositedAt;
-        uint256 lastInterestClaimed;
-        bool isActive;
-    }
-
-    struct FarmerBorrow {
-        address farmer;
+    struct Loan {
+        uint256 principal;
+        uint256 interestIndex;
         uint256 commodityId;
-        uint256 tokenId;
+        uint256 collateralTokenId;
         uint256 collateralAmount;
-        uint256 borrowAmount;
-        uint256 borrowedAt;
-        uint256 lastRepaymentAt;
-        uint256 interestAccrued;
-        BorrowStatus status;
+        uint64 openedAt;
+        uint64 lastAccruedAt;
+        LoanStatus status;
+        address farmer;
     }
 
-    struct PoolState {
-        uint256 totalLiquidity;
-        uint256 totalBorrowed;
-        uint256 totalInterestAccrued;
-        bool isPaused;
-    }
+    /*//////////////////////////////////////////////////////////////
+                            IMMUTABLES
+    //////////////////////////////////////////////////////////////*/
+
+    IERC20 public immutable i_usdc;
+    ICommodityRegistry public immutable i_registry;
+    ICommodityToken public immutable i_commodityToken;
+    IAgriShareToken public immutable i_shareToken;
+    ICommodityPriceOracle public immutable i_priceOracle;
+
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
 
-    // Core contracts
-    IERC20 public usdc;
-    CommodityRegistry public registry;
-    CommodityToken public commodityToken;
-    LiquidityShareToken public shareToken;
-    CommodityPriceOracle public priceOracle;
-
-    // Pool state
-    uint256 public totalLiquidity;
     uint256 public totalBorrowed;
-    uint256 public totalInterestAccrued;
-    bool public isPaused;
+    uint256 public totalAccumulatedReserves;
+    uint256 public reserveFactor = 20e16; // 20% to protocol reserves, 80% to LPs
 
-    // User state
-    mapping(address => UserDeposit) public deposits;
-    mapping(address => uint256[]) public userBorrows;
+    uint256 public globalBorrowIndex;
+    uint256 public lastGlobalAccrualTimestamp;
 
-    // Borrow state
-    uint256 public borrowCount;
-    mapping(uint256 => FarmerBorrow) public borrows;
-
-    // Interest rates
-    uint256 public baseInterestRate = BASE_INTEREST_RATE;
-    uint256 public maxLTV = MAX_LTV;
+    uint256 public loanCount;
+    mapping(uint256 => Loan) public loans;
+    mapping(address => uint256[]) private s_userLoans;
 
     /*//////////////////////////////////////////////////////////////
-                            EVENTS
+                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event Deposited(address indexed investor, uint256 usdcAmount, uint256 agUSDCMinted, uint256 timestamp);
-
-    event Withdrawn(address indexed investor, uint256 agUSDCBurned, uint256 usdcAmount, uint256 timestamp);
-
-    event BorrowInitiated(
-        uint256 indexed borrowId,
-        address indexed farmer,
-        uint256 indexed commodityId,
-        uint256 collateralAmount,
-        uint256 borrowAmount,
-        uint256 interestRate,
-        uint256 timestamp
-    );
-
-    event LoanRepaid(
-        uint256 indexed borrowId,
-        address indexed farmer,
-        uint256 principalRepaid,
-        uint256 interestRepaid,
-        uint256 remainingBalance,
-        uint256 timestamp
-    );
-
-    event Liquidated(
-        uint256 indexed borrowId,
-        address indexed liquidator,
-        uint256 collateralLiquidated,
-        uint256 liquidationPenalty,
-        uint256 timestamp
-    );
-
-    event HealthFactorUpdated(uint256 indexed borrowId, uint256 newHealthFactor, uint256 timestamp);
-
-    event PoolPaused(address indexed pauser, uint256 timestamp);
-    event PoolResumed(address indexed resumer, uint256 timestamp);
-    event InterestRateUpdated(uint256 newRate, uint256 timestamp);
+    event LiquidityDeposited(address indexed investor, uint256 assets, uint256 sharesMinted);
+    event LiquidityWithdrawn(address indexed investor, uint256 assetsReturned, uint256 sharesBurned);
+    event LoanOpened(uint256 indexed loanId, address indexed farmer, uint256 principal, uint256 collateralAmount);
+    event LoanRepaid(uint256 indexed loanId, address indexed farmer, uint256 principalPaid, uint256 interestPaid);
+    event LoanLiquidated(uint256 indexed loanId, address indexed liquidator, uint256 debtCovered, uint256 collateralSeized);
+    event GlobalIndexUpdated(uint256 newIndex, uint256 totalReserves);
 
     /*//////////////////////////////////////////////////////////////
-                            ERRORS
+                             CUSTOM ERRORS
     //////////////////////////////////////////////////////////////*/
 
-    error PoolPausedError();
-    error InsufficientLiquidity();
-    error InsufficientCollateral();
-    error HealthFactorTooLow();
-    error BorrowNotFound();
-    error BorrowNotActive();
-    error InvalidBorrowAmount();
-    error InvalidRepayAmount();
-    error CommodityNotVerified();
-    error CommodityExpired();
-    error UnauthorizedCaller();
-    error InvalidExchangeRate();
-    error NoLiquidationNeeded();
-    error InvalidAddress();
-    error InvalidAmount();
-    error ZeroAddress();
+    error LendingPool__NotGovernance();
+    error LendingPool__ZeroAddress();
+    error LendingPool__ZeroAmount();
+    error LendingPool__InvalidLoanBounds();
+    error LendingPool__InsufficientPoolCash();
+    error LendingPool__CommodityInvalid();
+    error LendingPool__CommodityExpired();
+    error LendingPool__Unauthorized();
+    error LendingPool__InsufficientCollateralBalance();
+    error LendingPool__ExceedsMaxLTV();
+    error LendingPool__LoanNotActive();
+    error LendingPool__RepaymentOverflow();
+    error LendingPool__PositionSafe();
+    error LendingPool__NativeTokenNotSupported();
+    error LendingPool__InvalidCall();
 
     /*//////////////////////////////////////////////////////////////
-                            MODIFIERS
+                             MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
-    modifier whenNotPaused() {
-        if (isPaused) revert PoolPausedError();
-        _;
-    }
+    
 
-    modifier validAmount(uint256 amount) {
-        if (amount == 0) revert InvalidAmount();
+    modifier checkZeroAmount(uint256 _amount) {
+        if (_amount == 0) revert LendingPool__ZeroAmount();
         _;
     }
 
     /*//////////////////////////////////////////////////////////////
-                            CONSTRUCTOR
+                              CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
     constructor(
-        address usdcAddress,
-        address registryAddress,
-        address tokenAddress,
-        address shareTokenAddress,
-        address oracleAddress
-    ) Ownable(msg.sender) {
-        if (
-            usdcAddress == address(0) || registryAddress == address(0) || tokenAddress == address(0)
-                || shareTokenAddress == address(0) || oracleAddress == address(0)
-        ) {
-            revert InvalidAddress();
+        address _usdc,
+        address _registry,
+        address _commodityToken,
+        address _shareToken,
+        address _priceOracle
+    ) {
+        if (_usdc == address(0) || _registry == address(0) || _commodityToken == address(0) || 
+            _shareToken == address(0) || _priceOracle == address(0) ) {
+            revert LendingPool__ZeroAddress();
         }
 
-        usdc = IERC20(usdcAddress);
-        registry = CommodityRegistry(registryAddress);
-        commodityToken = CommodityToken(tokenAddress);
-        shareToken = LiquidityShareToken(shareTokenAddress);
-        priceOracle = CommodityPriceOracle(oracleAddress);
+        i_usdc = IERC20(_usdc);
+        i_registry = ICommodityRegistry(_registry);
+        i_commodityToken = ICommodityToken(_commodityToken);
+        i_shareToken = IAgriShareToken(_shareToken);
+        i_priceOracle = ICommodityPriceOracle(_priceOracle);
+
+        globalBorrowIndex = INDEX_PRECISION; // Initialized to 1.0 (scaled)
+        lastGlobalAccrualTimestamp = block.timestamp;
     }
 
     /*//////////////////////////////////////////////////////////////
-                        EXTERNAL FUNCTIONS
+                        EXTERNAL MUTATIVE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Deposit USDC to earn yield
-     * @param amount USDC amount to deposit
-     *
-     * SECURITY:
-     * - Pool must not be paused
-     * - Amount must be > 0
-     * - Uses CEI pattern
-     * - Mints agUSDC 1:1 with USDC
+     * @notice Deposit underlying asset liquidity into the vault pool to mint interest-bearing shares.
      */
-    function depositUSDC(uint256 amount) external whenNotPaused nonReentrant validAmount(amount) {
-        // CHECKS
-        uint256 usdcBalance = usdc.balanceOf(msg.sender);
-        if (usdcBalance < amount) revert InsufficientLiquidity();
+    function deposit(uint256 _assets) external whenNotPaused nonReentrant checkZeroAmount(_assets) {
+        _accrueGlobalInterest();
 
-        // EFFECTS
-        UserDeposit storage deposit = deposits[msg.sender];
-        deposit.amount += amount;
-        deposit.depositedAt = block.timestamp;
-        deposit.lastInterestClaimed = block.timestamp;
-        deposit.isActive = true;
+        uint256 sharesToMint = _convertToShares(_assets);
+        
+        i_shareToken.mintShares(msg.sender, sharesToMint);
+        i_usdc.safeTransferFrom(msg.sender, address(this), _assets);
 
-        totalLiquidity += amount;
-
-        // INTERACTIONS
-        usdc.transferFrom(msg.sender, address(this), amount);
-        shareToken.mint(msg.sender, amount);
-
-        emit Deposited(msg.sender, amount, amount, block.timestamp);
+        emit LiquidityDeposited(msg.sender, _assets, sharesToMint);
     }
 
     /**
-     * @notice Withdraw USDC using agUSDC
-     * @param agUSDCAmount agUSDC amount to burn
-     *
-     * SECURITY:
-     * - Pool must not be paused
-     * - Amount must be > 0
-     * - Pool must have sufficient USDC liquidity
-     * - Uses CEI pattern
+     * @notice Redeem vault tracking shares to reclaim accumulated underlying assets plus accrued yield.
      */
-    function withdrawUSDC(uint256 agUSDCAmount) external whenNotPaused nonReentrant validAmount(agUSDCAmount) {
-        // CHECKS
-        if (shareToken.balanceOf(msg.sender) < agUSDCAmount) {
-            revert InsufficientCollateral();
-        }
+    function withdraw(uint256 _shares) external whenNotPaused nonReentrant checkZeroAmount(_shares) {
+        _accrueGlobalInterest();
 
-        if (usdc.balanceOf(address(this)) < agUSDCAmount) {
-            revert InsufficientLiquidity();
-        }
+        uint256 assetsToReturn = _convertToAssets(_shares);
+        if (assetsToReturn > i_usdc.balanceOf(address(this))) revert LendingPool__InsufficientPoolCash();
 
-        // EFFECTS
-        UserDeposit storage deposit = deposits[msg.sender];
-        if (deposit.amount < agUSDCAmount) revert InsufficientCollateral();
+        i_shareToken.burnShares(msg.sender, _shares);
+        i_usdc.safeTransfer(msg.sender, assetsToReturn);
 
-        deposit.amount -= agUSDCAmount;
-        totalLiquidity -= agUSDCAmount;
-
-        // INTERACTIONS
-        shareToken.burn(msg.sender, agUSDCAmount);
-        usdc.transfer(msg.sender, agUSDCAmount);
-
-        emit Withdrawn(msg.sender, agUSDCAmount, agUSDCAmount, block.timestamp);
+        emit LiquidityWithdrawn(msg.sender, assetsToReturn, _shares);
     }
 
     /**
-     * @notice Borrow USDC against verified commodity collateral
-     * @param commodityId ID of verified commodity
-     * @param collateralAmount Amount of commodity to lock as collateral
-     * @param borrowAmount Amount of USDC to borrow
-     * @return borrowId The new borrow ID
-     *
-     * SECURITY:
-     * - Pool must not be paused
-     * - Commodity must be verified and not expired
-     * - Farmer must have sufficient commodity balance
-     * - Health factor must stay > 1.5x
-     * - LTV must be < 70%
-     * - Uses CEI pattern with reentrancy guard
+     * @notice Borrow underlying assets against highly scoped, non-transferable tokenized warehouse receipts.
      */
-    function borrowAgainstCommodity(uint256 commodityId, uint256 collateralAmount, uint256 borrowAmount)
-        external
-        whenNotPaused
-        nonReentrant
-        validAmount(borrowAmount)
-        returns (uint256)
-    {
-        // CHECKS
-        if (borrowAmount < MIN_BORROW_AMOUNT || borrowAmount > MAX_BORROW_AMOUNT) {
-            revert InvalidBorrowAmount();
+    function borrow(
+        uint256 _commodityId,
+        uint256 _collateralAmount,
+        uint256 _borrowAmount
+    ) external whenNotPaused nonReentrant checkZeroAmount(_borrowAmount) returns (uint256) {
+        if (_borrowAmount < MIN_BORROW_AMOUNT || _borrowAmount > MAX_BORROW_AMOUNT) revert LendingPool__InvalidLoanBounds();
+        if (_borrowAmount > i_usdc.balanceOf(address(this))) revert LendingPool__InsufficientPoolCash();
+
+        _accrueGlobalInterest();
+
+        if (!i_registry.isCommodityValid(_commodityId)) revert LendingPool__CommodityInvalid();
+        if (i_registry.isCommodityExpired(_commodityId)) revert LendingPool__CommodityExpired();
+
+        ICommodityRegistry.Commodity memory commodity = i_registry.getCommodity(_commodityId);
+        if (commodity.farmer != msg.sender) revert LendingPool__Unauthorized();
+
+        if (i_commodityToken.getAvailableBalance(msg.sender, commodity.tokenId) < _collateralAmount) {
+            revert LendingPool__InsufficientCollateralBalance();
         }
 
-        if (usdc.balanceOf(address(this)) < borrowAmount) {
-            revert InsufficientLiquidity();
-        }
+        uint256 collateralUSDValue = i_priceOracle.getCollateralValue(_commodityId, _collateralAmount);
+        uint256 calculatedLTV = (_borrowAmount * INDEX_PRECISION) / collateralUSDValue;
+        if (calculatedLTV > MAX_LTV) revert LendingPool__ExceedsMaxLTV();
 
-        // Verify commodity
-        if (!registry.isCommodityValid(commodityId)) {
-            revert CommodityNotVerified();
-        }
-
-        if (registry.isCommodityExpired(commodityId)) {
-            revert CommodityExpired();
-        }
-
-        CommodityRegistry.Commodity memory commodity = registry.getCommodity(commodityId);
-
-        if (commodity.farmer != msg.sender) revert UnauthorizedCaller();
-
-        // Check farmer has commodity tokens
-        if (commodityToken.getAvailableBalance(msg.sender, commodity.tokenId) < collateralAmount) {
-            revert InsufficientCollateral();
-        }
-
-        // Calculate LTV
-        (uint256 ltvPct, uint256 collateralValue) =
-            _calculateLTV(commodity.estimatedMarketPrice, collateralAmount, borrowAmount);
-
-        if (ltvPct > maxLTV) revert HealthFactorTooLow();
-
-        // EFFECTS
-        uint256 borrowId = ++borrowCount;
-        uint256 interestRate = _calculateInterestRate();
-
-        borrows[borrowId] = FarmerBorrow({
-            farmer: msg.sender,
-            commodityId: commodityId,
-            tokenId: commodity.tokenId,
-            collateralAmount: collateralAmount,
-            borrowAmount: borrowAmount,
-            borrowedAt: block.timestamp,
-            lastRepaymentAt: block.timestamp,
-            interestAccrued: 0,
-            status: BorrowStatus.ACTIVE
+        uint256 loanId = ++loanCount;
+        loans[loanId] = Loan({
+            principal: _borrowAmount,
+            interestIndex: globalBorrowIndex,
+            commodityId: _commodityId,
+            collateralTokenId: commodity.tokenId,
+            collateralAmount: _collateralAmount,
+            openedAt: uint64(block.timestamp),
+            lastAccruedAt: uint64(block.timestamp),
+            status: LoanStatus.ACTIVE,
+            farmer: msg.sender
         });
 
-        userBorrows[msg.sender].push(borrowId);
-        totalBorrowed += borrowAmount;
+        s_userLoans[msg.sender].push(loanId);
+        totalBorrowed += _borrowAmount;
 
-        // INTERACTIONS
-        // Lock collateral
-        commodityToken.lockCollateral(msg.sender, commodity.tokenId, collateralAmount);
+        i_commodityToken.lockCollateral(msg.sender, commodity.tokenId, _collateralAmount);
+        i_usdc.safeTransfer(msg.sender, _borrowAmount);
 
-        // Transfer USDC to farmer
-        usdc.transfer(msg.sender, borrowAmount);
-
-        emit BorrowInitiated(
-            borrowId, msg.sender, commodityId, collateralAmount, borrowAmount, interestRate, block.timestamp
-        );
-
-        return borrowId;
+        emit LoanOpened(loanId, msg.sender, _borrowAmount, _collateralAmount);
+        return loanId;
     }
 
     /**
-     * @notice Repay a loan partially or fully
-     * @param borrowId Borrow identifier
-     * @param repayAmount Amount to repay (must include interest)
-     *
-     * SECURITY:
-     * - Borrow must exist and be ACTIVE
-     * - Amount must be valid
-     * - Uses CEI pattern
-     * - Automatically unlocks collateral on full repayment
+     * @notice Repays active debt principal plus interest based on dynamic $O(1)$ scalar calculation matrix.
      */
-    function repay(uint256 borrowId, uint256 repayAmount) external whenNotPaused nonReentrant validAmount(repayAmount) {
-        // CHECKS
-        if (borrowId == 0 || borrowId > borrowCount) revert BorrowNotFound();
+    function repay(uint256 _loanId, uint256 _repayAmount) external whenNotPaused nonReentrant checkZeroAmount(_repayAmount) {
+        _accrueGlobalInterest();
 
-        FarmerBorrow storage borrow = borrows[borrowId];
+        Loan storage loan = loans[_loanId];
+        if (loan.status != LoanStatus.ACTIVE) revert LendingPool__LoanNotActive();
 
-        if (borrow.status != BorrowStatus.ACTIVE) revert BorrowNotActive();
+        uint256 totalCurrentOwed = _calculateCurrentDebt(loan);
+        if (_repayAmount > totalCurrentOwed) revert LendingPool__RepaymentOverflow();
 
-        if (msg.sender != borrow.farmer) revert UnauthorizedCaller();
+        uint256 interestPortion = totalCurrentOwed - loan.principal;
+        uint256 interestPaid;
+        uint256 principalPaid;
 
-        // Update interest
-        uint256 currentInterest = _calculateAccruedInterest(borrowId);
-        uint256 totalOwed = borrow.borrowAmount + currentInterest;
-
-        if (repayAmount > totalOwed) revert InvalidRepayAmount();
-
-        // EFFECTS
-        uint256 principalRepaid = 0;
-        uint256 interestRepaid = 0;
-
-        if (repayAmount <= currentInterest) {
-            interestRepaid = repayAmount;
-            borrow.interestAccrued += repayAmount;
+        if (_repayAmount <= interestPortion) {
+            interestPaid = _repayAmount;
         } else {
-            interestRepaid = currentInterest;
-            principalRepaid = repayAmount - interestRepaid;
-            borrow.borrowAmount -= principalRepaid;
-            borrow.interestAccrued = 0;
+            interestPaid = interestPortion;
+            principalPaid = _repayAmount - interestPortion;
         }
 
-        borrow.lastRepaymentAt = block.timestamp;
-        totalBorrowed -= principalRepaid;
-        totalInterestAccrued += interestRepaid;
+        loan.principal = totalCurrentOwed - _repayAmount;
+        loan.interestIndex = globalBorrowIndex;
+        loan.lastAccruedAt = uint64(block.timestamp);
+        
+        totalBorrowed -= principalPaid;
 
-        // Check if fully repaid
-        if (borrow.borrowAmount == 0) {
-            borrow.status = BorrowStatus.REPAID;
-            // Unlock collateral
-            commodityToken.unlockCollateral(borrow.farmer, borrow.tokenId, borrow.collateralAmount);
+        if (loan.principal == 0) {
+            loan.status = LoanStatus.REPAID;
+            i_commodityToken.unlockCollateral(loan.farmer, loan.collateralTokenId, loan.collateralAmount);
         }
 
-        // INTERACTIONS
-        usdc.transferFrom(msg.sender, address(this), repayAmount);
-
-        emit LoanRepaid(borrowId, msg.sender, principalRepaid, interestRepaid, borrow.borrowAmount, block.timestamp);
+        i_usdc.safeTransferFrom(msg.sender, address(this), _repayAmount);
+        emit LoanRepaid(_loanId, loan.farmer, principalPaid, interestPaid);
     }
 
     /**
-     * @notice Liquidate an undercollateralized loan
-     * @param borrowId Borrow identifier to liquidate
-     *
-     * SECURITY:
-     * - Only owner or liquidator can call
-     * - Health factor must be < 1.0
-     * - Uses CEI pattern
-     * - Transfers collateral and liquidation penalty
+     * @notice Seizes undercollateralized positions when position drops below Liquidation Threshold boundaries.
      */
-    function liquidate(uint256 borrowId) external whenNotPaused nonReentrant {
-        // CHECKS
-        if (borrowId == 0 || borrowId > borrowCount) revert BorrowNotFound();
+    function liquidate(uint256 _loanId) external whenNotPaused nonReentrant {
+        _accrueGlobalInterest();
 
-        FarmerBorrow storage borrow = borrows[borrowId];
+        Loan storage loan = loans[_loanId];
+        if (loan.status != LoanStatus.ACTIVE) revert LendingPool__LoanNotActive();
 
-        if (borrow.status != BorrowStatus.ACTIVE) revert BorrowNotActive();
+        uint256 currentHealthFactor = getHealthFactor(_loanId);
+        if (currentHealthFactor >= LIQUIDATION_THRESHOLD) revert LendingPool__PositionSafe();
 
-        uint256 healthFactor = getHealthFactor(borrowId);
+        uint256 totalDebtToCover = _calculateCurrentDebt(loan);
+        
+        loan.status = LoanStatus.LIQUIDATED;
+        totalBorrowed -= loan.principal;
 
-        if (healthFactor >= LIQUIDATION_THRESHOLD) {
-            revert NoLiquidationNeeded();
-        }
+        i_commodityToken.unlockCollateral(loan.farmer, loan.collateralTokenId, loan.collateralAmount);
+        i_usdc.safeTransferFrom(msg.sender, address(this), totalDebtToCover);
+        i_commodityToken.safeTransferFrom(address(this), msg.sender, loan.collateralTokenId, loan.collateralAmount, "");
 
-        // EFFECTS
-        uint256 currentInterest = _calculateAccruedInterest(borrowId);
-        uint256 totalDebt = borrow.borrowAmount + currentInterest;
-        uint256 liquidationPenalty = (totalDebt * LIQUIDATION_PENALTY) / 1e18;
-
-        borrow.status = BorrowStatus.LIQUIDATED;
-        totalBorrowed -= borrow.borrowAmount;
-
-        // INTERACTIONS
-        // Unlock collateral
-        commodityToken.unlockCollateral(borrow.farmer, borrow.tokenId, borrow.collateralAmount);
-
-        // Transfer collateral to liquidator
-        commodityToken.safeTransferFrom(address(this), msg.sender, borrow.tokenId, borrow.collateralAmount, "");
-
-        emit Liquidated(borrowId, msg.sender, borrow.collateralAmount, liquidationPenalty, block.timestamp);
-    }
-
-    /**
-     * @notice Pause the pool (owner only)
-     */
-    function pause() external onlyOwner {
-        isPaused = true;
-        emit PoolPaused(msg.sender, block.timestamp);
-    }
-
-    /**
-     * @notice Resume the pool (owner only)
-     */
-    function unpause() external onlyOwner {
-        isPaused = false;
-        emit PoolResumed(msg.sender, block.timestamp);
-    }
-
-    /**
-     * @notice Set base interest rate (owner only)
-     * @param newRate New rate in basis points (e.g., 5e16 = 5%)
-     */
-    function setBaseInterestRate(uint256 newRate) external onlyOwner {
-        baseInterestRate = newRate;
-        emit InterestRateUpdated(newRate, block.timestamp);
-    }
-
-    /**
-     * @notice Set maximum LTV (owner only)
-     * @param newLTV New LTV in basis points (e.g., 70e16 = 70%)
-     */
-    function setMaxLTV(uint256 newLTV) external onlyOwner {
-        maxLTV = newLTV;
+        emit LoanLiquidated(_loanId, msg.sender, totalDebtToCover, loan.collateralAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
-                        VIEW FUNCTIONS
+                            INTERNAL ENGINE
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Get health factor for a borrow position
-     * @param borrowId Borrow identifier
-     * @return healthFactor Current health factor (in wei)
+     * @dev Linear dynamic interest compilation engine updating the global borrow index state.
      */
-    function getHealthFactor(uint256 borrowId) public view returns (uint256) {
-        if (borrowId == 0 || borrowId > borrowCount) revert BorrowNotFound();
+    function _accrueGlobalInterest() internal {
+        uint256 timeElapsed = block.timestamp - lastGlobalAccrualTimestamp;
+        if (timeElapsed == 0) return;
 
-        FarmerBorrow storage borrow = borrows[borrowId];
-
-        if (borrow.status != BorrowStatus.ACTIVE) return 0;
-
-        // Get commodity price
-        (uint256 price,) = priceOracle.getPrice(registry.getCommodity(borrow.commodityId).name);
-
-        // Calculate collateral value
-        uint256 collateralValue = (borrow.collateralAmount * price) / 1e18;
-
-        // Calculate total debt
-        uint256 currentInterest = _calculateAccruedInterest(borrowId);
-        uint256 totalDebt = borrow.borrowAmount + currentInterest;
-
-        if (totalDebt == 0) return type(uint256).max;
-
-        // Health factor = collateral value / total debt
-        return (collateralValue * 1e18) / totalDebt;
+        uint256 rate = getBorrowRate();
+        uint256 interestFactor = (rate * timeElapsed) / 365 days;
+        
+        uint256 totalInterestAccrued = (totalBorrowed * interestFactor) / INTEREST_RATE_PRECISION;
+        
+        if (totalInterestAccrued > 0) {
+            uint256 protocolReservePortion = (totalInterestAccrued * reserveFactor) / INDEX_PRECISION;
+            totalAccumulatedReserves += protocolReservePortion;
+            
+            globalBorrowIndex += (globalBorrowIndex * interestFactor) / INTEREST_RATE_PRECISION;
+        }
+        
+        lastGlobalAccrualTimestamp = block.timestamp;
+        emit GlobalIndexUpdated(globalBorrowIndex, totalAccumulatedReserves);
     }
 
-    /**
-     * @notice Get borrow details
-     * @param borrowId Borrow identifier
-     * @return borrow The borrow struct
-     */
-    function getBorrow(uint256 borrowId) external view returns (FarmerBorrow memory) {
-        if (borrowId == 0 || borrowId > borrowCount) revert BorrowNotFound();
-        return borrows[borrowId];
+    function _calculateCurrentDebt(Loan memory _loan) internal view returns (uint256) {
+        return (_loan.principal * globalBorrowIndex) / _loan.interestIndex;
     }
 
-    /**
-     * @notice Get user borrow IDs
-     * @param farmer Farmer address
-     * @return borrowIds Array of borrow IDs
-     */
-    function getUserBorrows(address farmer) external view returns (uint256[] memory) {
-        return userBorrows[farmer];
+    function _convertToShares(uint256 _assets) internal view returns (uint256) {
+        uint256 supply = i_shareToken.totalSupply();
+        return (supply == 0) ? _assets : (_assets * supply) / totalAssets();
     }
 
-    /**
-     * @notice Get pool state
-     * @return state Current pool state
-     */
-    function getPoolState() external view returns (PoolState memory) {
-        return PoolState({
-            totalLiquidity: totalLiquidity,
-            totalBorrowed: totalBorrowed,
-            totalInterestAccrued: totalInterestAccrued,
-            isPaused: isPaused
-        });
-    }
-
-    /**
-     * @notice Get accrued interest for a borrow
-     * @param borrowId Borrow identifier
-     * @return interest Accrued interest amount
-     */
-    function getAccruedInterest(uint256 borrowId) external view returns (uint256) {
-        return _calculateAccruedInterest(borrowId);
+    function _convertToAssets(uint256 _shares) internal view returns (uint256) {
+        uint256 supply = i_shareToken.totalSupply();
+        return (supply == 0) ? _shares : (_shares * totalAssets()) / supply;
     }
 
     /*//////////////////////////////////////////////////////////////
-                        INTERNAL HELPER FUNCTIONS
+                            EXTERNAL VIEWS
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @dev Calculate LTV and collateral value
+     * @notice Dynamically evaluates total underlying assets under custody minus current locked internal protocol reserves.
      */
-    function _calculateLTV(uint256 commodityPrice, uint256 collateralAmount, uint256 borrowAmount)
-        internal
-        pure
-        returns (uint256 ltvPct, uint256 collateralValue)
-    {
-        collateralValue = (collateralAmount * commodityPrice) / 1e18;
-
-        if (collateralValue == 0) revert InvalidExchangeRate();
-
-        ltvPct = (borrowAmount * 1e18) / collateralValue;
+    function totalAssets() public view returns (uint256) {
+        return (i_usdc.balanceOf(address(this)) + totalBorrowed) - totalAccumulatedReserves;
     }
 
     /**
-     * @dev Calculate current interest rate based on pool utilization
+     * @notice Implements standard Kink Utilization rate modeling equations.
      */
-    function _calculateInterestRate() internal view returns (uint256) {
-        if (totalLiquidity == 0) return baseInterestRate;
+    function getBorrowRate() public view returns (uint256) {
+        uint256 poolCash = i_usdc.balanceOf(address(this));
+        if (poolCash + totalBorrowed == 0) return BASE_INTEREST_RATE;
 
-        uint256 utilizationRate = (totalBorrowed * 1e18) / totalLiquidity;
+        uint256 utilization = (totalBorrowed * INTEREST_RATE_PRECISION) / (poolCash + totalBorrowed);
 
-        if (utilizationRate <= 80e16) {
-            // Below 80%: base + (utilization * 10%)
-            return baseInterestRate + ((utilizationRate * 10e16) / 1e18);
+        if (utilization <= UTILIZATION_KINK) {
+            return BASE_INTEREST_RATE + ((utilization * 10e16) / INTEREST_RATE_PRECISION);
         } else {
-            // Above 80%: base + 8% + ((utilization - 80%) * 50%)
-            uint256 excessUtil = utilizationRate - 80e16;
-            return baseInterestRate + 8e16 + ((excessUtil * HIGH_UTIL_MULTIPLIER) / 1e18);
+            uint256 excessUtil = utilization - UTILIZATION_KINK;
+            return BASE_INTEREST_RATE + 8e16 + ((excessUtil * HIGH_UTIL_MULTIPLIER) / INTEREST_RATE_PRECISION);
         }
     }
 
     /**
-     * @dev Calculate accrued interest for a borrow
+     * @notice Evaluates health configurations ($USD collateral weight divided by total active liabilities).
      */
-    function _calculateAccruedInterest(uint256 borrowId) internal view returns (uint256) {
-        FarmerBorrow storage borrow = borrows[borrowId];
+    function getHealthFactor(uint256 _loanId) public view returns (uint256) {
+        Loan memory loan = loans[_loanId];
+        if (loan.status != LoanStatus.ACTIVE) return 0;
 
-        uint256 timeElapsed = block.timestamp - borrow.lastRepaymentAt;
-        uint256 interestRate = _calculateInterestRate();
+        uint256 collateralUSDValue = i_priceOracle.getCollateralValue(loan.commodityId, loan.collateralAmount);
+        uint256 currentDebtValue = _calculateCurrentDebt(loan);
 
-        // Daily interest = (borrowAmount * interestRate) / 365
-        uint256 dailyInterest = (borrow.borrowAmount * interestRate) / 365 days;
+        if (currentDebtValue == 0) return type(uint256).max;
+        return (collateralUSDValue * INDEX_PRECISION) / currentDebtValue;
+    }
 
-        // Accrued = daily interest * days elapsed
-        uint256 accruedSinceLastPayment = (dailyInterest * timeElapsed) / 1 days;
+    function getUserLoans(address _user) external view returns (uint256[] memory) {
+        return s_userLoans[_user];
+    }
 
-        return borrow.interestAccrued + accruedSinceLastPayment;
+    /*//////////////////////////////////////////////////////////////
+                        ADMIN / CIRCUIT BREAKER
+    //////////////////////////////////////////////////////////////*/
+
+    function pause() external { _pause(); }
+    function unpause() external { _unpause(); }
+
+    /*//////////////////////////////////////////////////////////////
+                        DEFENSIVE FALLBACK REJECTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    receive() external payable {
+        revert LendingPool__NativeTokenNotSupported();
+    }
+
+    fallback() external payable {
+        revert LendingPool__InvalidCall();
     }
 }
