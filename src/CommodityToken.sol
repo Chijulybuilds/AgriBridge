@@ -11,13 +11,24 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 //////////////////////////////////////////////////////////////*/
 
 interface ICommodityRegistry {
-    enum CommodityStatus { PENDING, VERIFIED, REJECTED, EXPIRED }
-    enum CommodityType { COCOA, RICE, MAIZE, CASHEW, YAM }
+    enum CommodityStatus {
+        PENDING,
+        VERIFIED,
+        REJECTED,
+        EXPIRED
+    }
+    enum CommodityType {
+        COCOA,
+        RICE,
+        MAIZE,
+        CASHEW,
+        YAM
+    }
 
     struct Commodity {
         address farmer;
         CommodityType commodityType;
-        uint256 quantity;       // 1 Token Unit = 1 kg of underlying commodity
+        uint256 quantity; // 1 Token Unit = 1 kg of underlying commodity
         uint256 storageEndDate;
         CommodityStatus status;
         uint256 tokenId;
@@ -34,11 +45,10 @@ interface ICommodityRegistry {
  * @title CommodityToken
  * @author AgriDeFi Protocol Team / Senior Engineering Refactor
  * @notice Standardized ERC1155 representation of agricultural asset weights.
- * @dev Single responsibility asset contract. Collateral locking logic is removed here 
+ * @dev Single responsibility asset contract. Collateral locking logic is removed here
  *      and handled natively via physical custody transfers to the LendingPool.
  */
 contract CommodityToken is ERC1155, ERC1155Supply, AccessControl, Pausable {
-
     /*//////////////////////////////////////////////////////////////
                                CONSTANTS
     //////////////////////////////////////////////////////////////*/
@@ -60,7 +70,9 @@ contract CommodityToken is ERC1155, ERC1155Supply, AccessControl, Pausable {
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event CommodityTokenMinted(uint256 indexed tokenId, uint256 indexed commodityId, address indexed farmer, uint256 quantity);
+    event CommodityTokenMinted(
+        uint256 indexed tokenId, uint256 indexed commodityId, address indexed farmer, uint256 quantity
+    );
     event CommodityTokenBurned(uint256 indexed tokenId, address indexed holder, uint256 quantity);
 
     /*//////////////////////////////////////////////////////////////
@@ -100,11 +112,12 @@ contract CommodityToken is ERC1155, ERC1155Supply, AccessControl, Pausable {
      * @param _amount Quantitative mass assignment (1 token unit = 1 kg).
      * @return tokenId The matching asset ID generated.
      */
-    function mintCommodity(
-        address _to, 
-        uint256 _commodityId, 
-        uint256 _amount
-    ) external onlyRole(MINTER_ROLE) whenNotPaused returns (uint256 tokenId) {
+    function mintCommodity(address _to, uint256 _commodityId, uint256 _amount)
+        external
+        onlyRole(MINTER_ROLE)
+        whenNotPaused
+        returns (uint256 tokenId)
+    {
         if (_to == address(0)) revert CommodityToken__InvalidAddress();
         if (_amount == 0) revert CommodityToken__InvalidQuantity();
         if (exists(_commodityId)) revert CommodityToken__TokenAlreadyExists();
@@ -116,22 +129,22 @@ contract CommodityToken is ERC1155, ERC1155Supply, AccessControl, Pausable {
         tokenId = _commodityId;
 
         _mint(_to, tokenId, _amount, "");
-        
+
         emit CommodityTokenMinted(tokenId, _commodityId, _to, _amount);
     }
 
     /**
      * @notice Safe destruction hook used by authorized clearing contracts during physical settlement or liquidation events.
      */
-    function burnCommodity(
-        address _from, 
-        uint256 _tokenId, 
-        uint256 _amount
-    ) external onlyRole(BURNER_ROLE) whenNotPaused {
+    function burnCommodity(address _from, uint256 _tokenId, uint256 _amount)
+        external
+        onlyRole(BURNER_ROLE)
+        whenNotPaused
+    {
         if (_amount == 0) revert CommodityToken__InvalidQuantity();
-        
+
         _burn(_from, _tokenId, _amount);
-        
+
         emit CommodityTokenBurned(_tokenId, _from, _amount);
     }
 
@@ -155,12 +168,11 @@ contract CommodityToken is ERC1155, ERC1155Supply, AccessControl, Pausable {
      * @dev Consolidated OpenZeppelin v5 transfer execution pipeline control node.
      *      Natively catches and enforces transfers, mints, burns, and circuit breaker actions.
      */
-    function _update(
-        address from,
-        address to,
-        uint256[] memory ids,
-        uint256[] memory values
-    ) internal override(ERC1155, ERC1155Supply) whenNotPaused {
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
+        internal
+        override(ERC1155, ERC1155Supply)
+        whenNotPaused
+    {
         super._update(from, to, ids, values);
     }
 
