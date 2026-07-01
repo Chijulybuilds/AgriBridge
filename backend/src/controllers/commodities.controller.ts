@@ -5,7 +5,6 @@ import { CommodityType, Grade } from '../types/index.js';
 import type { AuthedRequest } from '../middleware/auth.js';
 
 const submitSchema = z.object({
-  farmer_wallet: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'invalid wallet address'),
   commodity_type: z.nativeEnum(CommodityType),
   grade: z.nativeEnum(Grade),
   quantity_kg: z.number().positive(),
@@ -14,17 +13,17 @@ const submitSchema = z.object({
 });
 
 export const commoditiesController = {
-  /** Farmer submits a new commodity from the frontend → saved as Pending. */
+  /** Farmer submits a new commodity → saved as Pending, owned by their wallet. */
   async submit(req: AuthedRequest, res: Response) {
     const input = submitSchema.parse(req.body);
-    const record = await commodityService.create(input);
+    // The owner is always the authenticated wallet — never trust a body field.
+    const record = await commodityService.create({ ...input, farmer_wallet: req.user!.wallet });
     res.status(201).json(record);
   },
 
-  /** List the signed-in farmer's submissions. */
+  /** List the signed-in farmer's own submissions. */
   async listMine(req: AuthedRequest, res: Response) {
-    const wallet = z.string().parse(req.query.wallet);
-    const records = await commodityService.listByFarmer(wallet);
+    const records = await commodityService.listByFarmer(req.user!.wallet);
     res.json(records);
   },
 };

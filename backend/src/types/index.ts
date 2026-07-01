@@ -38,6 +38,24 @@ export const COMMODITY_TYPE_ORDER: CommodityType[] = [
 
 export const GRADE_ORDER: Grade[] = [Grade.A, Grade.B, Grade.C];
 
+/** App-level user roles (distinct from the on-chain VERIFIER_ROLE). */
+export type UserRole = 'farmer' | 'investor' | 'admin';
+
+/** A user profile, keyed by the wallet address they signed in with. */
+export interface Profile {
+  wallet_address: string;
+  display_name: string | null;
+  role: UserRole;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+/** The identity attached to an authenticated request (decoded from the JWT). */
+export interface AuthUser {
+  wallet: string;
+  role: UserRole;
+}
+
 /** A commodity record as stored off-chain in Supabase (mirror of the chain). */
 export interface CommodityRecord {
   id: string;

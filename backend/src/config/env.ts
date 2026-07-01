@@ -15,6 +15,11 @@ const schema = z.object({
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
+  // Auth — secret used to sign the session JWTs the backend issues after a
+  // successful wallet signature. Must be long and random in production.
+  JWT_SECRET: z.string().min(16),
+  JWT_EXPIRES_IN: z.string().default('7d'),
+
   // Chain
   RPC_URL: z.string().url(),
   CHAIN_ID: z.coerce.number(),

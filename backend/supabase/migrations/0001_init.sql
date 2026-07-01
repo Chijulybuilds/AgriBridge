@@ -1,7 +1,12 @@
 -- AgriBridge — initial schema
 -- The DB is an OFF-CHAIN MIRROR of the protocol. The blockchain is the source
 -- of truth for value/collateral; Supabase stores rich metadata, powers the
--- verifier dashboard, and gives the frontend fast queries + auth.
+-- admin dashboard, and gives the frontend fast queries.
+--
+-- AUTH MODEL: users sign in with an Ethereum wallet (Sign-In with Ethereum).
+-- The wallet address is the identity. All access goes through the backend using
+-- the service-role key, so RLS is enabled with NO public policies (deny-by-
+-- default safety net); authorization is enforced in the backend.
 
 -- ─── Enums (mirror the Solidity enums in CommodityRegistry.sol) ───
 create type commodity_type as enum ('Cocoa', 'Rice', 'Maize', 'Cashew', 'Yam');
@@ -10,15 +15,22 @@ create type commodity_status as enum (
   'Pending', 'Verified', 'Rejected', 'Collateralized', 'Released', 'Liquidated', 'Expired'
 );
 
--- ─── Farmer/investor profiles (linked to Supabase Auth) ───
--- App-level roles. NOTE: this is distinct from the on-chain VERIFIER_ROLE.
--- The 'admin' (the backend engineer) is the one who performs verification.
+-- ─── Profiles (keyed by wallet address — the login identity) ───
+-- Roles: farmer / investor / admin. 'admin' is the backend engineer who
+-- performs verification (distinct from the on-chain VERIFIER_ROLE).
 create table profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
-  wallet_address text unique,
+  wallet_address text primary key,
   display_name text,
   role text not null default 'farmer' check (role in ('farmer', 'investor', 'admin')),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  last_login_at timestamptz
+);
+
+-- ─── One-time nonces users sign to prove wallet ownership ───
+create table auth_nonces (
+  wallet_address text primary key,
+  nonce text not null,
+  expires_at timestamptz not null default (now() + interval '10 minutes')
 );
 
 -- ─── Commodities (mirror of on-chain CommodityRegistry records) ───
@@ -53,21 +65,8 @@ create table verification_reports (
   created_at timestamptz not null default now()
 );
 
--- ─── Row Level Security ───
+-- ─── Row Level Security (deny-by-default; backend uses service role) ───
 alter table profiles enable row level security;
+alter table auth_nonces enable row level security;
 alter table commodities enable row level security;
 alter table verification_reports enable row level security;
-
--- Farmers can read their own commodities; verifiers (service role) see all.
--- Farmers see their own commodities; admins see all (the review queue).
-create policy "read own commodities"
-  on commodities for select
-  using (
-    farmer_wallet = (select wallet_address from profiles where id = auth.uid())
-  );
-
-create policy "admin reads all commodities"
-  on commodities for select
-  using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
-  );
