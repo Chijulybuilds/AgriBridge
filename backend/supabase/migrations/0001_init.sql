@@ -11,11 +11,13 @@ create type commodity_status as enum (
 );
 
 -- ─── Farmer/investor profiles (linked to Supabase Auth) ───
+-- App-level roles. NOTE: this is distinct from the on-chain VERIFIER_ROLE.
+-- The 'admin' (the backend engineer) is the one who performs verification.
 create table profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   wallet_address text unique,
   display_name text,
-  role text not null default 'farmer' check (role in ('farmer', 'investor', 'verifier')),
+  role text not null default 'farmer' check (role in ('farmer', 'investor', 'admin')),
   created_at timestamptz not null default now()
 );
 
@@ -57,8 +59,15 @@ alter table commodities enable row level security;
 alter table verification_reports enable row level security;
 
 -- Farmers can read their own commodities; verifiers (service role) see all.
+-- Farmers see their own commodities; admins see all (the review queue).
 create policy "read own commodities"
   on commodities for select
   using (
     farmer_wallet = (select wallet_address from profiles where id = auth.uid())
+  );
+
+create policy "admin reads all commodities"
+  on commodities for select
+  using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
   );
