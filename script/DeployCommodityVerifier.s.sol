@@ -16,12 +16,7 @@ contract DeployCommodityVerifier is Script {
         address priceOracle = vm.envAddress("PRICE_ORACLE_ADDRESS");
 
         vm.startBroadcast();
-        CommodityVerifier commodityVerifier = new CommodityVerifier(
-            admin,
-            registry,
-            token,
-            priceOracle
-        );
+        CommodityVerifier commodityVerifier = new CommodityVerifier(admin, registry, token, priceOracle);
         vm.stopBroadcast();
 
         return commodityVerifier;

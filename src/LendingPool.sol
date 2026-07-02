@@ -5,10 +5,12 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {AgriShareToken} from "src/AgriShareToken.sol";
+
 
 /*//////////////////////////////////////////////////////////////
                           INTERFACES
-//////////////////////////////////////////////////////////////*/
+////////////////////////////////////////////////////////////*/
 
 interface ICommodityRegistry {
     enum CommodityStatus {
@@ -46,12 +48,6 @@ interface ICommodityToken {
     function safeTransferFrom(address from, address to, uint256 id, uint256 value, bytes calldata data) external;
 }
 
-interface IAgriShareToken {
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address account) external view returns (uint256);
-    function mintShares(address to, uint256 amount) external;
-    function burnShares(address from, uint256 amount) external;
-}
 
 interface ICommodityPriceOracle {
     function getCollateralValue(uint256 commodityId, uint256 quantity) external view returns (uint256 usdValue);
@@ -96,7 +92,6 @@ contract LendingPool is Pausable, ReentrancyGuard {
         REPAID,
         LIQUIDATED
     }
-
     /*//////////////////////////////////////////////////////////////
                             STRUCTS
     //////////////////////////////////////////////////////////////*/
@@ -120,7 +115,7 @@ contract LendingPool is Pausable, ReentrancyGuard {
     IERC20 public immutable i_usdc;
     ICommodityRegistry public immutable i_registry;
     ICommodityToken public immutable i_commodityToken;
-    IAgriShareToken public immutable i_shareToken;
+    AgriShareToken public immutable i_shareToken;
     ICommodityPriceOracle public immutable i_priceOracle;
 
     /*//////////////////////////////////////////////////////////////
@@ -195,7 +190,7 @@ contract LendingPool is Pausable, ReentrancyGuard {
         i_usdc = IERC20(_usdc);
         i_registry = ICommodityRegistry(_registry);
         i_commodityToken = ICommodityToken(_commodityToken);
-        i_shareToken = IAgriShareToken(_shareToken);
+        i_shareToken = AgriShareToken(_shareToken);
         i_priceOracle = ICommodityPriceOracle(_priceOracle);
 
         globalBorrowIndex = INDEX_PRECISION; // Initialized to 1.0 (scaled)
@@ -207,7 +202,7 @@ contract LendingPool is Pausable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Deposit underlying asset liquidity into the vault pool to mint interest-bearing shares.
+     * @notice Deposit underlying asset liquidity into the vault pool to mint interest-bearing shares by Investors.
      */
     function deposit(uint256 _assets) external whenNotPaused nonReentrant checkZeroAmount(_assets) {
         _accrueGlobalInterest();

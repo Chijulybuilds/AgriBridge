@@ -17,13 +17,7 @@ contract DeployLendingPool is Script {
         address priceOracle = vm.envAddress("PRICE_ORACLE_ADDRESS");
 
         vm.startBroadcast();
-        LendingPool lendingPool = new LendingPool(
-            usdc,
-            registry,
-            commodityToken,
-            shareToken,
-            priceOracle
-        );
+        LendingPool lendingPool = new LendingPool(usdc, registry, commodityToken, shareToken, priceOracle);
         vm.stopBroadcast();
 
         return lendingPool;

@@ -89,8 +89,6 @@ contract CommodityToken is ERC1155, ERC1155Supply, AccessControl, Pausable {
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-
-
     constructor(address _admin, address _registryAddress, string memory _baseURI) ERC1155("") {
         if (_admin == address(0) || _registryAddress == address(0)) {
             revert CommodityToken__InvalidAddress();

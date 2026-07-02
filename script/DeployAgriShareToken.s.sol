@@ -16,12 +16,7 @@ contract DeployAgriShareToken is Script {
         string memory symbol = "aU";
 
         vm.startBroadcast();
-        AgriShareToken agriShareToken = new AgriShareToken(
-            lendingPool,
-            usdc,
-            name,
-            symbol
-        );
+        AgriShareToken agriShareToken = new AgriShareToken(lendingPool, usdc, name, symbol);
         vm.stopBroadcast();
 
         return agriShareToken;
