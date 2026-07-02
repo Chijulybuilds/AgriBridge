@@ -10,6 +10,7 @@ import {LendingPool} from "src/LendingPool.sol";
 
 contract DeployLendingPool is Script {
     function run() external returns (LendingPool) {
+        address admin = vm.envAddress("ADMIN_ADDRESS");
         address usdc = vm.envAddress("USDC_CONTRACT_ADDRESS");
         address registry = vm.envAddress("REGISTRY_ADDRESS");
         address commodityToken = vm.envAddress("TOKEN_ADDRESS");
@@ -17,7 +18,7 @@ contract DeployLendingPool is Script {
         address priceOracle = vm.envAddress("PRICE_ORACLE_ADDRESS");
 
         vm.startBroadcast();
-        LendingPool lendingPool = new LendingPool(usdc, registry, commodityToken, shareToken, priceOracle);
+        LendingPool lendingPool = new LendingPool(admin, usdc, registry, commodityToken, shareToken, priceOracle);
         vm.stopBroadcast();
 
         return lendingPool;

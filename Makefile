@@ -1,6 +1,6 @@
 -include .env
 
-.PHONY: dependency test coverage gas deploy-registry deploy-token deploy-price-oracle deploy-verifier deploy-pool deploy-share verify_contract mintnft
+.PHONY: dependency test coverage gas deploy-registry deploy-token deploy-price-oracle deploy-pool deploy-share verify_contract mintnft
 
 
 dependency:
@@ -24,9 +24,6 @@ deploy-token:
 deploy-price-oracle:
 	forge script script/DeployCommodityPriceOracle.s.sol --fork-url ${SEPOLIA_URL} --private-key ${PRIVATE_KEY} --broadcast
 
-
-deploy-verifier:
-	forge script script/DeployCommodityVerifier.s.sol --fork-url ${SEPOLIA_URL} --private-key ${PRIVATE_KEY} --broadcast
 
 deploy-pool:
 	forge script script/DeployLendingPool.s.sol --fork-url ${SEPOLIA_URL} --private-key ${PRIVATE_KEY} --broadcast

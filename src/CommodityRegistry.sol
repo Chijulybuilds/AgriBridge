@@ -8,8 +8,9 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
  * @title CommodityRegistry
  * @author ChijulyBuilds (AgriBridge Protocol Team)
  * @notice Core system database tracking tokenized agricultural commodity records and lifecycles.
- * @dev This contract acts strictly as a data registry. Verification rules, token details, and pricing
- *      are offloaded to separate contracts to uphold the Single Responsibility Principle.
+ * @dev This contract acts as both a data registry and approval gateway. The backend engineer
+ *      (granted VERIFIER_ROLE) approves/rejects commodities, triggering token minting and collateral flow.
+ *      Verification rules and token details are offloaded to separate contracts (SRP).
  */
 contract CommodityRegistry is AccessControl, Pausable {
     /*//////////////////////////////////////////////////////////////
@@ -46,10 +47,11 @@ contract CommodityRegistry is AccessControl, Pausable {
 
     /**
      * @notice Struct tracking asset records packed tightly to conserve storage fees.
-     * @dev Tightly packed into exactly 3 consecutive 32-byte storage slots:
+     * @dev Tightly packed into 4 consecutive 32-byte storage slots:
      *      Slot 0: farmer (20 bytes) + status (1 byte) + commodityType (1 byte) + grade (1 byte) = 23 bytes
      *      Slot 1: verifier (20 bytes) + quantity (12 bytes / uint96) = 32 bytes
      *      Slot 2: harvestDate (8 bytes) + registeredAt (8 bytes) + storageEndDate (8 bytes) = 24 bytes
+     *      Slot 3: verificationTimestamp (8 bytes) + rejectionReason (32 bytes hash) = 40 bytes (next slot)
      */
     struct Commodity {
         address farmer;
@@ -61,6 +63,8 @@ contract CommodityRegistry is AccessControl, Pausable {
         uint64 harvestDate;
         uint64 registeredAt;
         uint64 storageEndDate;
+        uint64 verificationTimestamp;
+        bytes32 rejectionReason;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -70,6 +74,7 @@ contract CommodityRegistry is AccessControl, Pausable {
     /// @notice AccessControl Roles
     bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
     bytes32 public constant POOL_ROLE = keccak256("POOL_ROLE");
+    bytes32 public constant TOKEN_MINTER_ROLE = keccak256("TOKEN_MINTER_ROLE");
 
     uint64 private constant MIN_STORAGE_DURATION = 1 days;
     uint64 private constant MAX_STORAGE_DURATION = 730 days;
@@ -85,6 +90,11 @@ contract CommodityRegistry is AccessControl, Pausable {
     error CommodityRegistry__InvalidStorageDuration();
     error CommodityRegistry__InvalidMetadataURI();
     error CommodityRegistry__InvalidStatusTransition();
+    error CommodityRegistry__NotCommodityOwner();
+    error CommodityRegistry__ApprovalCallFailed();
+    error CommodityRegistry__RejectionReasonTooLong();
+    error CommodityRegistry__InvalidAddress();
+    error CommodityRegistry__TokenAddressNotSet();
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -104,8 +114,17 @@ contract CommodityRegistry is AccessControl, Pausable {
         uint256 indexed commodityId,
         CommodityStatus indexed oldStatus,
         CommodityStatus indexed newStatus,
-        address updater
+        address updater,
+        uint64 timestamp
     );
+
+    event CommodityApproved(uint256 indexed commodityId, address indexed verifier, uint64 timestamp);
+
+    event CommodityRejected(
+        uint256 indexed commodityId, address indexed verifier, bytes32 rejectionReason, uint64 timestamp
+    );
+
+    event CommodityCollateralized(uint256 indexed commodityId, address indexed poolAddress, uint64 timestamp);
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
@@ -120,16 +139,54 @@ contract CommodityRegistry is AccessControl, Pausable {
     /// @notice Global tracking array allowing immediate index lookup of all submissions submitted by a specific farmer
     mapping(address => uint256[]) public farmerCommodityIds;
 
+    /// @notice Mapping to track pending approvals awaiting backend confirmation
+    mapping(uint256 => bool) public pendingApprovalConfirmation;
+
+    /// @notice Reference to CommodityToken contract (ERC-1155) for minting
+    address public commodityTokenAddress;
+
+    /// @notice Reference to LendingPool contract for collateral management
+    address public lendingPoolAddress;
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Instantiates database access parameters and default administrators.
-     * @param admin The initialization address holding global administrative access configurations.
+     * @param admin The initialization address holding global administrative access configurations
+     *  which in this sense is the wallet address of the backed engineer.
      */
     constructor(address admin) {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                       INITIALIZATION FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Set the address of the CommodityToken contract (ERC-1155).
+     * @dev Only callable by DEFAULT_ADMIN_ROLE. Should be called once after deployment.
+     * @param _tokenAddress Address of the deployed CommodityToken contract.
+     */
+    function setCommodityTokenAddress(address _tokenAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_tokenAddress != address(0)) {
+            revert CommodityRegistry__InvalidAddress();
+        }
+        commodityTokenAddress = _tokenAddress;
+    }
+
+    /**
+     * @notice Set the address of the LendingPool contract.
+     * @dev Only callable by DEFAULT_ADMIN_ROLE. Should be called once after deployment.
+     * @param _poolAddress Address of the deployed LendingPool contract.
+     */
+    function setLendingPoolAddress(address _poolAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_poolAddress != address(0)) {
+            revert CommodityRegistry__InvalidAddress();
+        }
+        lendingPoolAddress = _poolAddress;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -138,6 +195,7 @@ contract CommodityRegistry is AccessControl, Pausable {
 
     /**
      * @notice Registers a new production asset batch profile record directly within the decentralized storage ecosystem.
+     * @dev Caller becomes the farmer. Initial status is Pending, awaiting backend verifier approval.
      * @param _commodityType Selected commodity type variant value mapped to internal enum parameters.
      * @param _quantity Standard weight mass quantity amount scaled explicitly to 18 decimal point representations.
      * @param _grade Evaluation quality classification standard variant matching structural parameters.
@@ -168,7 +226,9 @@ contract CommodityRegistry is AccessControl, Pausable {
             quantity: _quantity,
             harvestDate: _harvestDate,
             registeredAt: uint64(block.timestamp),
-            storageEndDate: uint64(block.timestamp) + storageTime
+            storageEndDate: uint64(block.timestamp) + storageTime,
+            verificationTimestamp: 0,
+            rejectionReason: bytes32(0)
         });
         farmerCommodityIds[msg.sender].push(commodityId);
 
@@ -183,31 +243,118 @@ contract CommodityRegistry is AccessControl, Pausable {
         );
     }
 
+    /*//////////////////////////////////////////////////////////////
+                      VERIFICATION/APPROVAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     /**
-     * @notice Processes authoritative updates targeting status metrics. Restricted strictly to verified network actor modules.
+     * @notice Backend verifier approves a pending commodity, triggering token minting.
+     * @dev Only VERIFIER_ROLE can call. Transitions Pending → Verified.
+     *      Mints ERC-1155 tokens and prepares for collateral deposit.
+     * @param _commodityId The unique item profile reference identifier.
+     */
+    function approveCommodity(uint256 _commodityId) external whenNotPaused onlyRole(VERIFIER_ROLE) {
+        if (_commodityId == 0 || _commodityId > commodityCount) revert CommodityRegistry__CommodityNotFound();
+
+        Commodity storage commodity = commodities[_commodityId];
+
+        // Validate current status is Pending
+        if (commodity.status != CommodityStatus.Pending) revert CommodityRegistry__InvalidStatusTransition();
+
+        // Update commodity with verifier details
+        commodity.status = CommodityStatus.Verified;
+        commodity.verifier = msg.sender;
+        commodity.verificationTimestamp = uint64(block.timestamp);
+        commodity.rejectionReason = bytes32(0);
+
+        emit CommodityApproved(_commodityId, msg.sender, uint64(block.timestamp));
+        emit CommodityStatusUpdated(
+            _commodityId, CommodityStatus.Pending, CommodityStatus.Verified, msg.sender, uint64(block.timestamp)
+        );
+
+        // Mint ERC-1155 tokens to farmer
+        // The backend engineer's wallet must have already called this contract with VERIFIER_ROLE
+        // and the token contract must be configured to accept minting from this registry
+        _mintCommodityTokens(_commodityId, commodity.farmer, commodity.quantity);
+    }
+
+    /**
+     * @notice Backend verifier rejects a pending commodity with a reason.
+     * @dev Only VERIFIER_ROLE can call. Transitions Pending → Rejected.
+     * @param _commodityId The unique item profile reference identifier.
+     * @param _rejectionReason The reason for rejection.
+     */
+    function rejectCommodity(uint256 _commodityId, bytes32 _rejectionReason)
+        external
+        whenNotPaused
+        onlyRole(VERIFIER_ROLE)
+    {
+        if (_commodityId == 0 || _commodityId > commodityCount) {
+            revert CommodityRegistry__CommodityNotFound();
+        }
+
+        Commodity storage commodity = commodities[_commodityId];
+
+        // Validate current status is Pending
+        if (commodity.status != CommodityStatus.Pending) revert CommodityRegistry__InvalidStatusTransition();
+
+        // Update commodity with rejection details
+        commodity.status = CommodityStatus.Rejected;
+        commodity.verifier = msg.sender;
+        commodity.verificationTimestamp = uint64(block.timestamp);
+        commodity.rejectionReason = _rejectionReason;
+
+        emit CommodityRejected(_commodityId, msg.sender, _rejectionReason, uint64(block.timestamp));
+        emit CommodityStatusUpdated(
+            _commodityId, CommodityStatus.Pending, CommodityStatus.Rejected, msg.sender, uint64(block.timestamp)
+        );
+    }
+
+    /**
+     * @notice Transitions Verified commodity to Collateralized once deposited into lending pool.
+     * @dev Only POOL_ROLE (LendingPool contract) can call.
+     * @param _commodityId The unique item profile reference identifier.
+     */
+    function markCollateralized(uint256 _commodityId) external onlyRole(POOL_ROLE) {
+        if (_commodityId == 0 || _commodityId > commodityCount) revert CommodityRegistry__CommodityNotFound();
+
+        Commodity storage commodity = commodities[_commodityId];
+
+        // Only Verified items can become Collateralized
+        if (commodity.status != CommodityStatus.Verified) revert CommodityRegistry__InvalidStatusTransition();
+
+        commodity.status = CommodityStatus.Collateralized;
+
+        emit CommodityCollateralized(_commodityId, msg.sender, uint64(block.timestamp));
+        emit CommodityStatusUpdated(
+            _commodityId, CommodityStatus.Verified, CommodityStatus.Collateralized, msg.sender, uint64(block.timestamp)
+        );
+    }
+
+    /**
+     * @notice Generic status update for operational lifecycle changes.
+     * @dev Only POOL_ROLE can call. Handles Released, Liquidated, Expired transitions.
      * @param _commodityId The unique item profile reference identifier.
      * @param _newStatus Target state to progress the batch into.
      */
-    function updateStatus(uint256 _commodityId, CommodityStatus _newStatus) external whenNotPaused {
+    function updateStatus(uint256 _commodityId, CommodityStatus _newStatus) external whenNotPaused onlyRole(POOL_ROLE) {
         if (_commodityId == 0 || _commodityId > commodityCount) revert CommodityRegistry__CommodityNotFound();
 
         Commodity storage commodity = commodities[_commodityId];
         CommodityStatus oldStatus = commodity.status;
 
-        if (oldStatus == _newStatus) revert CommodityRegistry__InvalidStatusTransition();
-
-        // Verifiers only approve or reject pending items
-        if (_newStatus == CommodityStatus.Verified || _newStatus == CommodityStatus.Rejected) {
-            _checkRole(VERIFIER_ROLE, msg.sender);
-            if (oldStatus != CommodityStatus.Pending) revert CommodityRegistry__InvalidStatusTransition();
-            commodity.verifier = msg.sender;
-        } else {
-            // Financial pool entities control operational lifecycle changes (Collateralized, Liquidated, Released)
-            _checkRole(POOL_ROLE, msg.sender);
+        // Validate valid transitions for pool operations
+        if (
+            _newStatus == CommodityStatus.Pending || _newStatus == CommodityStatus.Verified
+                || _newStatus == CommodityStatus.Rejected
+        ) {
+            revert CommodityRegistry__InvalidStatusTransition();
         }
 
+        if (oldStatus == _newStatus) revert CommodityRegistry__InvalidStatusTransition();
+
         commodity.status = _newStatus;
-        emit CommodityStatusUpdated(_commodityId, oldStatus, _newStatus, msg.sender);
+        emit CommodityStatusUpdated(_commodityId, oldStatus, _newStatus, msg.sender, uint64(block.timestamp));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -242,6 +389,32 @@ contract CommodityRegistry is AccessControl, Pausable {
         return farmerCommodityIds[_farmer];
     }
 
+    /**
+     * @notice Retrieve full commodity details.
+     */
+    function getCommodity(uint256 _commodityId) external view returns (Commodity memory) {
+        if (_commodityId == 0 || _commodityId > commodityCount) revert CommodityRegistry__CommodityNotFound();
+        return commodities[_commodityId];
+    }
+
+    /**
+     * @notice Get the current status of a commodity.
+     */
+    function getCommodityStatus(uint256 _commodityId) external view returns (CommodityStatus) {
+        if (_commodityId == 0 || _commodityId > commodityCount) revert CommodityRegistry__CommodityNotFound();
+        return commodities[_commodityId].status;
+    }
+
+    /**
+     * @notice Check if a commodity is approved and valid for borrowing.
+     */
+    function isApprovedForBorrowing(uint256 _commodityId) external view returns (bool) {
+        if (_commodityId == 0 || _commodityId > commodityCount) return false;
+        Commodity storage commodity = commodities[_commodityId];
+        return (commodity.status == CommodityStatus.Verified || commodity.status == CommodityStatus.Collateralized)
+            && block.timestamp <= commodity.storageEndDate;
+    }
+
     /*//////////////////////////////////////////////////////////////
                             INTERNAL HELPERS
     //////////////////////////////////////////////////////////////*/
@@ -257,5 +430,25 @@ contract CommodityRegistry is AccessControl, Pausable {
         if (_storageTime < MIN_STORAGE_DURATION || _storageTime > MAX_STORAGE_DURATION) {
             revert CommodityRegistry__InvalidStorageDuration();
         }
+    }
+
+    /**
+     * @dev Internal helper to mint ERC-1155 tokens when commodity is approved.
+     * @param _commodityId The commodity being approved.
+     * @param _farmer The farmer who submitted the commodity.
+     * @param _quantity The quantity of tokens to mint.
+     */
+    function _mintCommodityTokens(uint256 _commodityId, address _farmer, uint96 _quantity) internal {
+        if (commodityTokenAddress != address(0)) {
+            revert CommodityRegistry__TokenAddressNotSet();
+        }
+
+        // Call the CommodityToken contract to mint tokens
+        // The tokens are minted to the farmer, representing their collateral
+        (bool success, bytes memory data) = commodityTokenAddress.call(
+            abi.encodeWithSignature("mint(address,uint256,uint256,bytes)", _farmer, _commodityId, _quantity, "")
+        );
+
+        if (!success) revert CommodityRegistry__ApprovalCallFailed();
     }
 }
