@@ -11,8 +11,19 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 //////////////////////////////////////////////////////////////*/
 
 interface ICommodityRegistry {
-    enum CommodityStatus { PENDING, VERIFIED, REJECTED, EXPIRED }
-    enum CommodityType { COCOA, RICE, MAIZE, CASHEW, YAM }
+    enum CommodityStatus {
+        PENDING,
+        VERIFIED,
+        REJECTED,
+        EXPIRED
+    }
+    enum CommodityType {
+        COCOA,
+        RICE,
+        MAIZE,
+        CASHEW,
+        YAM
+    }
 
     struct Commodity {
         address farmer;
@@ -64,9 +75,9 @@ contract LendingPool is Pausable, ReentrancyGuard {
 
     uint256 private constant INDEX_PRECISION = 1e18;
     uint256 private constant INTEREST_RATE_PRECISION = 1e18;
-    
+
     uint256 private constant BASE_INTEREST_RATE = 5e16; // 5% base rate
-    uint256 private constant HIGH_UTIL_MULTIPLIER = 50e16; 
+    uint256 private constant HIGH_UTIL_MULTIPLIER = 50e16;
     uint256 private constant UTILIZATION_KINK = 80e16; // 80% Kink boundary
 
     uint256 private constant LIQUIDATION_THRESHOLD = 1e18; // 1.0 Health factor scale
@@ -80,7 +91,11 @@ contract LendingPool is Pausable, ReentrancyGuard {
                             ENUMS
     //////////////////////////////////////////////////////////////*/
 
-    enum LoanStatus { ACTIVE, REPAID, LIQUIDATED }
+    enum LoanStatus {
+        ACTIVE,
+        REPAID,
+        LIQUIDATED
+    }
 
     /*//////////////////////////////////////////////////////////////
                             STRUCTS
@@ -108,7 +123,6 @@ contract LendingPool is Pausable, ReentrancyGuard {
     IAgriShareToken public immutable i_shareToken;
     ICommodityPriceOracle public immutable i_priceOracle;
 
-
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -132,7 +146,9 @@ contract LendingPool is Pausable, ReentrancyGuard {
     event LiquidityWithdrawn(address indexed investor, uint256 assetsReturned, uint256 sharesBurned);
     event LoanOpened(uint256 indexed loanId, address indexed farmer, uint256 principal, uint256 collateralAmount);
     event LoanRepaid(uint256 indexed loanId, address indexed farmer, uint256 principalPaid, uint256 interestPaid);
-    event LoanLiquidated(uint256 indexed loanId, address indexed liquidator, uint256 debtCovered, uint256 collateralSeized);
+    event LoanLiquidated(
+        uint256 indexed loanId, address indexed liquidator, uint256 debtCovered, uint256 collateralSeized
+    );
     event GlobalIndexUpdated(uint256 newIndex, uint256 totalReserves);
 
     /*//////////////////////////////////////////////////////////////
@@ -159,8 +175,6 @@ contract LendingPool is Pausable, ReentrancyGuard {
                              MODIFIERS
     //////////////////////////////////////////////////////////////*/
 
-    
-
     modifier checkZeroAmount(uint256 _amount) {
         if (_amount == 0) revert LendingPool__ZeroAmount();
         _;
@@ -170,15 +184,11 @@ contract LendingPool is Pausable, ReentrancyGuard {
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(
-        address _usdc,
-        address _registry,
-        address _commodityToken,
-        address _shareToken,
-        address _priceOracle
-    ) {
-        if (_usdc == address(0) || _registry == address(0) || _commodityToken == address(0) || 
-            _shareToken == address(0) || _priceOracle == address(0) ) {
+    constructor(address _usdc, address _registry, address _commodityToken, address _shareToken, address _priceOracle) {
+        if (
+            _usdc == address(0) || _registry == address(0) || _commodityToken == address(0) || _shareToken == address(0)
+                || _priceOracle == address(0)
+        ) {
             revert LendingPool__ZeroAddress();
         }
 
@@ -203,7 +213,7 @@ contract LendingPool is Pausable, ReentrancyGuard {
         _accrueGlobalInterest();
 
         uint256 sharesToMint = _convertToShares(_assets);
-        
+
         i_shareToken.mintShares(msg.sender, sharesToMint);
         i_usdc.safeTransferFrom(msg.sender, address(this), _assets);
 
@@ -228,12 +238,16 @@ contract LendingPool is Pausable, ReentrancyGuard {
     /**
      * @notice Borrow underlying assets against highly scoped, non-transferable tokenized warehouse receipts.
      */
-    function borrow(
-        uint256 _commodityId,
-        uint256 _collateralAmount,
-        uint256 _borrowAmount
-    ) external whenNotPaused nonReentrant checkZeroAmount(_borrowAmount) returns (uint256) {
-        if (_borrowAmount < MIN_BORROW_AMOUNT || _borrowAmount > MAX_BORROW_AMOUNT) revert LendingPool__InvalidLoanBounds();
+    function borrow(uint256 _commodityId, uint256 _collateralAmount, uint256 _borrowAmount)
+        external
+        whenNotPaused
+        nonReentrant
+        checkZeroAmount(_borrowAmount)
+        returns (uint256)
+    {
+        if (_borrowAmount < MIN_BORROW_AMOUNT || _borrowAmount > MAX_BORROW_AMOUNT) {
+            revert LendingPool__InvalidLoanBounds();
+        }
         if (_borrowAmount > i_usdc.balanceOf(address(this))) revert LendingPool__InsufficientPoolCash();
 
         _accrueGlobalInterest();
@@ -278,7 +292,12 @@ contract LendingPool is Pausable, ReentrancyGuard {
     /**
      * @notice Repays active debt principal plus interest based on dynamic $O(1)$ scalar calculation matrix.
      */
-    function repay(uint256 _loanId, uint256 _repayAmount) external whenNotPaused nonReentrant checkZeroAmount(_repayAmount) {
+    function repay(uint256 _loanId, uint256 _repayAmount)
+        external
+        whenNotPaused
+        nonReentrant
+        checkZeroAmount(_repayAmount)
+    {
         _accrueGlobalInterest();
 
         Loan storage loan = loans[_loanId];
@@ -301,7 +320,7 @@ contract LendingPool is Pausable, ReentrancyGuard {
         loan.principal = totalCurrentOwed - _repayAmount;
         loan.interestIndex = globalBorrowIndex;
         loan.lastAccruedAt = uint64(block.timestamp);
-        
+
         totalBorrowed -= principalPaid;
 
         if (loan.principal == 0) {
@@ -326,7 +345,7 @@ contract LendingPool is Pausable, ReentrancyGuard {
         if (currentHealthFactor >= LIQUIDATION_THRESHOLD) revert LendingPool__PositionSafe();
 
         uint256 totalDebtToCover = _calculateCurrentDebt(loan);
-        
+
         loan.status = LoanStatus.LIQUIDATED;
         totalBorrowed -= loan.principal;
 
@@ -350,16 +369,16 @@ contract LendingPool is Pausable, ReentrancyGuard {
 
         uint256 rate = getBorrowRate();
         uint256 interestFactor = (rate * timeElapsed) / 365 days;
-        
+
         uint256 totalInterestAccrued = (totalBorrowed * interestFactor) / INTEREST_RATE_PRECISION;
-        
+
         if (totalInterestAccrued > 0) {
             uint256 protocolReservePortion = (totalInterestAccrued * reserveFactor) / INDEX_PRECISION;
             totalAccumulatedReserves += protocolReservePortion;
-            
+
             globalBorrowIndex += (globalBorrowIndex * interestFactor) / INTEREST_RATE_PRECISION;
         }
-        
+
         lastGlobalAccrualTimestamp = block.timestamp;
         emit GlobalIndexUpdated(globalBorrowIndex, totalAccumulatedReserves);
     }
@@ -428,8 +447,13 @@ contract LendingPool is Pausable, ReentrancyGuard {
                         ADMIN / CIRCUIT BREAKER
     //////////////////////////////////////////////////////////////*/
 
-    function pause() external { _pause(); }
-    function unpause() external { _unpause(); }
+    function pause() external {
+        _pause();
+    }
+
+    function unpause() external {
+        _unpause();
+    }
 
     /*//////////////////////////////////////////////////////////////
                         DEFENSIVE FALLBACK REJECTIONS

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {DataTypes} from "./interfaces/ICommodityRegistry.sol";
 import {ICommodityPriceOracle} from "./interfaces/ICommodityPriceOracle.sol";
 
 /**
@@ -12,7 +13,11 @@ import {ICommodityPriceOracle} from "./interfaces/ICommodityPriceOracle.sol";
  * @dev Reordered and packed according to professional DeFi optimization conventions. Fully layout-compatible
  *      with future Chainlink aggregators.
  */
-contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable {
+contract CommodityPriceOracle is
+    ICommodityPriceOracle,
+    AccessControl,
+    Pausable
+{
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
@@ -36,7 +41,8 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     uint256 public constant override VERSION = 1;
     uint8 public constant override decimals = 8;
 
-    bytes32 public constant PRICE_UPDATER_ROLE = keccak256("PRICE_UPDATER_ROLE");
+    bytes32 public constant PRICE_UPDATER_ROLE =
+        keccak256("PRICE_UPDATER_ROLE");
 
     /// @dev Uniform evaluation bounds across asset parameters using standard 8-decimal precision layout
     uint128 private constant MIN_PRICE_PER_UNIT_COMMODITY = 1 * 10 ** 6; // $0.01
@@ -60,9 +66,15 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     //////////////////////////////////////////////////////////////*/
 
     event PriceUpdated(
-        CommodityType indexed commodity, uint256 indexed newPrice, uint256 timestamp, address indexed updater
+        CommodityType indexed commodity,
+        uint256 indexed newPrice,
+        uint256 timestamp,
+        address indexed updater
     );
-    event PriceFeedStatusChanged(CommodityType indexed commodity, bool indexed status);
+    event PriceFeedStatusChanged(
+        CommodityType indexed commodity,
+        bool indexed status
+    );
 
     /*//////////////////////////////////////////////////////////////
                              CUSTOM ERRORS
@@ -101,15 +113,15 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
      * @param _commodities Fixed enum asset designations matching protocol indexing guidelines.
      * @param _prices Normalized prices scaling directly into 8 decimal layouts.
      */
-    function setPrices(CommodityType[] calldata _commodities, uint128[] calldata _prices)
-        external
-        onlyRole(PRICE_UPDATER_ROLE)
-        whenNotPaused
-    {
+    function setPrices(
+        CommodityType[] calldata _commodities,
+        uint128[] calldata _prices
+    ) external onlyRole(PRICE_UPDATER_ROLE) whenNotPaused {
         uint256 length = _commodities.length;
-        if (length != _prices.length) revert CommodityPriceOracle__ArrayLengthMismatch();
+        if (length != _prices.length)
+            revert CommodityPriceOracle__ArrayLengthMismatch();
 
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < length; ) {
             _updatePriceInternal(_commodities[i], _prices[i]);
             unchecked {
                 ++i;
@@ -120,24 +132,30 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     /**
      * @notice Updates the pricing metric configuration tracking profile for a specific individual asset.
      */
-    function setPrice(CommodityType _commodity, uint128 _newPrice) external onlyRole(PRICE_UPDATER_ROLE) whenNotPaused {
+    function setPrice(
+        CommodityType _commodity,
+        uint128 _newPrice
+    ) external onlyRole(PRICE_UPDATER_ROLE) whenNotPaused {
         _updatePriceInternal(_commodity, _newPrice);
     }
 
     /**
      * @notice Lazy initialization function to initialize data feeds without hardcoding static values inside constructors.
      */
-    function initializeCommodity(CommodityType _commodity, uint128 _initialPrice)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function initializeCommodity(
+        CommodityType _commodity,
+        uint128 _initialPrice
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _updatePriceInternal(_commodity, _initialPrice);
     }
 
     /**
      * @notice Toggles active status configurations on specific tracking paths.
      */
-    function setFeedStatus(CommodityType _commodity, bool _active) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setFeedStatus(
+        CommodityType _commodity,
+        bool _active
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         s_priceData[_commodity].active = _active;
         emit PriceFeedStatusChanged(_commodity, _active);
     }
@@ -146,23 +164,41 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
                             EXTERNAL VIEWS
     //////////////////////////////////////////////////////////////*/
 
-    function getPrice(CommodityType _commodity) external view override returns (uint256 answer, uint256 updatedAt) {
+    function getPrice(
+        CommodityType _commodity
+    ) external view override returns (uint256 answer, uint256 updatedAt) {
         PackedPriceData memory data = s_priceData[_commodity];
         if (!data.active) revert CommodityPriceOracle__PriceFeedInactive();
         return (data.answer, data.updatedAt);
     }
 
-    function getPriceFresh(CommodityType _commodity) external view override returns (uint256 answer) {
+    function getPriceFresh(
+        CommodityType _commodity
+    ) external view override returns (uint256 answer) {
         PackedPriceData memory data = s_priceData[_commodity];
         if (!data.active) revert CommodityPriceOracle__PriceFeedInactive();
-        if (block.timestamp - data.updatedAt > i_heartbeat) revert CommodityPriceOracle__PriceStale();
+        if (block.timestamp - data.updatedAt > i_heartbeat)
+            revert CommodityPriceOracle__PriceStale();
         return data.answer;
     }
 
-    function isFresh(CommodityType _commodity) external view override returns (bool) {
+    function isFresh(
+        CommodityType _commodity
+    ) external view override returns (bool) {
         PackedPriceData memory data = s_priceData[_commodity];
         if (!data.active) return false;
         return (block.timestamp - data.updatedAt <= i_heartbeat);
+    }
+
+    function getPriceFreshData(
+        DataTypes.CommodityType commodity
+    ) external view override returns (uint256 answer) {
+        CommodityType priceCommodity = CommodityType(uint8(commodity));
+        PackedPriceData memory data = s_priceData[priceCommodity];
+        if (!data.active) revert CommodityPriceOracle__PriceFeedInactive();
+        if (block.timestamp - data.updatedAt > i_heartbeat)
+            revert CommodityPriceOracle__PriceStale();
+        return data.answer;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -184,13 +220,20 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     /**
      * @dev Core processing node writing mutations directly to storage. Employs structural storage pointer assignments.
      */
-    function _updatePriceInternal(CommodityType _commodity, uint128 _newPrice) internal {
-        if (_newPrice < MIN_PRICE_PER_UNIT_COMMODITY || _newPrice > MAX_PRICE_PER_UNIT_COMMODITY) {
+    function _updatePriceInternal(
+        CommodityType _commodity,
+        uint128 _newPrice
+    ) internal {
+        if (
+            _newPrice < MIN_PRICE_PER_UNIT_COMMODITY ||
+            _newPrice > MAX_PRICE_PER_UNIT_COMMODITY
+        ) {
             revert CommodityPriceOracle__InvalidPrice();
         }
 
         PackedPriceData storage data = s_priceData[_commodity];
-        if (block.timestamp < data.updatedAt) revert CommodityPriceOracle__InvalidTimestamp();
+        if (block.timestamp < data.updatedAt)
+            revert CommodityPriceOracle__InvalidTimestamp();
 
         data.answer = _newPrice;
         data.updatedAt = uint64(block.timestamp);

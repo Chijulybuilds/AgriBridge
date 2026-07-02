@@ -5,6 +5,7 @@ import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {ERC1155Supply} from "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /*//////////////////////////////////////////////////////////////
                           INTERFACES
@@ -55,7 +56,7 @@ contract CommodityToken is ERC1155, ERC1155Supply, AccessControl, Pausable {
 
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
-
+    string private BASE_URI;
     /// @notice Token identity properties
     string public constant name = "AgriDeFi Commodity Token";
     string public constant symbol = "ACOMMODITY";
@@ -88,7 +89,9 @@ contract CommodityToken is ERC1155, ERC1155Supply, AccessControl, Pausable {
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(address _admin, address _registryAddress) ERC1155("") {
+
+
+    constructor(address _admin, address _registryAddress, string memory _baseURI) ERC1155("") {
         if (_admin == address(0) || _registryAddress == address(0)) {
             revert CommodityToken__InvalidAddress();
         }
@@ -98,11 +101,16 @@ contract CommodityToken is ERC1155, ERC1155Supply, AccessControl, Pausable {
         _grantRole(BURNER_ROLE, _admin);
 
         i_registry = ICommodityRegistry(_registryAddress);
+        BASE_URI = _baseURI;
     }
 
     /*//////////////////////////////////////////////////////////////
                         EXTERNAL MUTATIVE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    function uri(uint256 tokenId) public view override returns (string memory) {
+        return string.concat(BASE_URI, Strings.toString(tokenId), ".json");
+    }
 
     /**
      * @notice Mints token weights using authoritative commodity configurations as source of truth.

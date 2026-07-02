@@ -1,6 +1,7 @@
 # Compiler files
 cache/
 out/
+broadcast/
 
 # Commonly ignored directories
 .logs/
@@ -10,6 +11,8 @@ out/
 !/broadcast
 /broadcast/*/31337/
 /broadcast/**/dry-run/
+
+
 
 # Docs
 docs/
