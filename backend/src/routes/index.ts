@@ -1,19 +1,22 @@
 import { Router } from 'express';
-import { authController } from '../controllers/auth.controller.js';
+import { accountController } from '../controllers/account.controller.js';
+import { walletController } from '../controllers/wallet.controller.js';
 import { commoditiesController } from '../controllers/commodities.controller.js';
 import { verifierController } from '../controllers/verifier.controller.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, requireWallet } from '../middleware/auth.js';
 
 export const router = Router();
 
-// ─── Auth (wallet sign-in / SIWE) ──────────────────────────
-router.post('/auth/nonce', authController.nonce); // request message to sign
-router.post('/auth/verify', authController.verify); // submit signature → JWT
-router.get('/auth/me', requireAuth, authController.me);
+// ─── Account (email/Gmail login handled on the frontend via Supabase) ──
+router.get('/account/me', requireAuth, accountController.me);
 
-// ─── Commodities (farmer-facing) ───────────────────────────
-router.post('/commodities', requireAuth, commoditiesController.submit);
-router.get('/commodities', requireAuth, commoditiesController.listMine);
+// ─── Wallet linking (after login, inside the dashboard) ────
+router.post('/wallet/nonce', requireAuth, walletController.nonce); // message to sign
+router.post('/wallet/link', requireAuth, walletController.link); // signature → linked
+
+// ─── Commodities (farmer-facing; requires a linked wallet) ─
+router.post('/commodities', requireAuth, requireWallet, commoditiesController.submit);
+router.get('/commodities', requireAuth, requireWallet, commoditiesController.listMine);
 
 // ─── Verifier (admin-only) ─────────────────────────────────
 router.get('/verifier/queue', requireAuth, requireRole('admin'), verifierController.queue);

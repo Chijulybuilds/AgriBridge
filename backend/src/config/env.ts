@@ -10,15 +10,11 @@ const schema = z.object({
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
-  // Supabase
+  // Supabase — also the auth provider (email/password + Google OAuth).
+  // The frontend logs in with Supabase; the backend verifies its access token.
   SUPABASE_URL: z.string().url(),
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-
-  // Auth — secret used to sign the session JWTs the backend issues after a
-  // successful wallet signature. Must be long and random in production.
-  JWT_SECRET: z.string().min(16),
-  JWT_EXPIRES_IN: z.string().default('7d'),
 
   // Chain
   RPC_URL: z.string().url(),

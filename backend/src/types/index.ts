@@ -41,19 +41,27 @@ export const GRADE_ORDER: Grade[] = [Grade.A, Grade.B, Grade.C];
 /** App-level user roles (distinct from the on-chain VERIFIER_ROLE). */
 export type UserRole = 'farmer' | 'investor' | 'admin';
 
-/** A user profile, keyed by the wallet address they signed in with. */
+/**
+ * A user profile, keyed by the Supabase auth account (email/Gmail login).
+ * `wallet_address` is null until the user connects & links a wallet.
+ */
 export interface Profile {
-  wallet_address: string;
+  id: string;
+  email: string | null;
   display_name: string | null;
+  wallet_address: string | null;
   role: UserRole;
   created_at: string;
+  wallet_linked_at: string | null;
   last_login_at: string | null;
 }
 
-/** The identity attached to an authenticated request (decoded from the JWT). */
+/** The identity attached to an authenticated request (from the Supabase JWT). */
 export interface AuthUser {
-  wallet: string;
+  id: string;
+  email: string | null;
   role: UserRole;
+  wallet: string | null;
 }
 
 /** A commodity record as stored off-chain in Supabase (mirror of the chain). */

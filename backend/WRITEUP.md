@@ -26,28 +26,39 @@ operation.
 
 ---
 
-## 1.5 How users log in (no passwords — wallet sign-in)
+## 1.5 How users log in (two steps: account, then wallet)
 
-AgriBridge has **no email or password**. Users log in with their **crypto
-wallet** (like MetaMask). Here's the idea in everyday terms:
+Logging in happens in **two layers**, based on the team's feedback:
 
-Think of it like showing ID at a door. Instead of a username, the user has a
-wallet. To prove the wallet is really theirs, the backend asks them to **sign a
-short message** with it — like a digital signature only their wallet can
-produce. It's **free and safe** (no money moves, no blockchain fee). If the
-signature checks out, they're in.
+**Step 1 — Create an account / log in (email or Gmail).**
+Just like a normal app: the user signs up with an email & password, or clicks
+**"Continue with Google."** This is handled by Supabase, so we get secure logins,
+password resets, and Google sign-in without building it ourselves. This account
+is who they *are*.
+
+**Step 2 — Connect a wallet (inside the dashboard, after logging in).**
+Once logged in, the user connects their crypto wallet (like MetaMask) and signs
+a short message to prove it's really theirs. It's **free and safe** (no money
+moves, no blockchain fee). We then **link that wallet to their account.**
 
 ```
-1. User connects their wallet on the website
-2. Backend sends a one-time message: "Sign this to log in… (Nonce: 3f9a…)"
-3. User's wallet signs it (one click, no cost)
-4. Backend checks the signature really came from that wallet
-5. ✅ Logged in — backend remembers them with a secure session token
+STEP 1 — ACCOUNT
+  Sign up / log in with email or Google  →  logged in ✅
+
+STEP 2 — WALLET (after login)
+  1. Click "Connect Wallet" in the dashboard
+  2. Backend sends a one-time message to sign
+  3. Wallet signs it (one click, no cost)
+  4. Backend checks the signature is genuine
+  5. ✅ Wallet is now linked to the account
 ```
 
-The **wallet address is the user's identity.** The first time a wallet logs in,
-we create a profile for it (starting as a "farmer"); an admin can later change a
-wallet's role to investor or admin.
+**Why two steps?** The email account is the friendly, familiar identity (and
+lets us reach the user, reset passwords, etc.). The wallet is what's actually
+needed to hold crypto collateral on the blockchain. Keeping them separate means
+a user can log in before they even have a wallet, and we can be sure a linked
+wallet truly belongs to that account. New accounts start as **"farmer"**; an
+admin can change a role to investor or admin.
 
 ## 2. The three types of users (roles)
 
@@ -140,17 +151,17 @@ untouched, so everyone can review the work before it's merged in.
 ### ✅ Done
 - Backend code structure built and organized
 - Live Supabase database created and configured (with the 3 roles)
-- **Wallet sign-in (Sign-In with Ethereum)** — connect wallet, sign, get logged in
+- **Two-layer auth**: email/Gmail account login + connect-and-link wallet
 - Farmer submit + admin approve/reject workflow
 - Everything connected and saved to GitHub (branch `backend/scaffold`)
 
-### ⏳ Needs a couple of secret values before it fully runs
+### ⏳ Needs before it fully runs
 1. The database's **service-role key** (copied from the Supabase dashboard)
-2. A **JWT secret** for signing login sessions (any long random string)
+2. **Enable Google sign-in** in the Supabase dashboard (Auth → Providers → Google)
 3. The **blockchain addresses** of the deployed contracts + a funded test wallet
 
 ### 🔜 Suggested next steps
-- Wire the frontend "Connect Wallet" button to the login endpoints
+- Wire the frontend: Supabase login buttons + a "Connect Wallet" step in the dashboard
 - Add an **automatic listener** so blockchain events update the database on their
   own (no manual syncing)
 - Add the **investor + lending pool** endpoints (deposits, borrowing, yield)

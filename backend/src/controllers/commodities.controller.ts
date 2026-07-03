@@ -16,14 +16,14 @@ export const commoditiesController = {
   /** Farmer submits a new commodity → saved as Pending, owned by their wallet. */
   async submit(req: AuthedRequest, res: Response) {
     const input = submitSchema.parse(req.body);
-    // The owner is always the authenticated wallet — never trust a body field.
-    const record = await commodityService.create({ ...input, farmer_wallet: req.user!.wallet });
+    // Owner is the account's linked wallet (requireWallet guarantees it exists).
+    const record = await commodityService.create({ ...input, farmer_wallet: req.user!.wallet! });
     res.status(201).json(record);
   },
 
   /** List the signed-in farmer's own submissions. */
   async listMine(req: AuthedRequest, res: Response) {
-    const records = await commodityService.listByFarmer(req.user!.wallet);
+    const records = await commodityService.listByFarmer(req.user!.wallet!);
     res.json(records);
   },
 };

@@ -8,7 +8,8 @@ The backend service for the AgriBridge protocol. It sits **between the frontend,
 
 | Concern | How |
 | --- | --- |
-| **Auth** | **Wallet sign-in (Sign-In with Ethereum).** User connects a wallet, signs a nonce message (no gas), backend verifies the signature and issues a session JWT. `requireAuth` / `requireRole` middleware guard routes. |
+| **Account auth** | **Email/password or Google (Gmail) via Supabase Auth.** The frontend logs in with Supabase; the backend verifies the access token (`requireAuth`). This is the session identity. |
+| **Wallet link** | After login, the user connects a wallet and signs a nonce (no gas). The backend verifies the signature and **binds the wallet to the account** (`requireWallet` gates on-chain actions). |
 | **Off-chain mirror** | Persists commodity records + verification reports in Supabase (Postgres) so the app doesn't have to read everything from chain. |
 | **The Verifier role** | Reviews the pending queue and, on approval, calls `CommodityVerifier.verifyCommodity(...)` on-chain — which prices via the oracle and mints the ERC-1155 collateral token. |
 | **Oracle updates** | Pushes commodity prices to `CommodityPriceOracle` using the backend wallet's `PRICE_UPDATER_ROLE`. |
@@ -45,12 +46,13 @@ backend/
 │   │   └── errorHandler.ts     # 404 + central error handler
 │   ├── routes/index.ts         # REST endpoints
 │   ├── controllers/            # request parsing/validation → service calls
-│   │   ├── auth.controller.ts
+│   │   ├── account.controller.ts
+│   │   ├── wallet.controller.ts
 │   │   ├── commodities.controller.ts
 │   │   └── verifier.controller.ts
 │   ├── services/               # business logic
-│   │   ├── auth.service.ts       # wallet nonce + signature verify + JWT
-│   │   ├── profile.service.ts    # wallet-keyed user profiles
+│   │   ├── wallet.service.ts     # wallet-link nonce + signature verify
+│   │   ├── profile.service.ts    # account profiles + wallet linking
 │   │   ├── commodity.service.ts  # Supabase reads/writes
 │   │   └── chain.service.ts      # on-chain verify/reject/oracle calls
 │   └── types/index.ts          # enums mirroring the Solidity contracts
@@ -79,22 +81,29 @@ npm run dev               # http://localhost:4000/health
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | GET  | `/health` | – | Liveness check |
-| POST | `/api/auth/nonce` | – | Get the message to sign for a wallet |
-| POST | `/api/auth/verify` | – | Submit signature → session JWT + profile |
-| GET  | `/api/auth/me` | ✅ | Current signed-in user + profile |
-| POST | `/api/commodities` | ✅ | Farmer submits a commodity (owned by their wallet) |
-| GET  | `/api/commodities` | ✅ | List the caller's own commodities |
+| GET  | `/api/account/me` | ✅ | Current signed-in user + profile |
+| POST | `/api/wallet/nonce` | ✅ | Get the message to sign to link a wallet |
+| POST | `/api/wallet/link` | ✅ | Submit signature → wallet linked to account |
+| POST | `/api/commodities` | ✅ + wallet | Farmer submits a commodity |
+| GET  | `/api/commodities` | ✅ + wallet | List the caller's own commodities |
 | GET  | `/api/verifier/queue` | admin | Pending review queue |
 | POST | `/api/verifier/commodities/:id/approve` | admin | Approve + mint on-chain |
 | POST | `/api/verifier/commodities/:id/reject` | admin | Reject on-chain |
 
-### Wallet sign-in flow
+### Auth flow (two layers)
 
 ```
-1. POST /api/auth/nonce   { wallet }              → { message }
-2. wallet.signMessage(message)  (in MetaMask etc.)
-3. POST /api/auth/verify  { wallet, signature }   → { token, profile }
-4. send `Authorization: Bearer <token>` on every later request
+ACCOUNT (frontend ↔ Supabase, email/password or Google):
+  supabase.auth.signUp / signInWithPassword / signInWithOAuth('google')
+  → Supabase returns an access token; send it as `Authorization: Bearer <token>`
+
+WALLET LINK (after login, inside the dashboard):
+  1. POST /api/wallet/nonce  { wallet }             → { message }
+  2. wallet.signMessage(message)  (in MetaMask etc.)
+  3. POST /api/wallet/link   { wallet, signature }  → { profile }  (wallet bound)
 ```
+
+> To enable "Login with Gmail": Supabase dashboard → Authentication → Providers →
+> Google (add the OAuth client id + secret).
 
 > **Status:** scaffold. The Supabase queries and contract addresses are wired but need a live Supabase project + deployed contract addresses in `.env` before they execute end-to-end.

@@ -3,10 +3,13 @@
 -- of truth for value/collateral; Supabase stores rich metadata, powers the
 -- admin dashboard, and gives the frontend fast queries.
 --
--- AUTH MODEL: users sign in with an Ethereum wallet (Sign-In with Ethereum).
--- The wallet address is the identity. All access goes through the backend using
--- the service-role key, so RLS is enabled with NO public policies (deny-by-
--- default safety net); authorization is enforced in the backend.
+-- AUTH MODEL (two layers):
+--   1. Account — email/password or Google (Gmail) via Supabase Auth. This is
+--      the login identity and issues the session token.
+--   2. Wallet  — connected AFTER login, inside the dApp dashboard, and LINKED to
+--      the account (signature-verified). Needed for on-chain actions.
+-- All DB access flows through the backend service-role key; RLS is otherwise
+-- deny-by-default (one exception: users may read their own profile).
 
 -- ─── Enums (mirror the Solidity enums in CommodityRegistry.sol) ───
 create type commodity_type as enum ('Cocoa', 'Rice', 'Maize', 'Cashew', 'Yam');
@@ -15,23 +18,51 @@ create type commodity_status as enum (
   'Pending', 'Verified', 'Rejected', 'Collateralized', 'Released', 'Liquidated', 'Expired'
 );
 
--- ─── Profiles (keyed by wallet address — the login identity) ───
+-- ─── Profiles (keyed by the Supabase auth account) ───
 -- Roles: farmer / investor / admin. 'admin' is the backend engineer who
 -- performs verification (distinct from the on-chain VERIFIER_ROLE).
 create table profiles (
-  wallet_address text primary key,
+  id uuid primary key references auth.users (id) on delete cascade,
+  email text,
   display_name text,
+  wallet_address text unique,          -- linked after login; null until connected
   role text not null default 'farmer' check (role in ('farmer', 'investor', 'admin')),
   created_at timestamptz not null default now(),
+  wallet_linked_at timestamptz,
   last_login_at timestamptz
 );
 
--- ─── One-time nonces users sign to prove wallet ownership ───
-create table auth_nonces (
-  wallet_address text primary key,
+-- ─── One-time nonces for wallet linking (signature proof of ownership) ───
+create table wallet_link_nonces (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  wallet_address text not null,
   nonce text not null,
   expires_at timestamptz not null default (now() + interval '10 minutes')
 );
+
+-- Auto-create a profile row whenever someone signs up (email or Google).
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.profiles (id, email)
+  values (new.id, new.email)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- The trigger runs as the function owner; nobody should call it directly via
+-- the exposed REST RPC endpoint.
+revoke execute on function public.handle_new_user() from anon, authenticated, public;
 
 -- ─── Commodities (mirror of on-chain CommodityRegistry records) ───
 create table commodities (
@@ -67,6 +98,10 @@ create table verification_reports (
 
 -- ─── Row Level Security (deny-by-default; backend uses service role) ───
 alter table profiles enable row level security;
-alter table auth_nonces enable row level security;
+alter table wallet_link_nonces enable row level security;
 alter table commodities enable row level security;
 alter table verification_reports enable row level security;
+
+-- A signed-in user may read their own profile directly (handy for the frontend).
+create policy "read own profile" on profiles
+  for select using (auth.uid() = id);
