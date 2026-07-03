@@ -277,8 +277,10 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard {
         address _shareToken,
         address _priceOracle
     ) {
-        if (_admin == address(0) || _usdc == address(0) || _registry == address(0) || _commodityToken == address(0)
-            || _shareToken == address(0) || _priceOracle == address(0)) {
+        if (
+            _admin == address(0) || _usdc == address(0) || _registry == address(0) || _commodityToken == address(0)
+                || _shareToken == address(0) || _priceOracle == address(0)
+        ) {
             revert LendingPool__ZeroAddress();
         }
 
@@ -520,13 +522,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard {
         i_commodityToken.safeTransferFrom(address(this), msg.sender, loan.commodityId, totalCollateralToLiquidator, "");
 
         emit LoanLiquidated(
-            _loanId,
-            loan.farmer,
-            msg.sender,
-            debtToCover,
-            loan.collateralAmount,
-            bonusAmount,
-            uint64(block.timestamp)
+            _loanId, loan.farmer, msg.sender, debtToCover, loan.collateralAmount, bonusAmount, uint64(block.timestamp)
         );
     }
 

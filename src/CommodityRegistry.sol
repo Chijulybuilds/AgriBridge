@@ -95,6 +95,7 @@ contract CommodityRegistry is AccessControl, Pausable {
     error CommodityRegistry__RejectionReasonTooLong();
     error CommodityRegistry__InvalidAddress();
     error CommodityRegistry__TokenAddressNotSet();
+    error CommodityRegistry__InvalidFarmerAddress();
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -171,7 +172,7 @@ contract CommodityRegistry is AccessControl, Pausable {
      * @param _tokenAddress Address of the deployed CommodityToken contract.
      */
     function setCommodityTokenAddress(address _tokenAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_tokenAddress != address(0)) {
+        if (_tokenAddress == address(0)) {
             revert CommodityRegistry__InvalidAddress();
         }
         commodityTokenAddress = _tokenAddress;
@@ -183,7 +184,7 @@ contract CommodityRegistry is AccessControl, Pausable {
      * @param _poolAddress Address of the deployed LendingPool contract.
      */
     function setLendingPoolAddress(address _poolAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_poolAddress != address(0)) {
+        if (_poolAddress == address(0)) {
             revert CommodityRegistry__InvalidAddress();
         }
         lendingPoolAddress = _poolAddress;
@@ -386,6 +387,7 @@ contract CommodityRegistry is AccessControl, Pausable {
      * @notice Helper returning entire data array elements mapping out a given producer's history.
      */
     function getFarmerCommodityIds(address _farmer) external view returns (uint256[] memory) {
+        if (_farmer == address(0)) revert CommodityRegistry__InvalidFarmerAddress();
         return farmerCommodityIds[_farmer];
     }
 
@@ -439,7 +441,7 @@ contract CommodityRegistry is AccessControl, Pausable {
      * @param _quantity The quantity of tokens to mint.
      */
     function _mintCommodityTokens(uint256 _commodityId, address _farmer, uint96 _quantity) internal {
-        if (commodityTokenAddress != address(0)) {
+        if (commodityTokenAddress == address(0)) {
             revert CommodityRegistry__TokenAddressNotSet();
         }
 

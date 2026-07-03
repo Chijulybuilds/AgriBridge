@@ -31,10 +31,15 @@ contract MockUSDC is ERC20 {
 
 /**
  * @title AgriShareTokenTest
- * @author Senior Smart Contract Engineer & Auditor
- * @notice Formal validation suite addressing 100% branch and statement coverage for AgriShareToken.
+ * @author Chinedu Prince (AgriBridge Team)
+ * @dev Formal validation suite addressing 100% branch and statement coverage for AgriShareToken.
+ * @notice This tests reflects across all other functions and branches in the AgriShare Token
  */
 contract AgriShareTokenTest is Test {
+    /*//////////////////////////////////////////////////////////////
+                            STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
     AgriShareToken public shareToken;
     MockUSDC public mockUsdc;
 
@@ -57,12 +62,7 @@ contract AgriShareTokenTest is Test {
         mockUsdc = new MockUSDC("Mock USDC", "USDC", TOKEN_DECIMALS);
 
         // Deploy the main target contract under investigation
-        shareToken = new AgriShareToken(
-            lendingPool,
-            address(mockUsdc),
-            "AgriDeFi LP Receipt Token",
-            "agLP"
-        );
+        shareToken = new AgriShareToken(lendingPool, address(mockUsdc), "AgriDeFi LP Receipt Token", "agLP");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -123,10 +123,9 @@ contract AgriShareTokenTest is Test {
      */
     function test_ValidationCheckRejectsZeroAddressRecipient() public {
         vm.startPrank(lendingPool);
-        
+
         vm.expectRevert(AgriShareToken.AgriShareToken__InvalidAddress.selector);
         shareToken.mintShares(address(0), INITIAL_MINT_AMOUNT);
-        
         vm.stopPrank();
     }
 
@@ -163,7 +162,7 @@ contract AgriShareTokenTest is Test {
         emit SharesMinted(liquidityProvider, INITIAL_MINT_AMOUNT, block.timestamp);
 
         shareToken.mintShares(liquidityProvider, INITIAL_MINT_AMOUNT);
-        
+
         assertEq(shareToken.balanceOf(liquidityProvider), INITIAL_MINT_AMOUNT);
         vm.stopPrank();
     }
@@ -174,7 +173,7 @@ contract AgriShareTokenTest is Test {
      */
     function test_BurnSharesSucceedsAndEmitsEvent() public {
         vm.startPrank(lendingPool);
-        
+
         // Initial pool allocation context setup
         shareToken.mintShares(liquidityProvider, INITIAL_MINT_AMOUNT);
 
@@ -183,7 +182,7 @@ contract AgriShareTokenTest is Test {
         emit SharesBurned(liquidityProvider, INITIAL_MINT_AMOUNT, block.timestamp);
 
         shareToken.burnShares(liquidityProvider, INITIAL_MINT_AMOUNT);
-        
+
         assertEq(shareToken.balanceOf(liquidityProvider), 0);
         vm.stopPrank();
     }

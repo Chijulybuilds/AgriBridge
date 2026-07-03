@@ -123,7 +123,6 @@ contract CommodityToken is ERC1155, ERC1155Supply, AccessControl, Pausable {
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    
     function setBaseURI(string memory _newURI) external onlyRole(DEFAULT_ADMIN_ROLE) {
         BaseURI = _newURI;
     }
