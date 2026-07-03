@@ -1,6 +1,6 @@
 -include .env
 
-.PHONY: dependency test coverage gas deploy-registry deploy-token deploy-price-oracle deploy-pool deploy-share verify_contract mintnft
+.PHONY: dependency test coverage gas deploy-registry deploy-token deploy-price-oracle deploy-protocol verify
 
 
 dependency:
@@ -28,12 +28,13 @@ deploy-price-oracle:
 deploy-protocol:
 	forge script script/DeployProtocol.s.sol --fork-url ${SEPOLIA_URL} --private-key ${PRIVATE_KEY} --broadcast
 
-
-	forge verify-contract 0x8581831eb74d5ee047f544ba297ee4f7e52d3908 src/MyDynamicNFT.sol:MyDynamicNFT \
-  --chain-id 11155111 \
+verify:
+	forge script script/DeployProtocol.s.sol:DeployProtocol \
+  --rpc-url ${SEPOLIA_URL} \
+  --broadcast \
+  --verify \
   --etherscan-api-key ${ETHERSCAN_API_KEY} \
-  --watch \
-  --constructor-args ${CONTRACT_ABI}
+  --private-key ${PRIVATE_KEY}
 
 mintnft:
 	forge script script/Interactions.s.sol:MintNFT \
