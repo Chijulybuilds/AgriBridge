@@ -25,14 +25,10 @@ deploy-price-oracle:
 	forge script script/DeployCommodityPriceOracle.s.sol --fork-url ${SEPOLIA_URL} --private-key ${PRIVATE_KEY} --broadcast
 
 
-deploy-pool:
-	forge script script/DeployLendingPool.s.sol --fork-url ${SEPOLIA_URL} --private-key ${PRIVATE_KEY} --broadcast
+deploy-protocol:
+	forge script script/DeployProtocol.s.sol --fork-url ${SEPOLIA_URL} --private-key ${PRIVATE_KEY} --broadcast
 
 
-deploy-share:
-	forge script script/DeployAgriShareToken.s.sol --fork-url ${SEPOLIA_URL} --private-key ${PRIVATE_KEY} --broadcast
-
-verify_contract:
 	forge verify-contract 0x8581831eb74d5ee047f544ba297ee4f7e52d3908 src/MyDynamicNFT.sol:MyDynamicNFT \
   --chain-id 11155111 \
   --etherscan-api-key ${ETHERSCAN_API_KEY} \

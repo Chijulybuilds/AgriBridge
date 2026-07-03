@@ -57,7 +57,7 @@ contract CommodityTokenTest is Test {
 
     function setUp() public {
         vm.warp(100 weeks); // Advance past block zero timeline thresholds safely
-        
+
         mockRegistry = new MockCommodityRegistry();
         registryAddress = address(mockRegistry);
 
@@ -92,21 +92,24 @@ contract CommodityTokenTest is Test {
 
     function test_SetBaseURI_Success() public {
         string memory newURI = "ipfs://QmNewMetadata/";
-        
+
         vm.prank(admin);
         token.setBaseURI(newURI);
         assertEq(token.BaseURI(), newURI);
     }
 
     function test_SetBaseURI_Revert_Unauthorized() public {
-        vm.prank(stranger);
+        // 1. Tell Foundry to expect the revert from the 'stranger' address
         vm.expectRevert(
             abi.encodeWithSelector(
                 IAccessControl.AccessControlUnauthorizedAccount.selector,
-                stranger,
+                stranger, // Make sure this matches the calling address below
                 token.DEFAULT_ADMIN_ROLE()
             )
         );
+
+        // 2. Set the prank immediately before the call
+        vm.prank(stranger);
         token.setBaseURI("fail");
     }
 
@@ -129,7 +132,7 @@ contract CommodityTokenTest is Test {
         vm.prank(registryAddress);
         vm.expectEmit(true, true, false, true);
         emit CommodityTokenMinted(COMMODITY_ID, farmer, MINT_QTY, uint64(block.timestamp));
-        
+
         token.mint(farmer, COMMODITY_ID, MINT_QTY);
 
         assertTrue(token.exists(COMMODITY_ID));
@@ -179,17 +182,15 @@ contract CommodityTokenTest is Test {
     }
 
     function test_Mint_Revert_NotMinterRole() public {
-        vm.prank(stranger);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                stranger,
-                token.MINTER_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, token.MINTER_ROLE()
             )
         );
+
+        vm.prank(stranger);
         token.mint(farmer, COMMODITY_ID, MINT_QTY);
     }
-
     /*//////////////////////////////////////////////////////////////
                                  BURN
     //////////////////////////////////////////////////////////////*/
@@ -204,7 +205,7 @@ contract CommodityTokenTest is Test {
         vm.prank(admin);
         vm.expectEmit(true, true, false, true);
         emit CommodityTokenBurned(COMMODITY_ID, farmer, MINT_QTY, uint64(block.timestamp));
-        
+
         token.burn(farmer, COMMODITY_ID, MINT_QTY);
         assertEq(token.balanceOf(farmer, COMMODITY_ID), 0);
     }
@@ -216,14 +217,13 @@ contract CommodityTokenTest is Test {
     }
 
     function test_Burn_Revert_NotBurnerRole() public {
-        vm.prank(stranger);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector,
-                stranger,
-                token.BURNER_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, token.BURNER_ROLE()
             )
         );
+
+        vm.prank(stranger);
         token.burn(farmer, COMMODITY_ID, MINT_QTY);
     }
 
@@ -239,7 +239,7 @@ contract CommodityTokenTest is Test {
         vm.stopPrank();
 
         mockRegistry.setMockFarmer(COMMODITY_ID, farmer);
-        
+
         vm.prank(registryAddress);
         vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
         token.mint(farmer, COMMODITY_ID, MINT_QTY);

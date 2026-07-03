@@ -1,0 +1,544 @@
+Compiling 78 files with Solc 0.8.35
+Solc 0.8.35 finished in 3.24s
+Compiler run successful with warnings:
+Warning (3420): Source file does not specify required compiler version! Consider adding "pragma solidity ^0.8.35;"
+--> test/fuzz/LendingPoolFuzz.t.sol
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+   --> lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol:125:29:
+    |
+125 |         (address recovered, RecoverError error, bytes32 errorArg) = tryRecover(hash, signature);
+    |                             ^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+   --> lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol:134:29:
+    |
+134 |         (address recovered, RecoverError error, bytes32 errorArg) = tryRecoverCalldata(hash, signature);
+    |                             ^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+   --> lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol:161:29:
+    |
+161 |         (address recovered, RecoverError error, bytes32 errorArg) = tryRecover(hash, r, vs);
+    |                             ^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+   --> lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol:203:29:
+    |
+203 |         (address recovered, RecoverError error, bytes32 errorArg) = tryRecover(hash, v, r, s);
+    |                             ^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+   --> lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol:273:26:
+    |
+273 |     function _throwError(RecoverError error, bytes32 errorArg) private pure {
+    |                          ^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1312:9:
+     |
+1312 |         string calldata error
+     |         ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1326:9:
+     |
+1326 |         string calldata error
+     |         ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1334:79:
+     |
+1334 |     function assertApproxEqAbs(uint256 left, uint256 right, uint256 maxDelta, string calldata error) external pure;
+     |                                                                               ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1341:77:
+     |
+1341 |     function assertApproxEqAbs(int256 left, int256 right, uint256 maxDelta, string calldata error) external pure;
+     |                                                                             ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1358:9:
+     |
+1358 |         string calldata error
+     |         ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1376:9:
+     |
+1376 |         string calldata error
+     |         ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1386:86:
+     |
+1386 |     function assertApproxEqRel(uint256 left, uint256 right, uint256 maxPercentDelta, string calldata error)
+     |                                                                                      ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1397:84:
+     |
+1397 |     function assertApproxEqRel(int256 left, int256 right, uint256 maxPercentDelta, string calldata error) external pure;
+     |                                                                                    ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1404:77:
+     |
+1404 |     function assertEqDecimal(uint256 left, uint256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                             ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1411:75:
+     |
+1411 |     function assertEqDecimal(int256 left, int256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                           ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1417:46:
+     |
+1417 |     function assertEq(bool left, bool right, string calldata error) external pure;
+     |                                              ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1423:68:
+     |
+1423 |     function assertEq(string calldata left, string calldata right, string calldata error) external pure;
+     |                                                                    ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1429:66:
+     |
+1429 |     function assertEq(bytes calldata left, bytes calldata right, string calldata error) external pure;
+     |                                                                  ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1435:68:
+     |
+1435 |     function assertEq(bool[] calldata left, bool[] calldata right, string calldata error) external pure;
+     |                                                                    ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1441:74:
+     |
+1441 |     function assertEq(uint256[] calldata left, uint256[] calldata right, string calldata error) external pure;
+     |                                                                          ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1447:72:
+     |
+1447 |     function assertEq(int256[] calldata left, int256[] calldata right, string calldata error) external pure;
+     |                                                                        ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1456:74:
+     |
+1456 |     function assertEq(address[] calldata left, address[] calldata right, string calldata error) external pure;
+     |                                                                          ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1462:74:
+     |
+1462 |     function assertEq(bytes32[] calldata left, bytes32[] calldata right, string calldata error) external pure;
+     |                                                                          ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1468:72:
+     |
+1468 |     function assertEq(string[] calldata left, string[] calldata right, string calldata error) external pure;
+     |                                                                        ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1474:70:
+     |
+1474 |     function assertEq(bytes[] calldata left, bytes[] calldata right, string calldata error) external pure;
+     |                                                                      ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1477:52:
+     |
+1477 |     function assertEq(uint256 left, uint256 right, string calldata error) external pure;
+     |                                                    ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1483:50:
+     |
+1483 |     function assertEq(int256 left, int256 right, string calldata error) external pure;
+     |                                                  ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1489:52:
+     |
+1489 |     function assertEq(address left, address right, string calldata error) external pure;
+     |                                                    ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1495:52:
+     |
+1495 |     function assertEq(bytes32 left, bytes32 right, string calldata error) external pure;
+     |                                                    ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1501:42:
+     |
+1501 |     function assertFalse(bool condition, string calldata error) external pure;
+     |                                          ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1509:77:
+     |
+1509 |     function assertGeDecimal(uint256 left, uint256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                             ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1517:75:
+     |
+1517 |     function assertGeDecimal(int256 left, int256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                           ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1524:52:
+     |
+1524 |     function assertGe(uint256 left, uint256 right, string calldata error) external pure;
+     |                                                    ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1531:50:
+     |
+1531 |     function assertGe(int256 left, int256 right, string calldata error) external pure;
+     |                                                  ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1539:77:
+     |
+1539 |     function assertGtDecimal(uint256 left, uint256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                             ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1547:75:
+     |
+1547 |     function assertGtDecimal(int256 left, int256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                           ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1554:52:
+     |
+1554 |     function assertGt(uint256 left, uint256 right, string calldata error) external pure;
+     |                                                    ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1561:50:
+     |
+1561 |     function assertGt(int256 left, int256 right, string calldata error) external pure;
+     |                                                  ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1569:77:
+     |
+1569 |     function assertLeDecimal(uint256 left, uint256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                             ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1577:75:
+     |
+1577 |     function assertLeDecimal(int256 left, int256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                           ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1584:52:
+     |
+1584 |     function assertLe(uint256 left, uint256 right, string calldata error) external pure;
+     |                                                    ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1591:50:
+     |
+1591 |     function assertLe(int256 left, int256 right, string calldata error) external pure;
+     |                                                  ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1599:77:
+     |
+1599 |     function assertLtDecimal(uint256 left, uint256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                             ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1607:75:
+     |
+1607 |     function assertLtDecimal(int256 left, int256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                           ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1614:52:
+     |
+1614 |     function assertLt(uint256 left, uint256 right, string calldata error) external pure;
+     |                                                    ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1621:50:
+     |
+1621 |     function assertLt(int256 left, int256 right, string calldata error) external pure;
+     |                                                  ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1628:80:
+     |
+1628 |     function assertNotEqDecimal(uint256 left, uint256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                                ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1635:78:
+     |
+1635 |     function assertNotEqDecimal(int256 left, int256 right, uint256 decimals, string calldata error) external pure;
+     |                                                                              ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1641:49:
+     |
+1641 |     function assertNotEq(bool left, bool right, string calldata error) external pure;
+     |                                                 ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1647:71:
+     |
+1647 |     function assertNotEq(string calldata left, string calldata right, string calldata error) external pure;
+     |                                                                       ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1653:69:
+     |
+1653 |     function assertNotEq(bytes calldata left, bytes calldata right, string calldata error) external pure;
+     |                                                                     ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1659:71:
+     |
+1659 |     function assertNotEq(bool[] calldata left, bool[] calldata right, string calldata error) external pure;
+     |                                                                       ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1665:77:
+     |
+1665 |     function assertNotEq(uint256[] calldata left, uint256[] calldata right, string calldata error) external pure;
+     |                                                                             ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1671:75:
+     |
+1671 |     function assertNotEq(int256[] calldata left, int256[] calldata right, string calldata error) external pure;
+     |                                                                           ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1680:77:
+     |
+1680 |     function assertNotEq(address[] calldata left, address[] calldata right, string calldata error) external pure;
+     |                                                                             ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1686:77:
+     |
+1686 |     function assertNotEq(bytes32[] calldata left, bytes32[] calldata right, string calldata error) external pure;
+     |                                                                             ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1692:75:
+     |
+1692 |     function assertNotEq(string[] calldata left, string[] calldata right, string calldata error) external pure;
+     |                                                                           ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1698:73:
+     |
+1698 |     function assertNotEq(bytes[] calldata left, bytes[] calldata right, string calldata error) external pure;
+     |                                                                         ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1701:55:
+     |
+1701 |     function assertNotEq(uint256 left, uint256 right, string calldata error) external pure;
+     |                                                       ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1707:53:
+     |
+1707 |     function assertNotEq(int256 left, int256 right, string calldata error) external pure;
+     |                                                     ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1713:55:
+     |
+1713 |     function assertNotEq(address left, address right, string calldata error) external pure;
+     |                                                       ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1719:55:
+     |
+1719 |     function assertNotEq(bytes32 left, bytes32 right, string calldata error) external pure;
+     |                                                       ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (6335): "error" will be promoted to keyword in the future and will not be allowed as an identifier anymore.
+    --> lib/openzeppelin-contracts/lib/forge-std/src/Vm.sol:1725:41:
+     |
+1725 |     function assertTrue(bool condition, string calldata error) external pure;
+     |                                         ^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> src/CommodityRegistry.sol:450:24:
+    |
+450 |         (bool success, bytes memory data) = commodityTokenAddress.call(
+    |                        ^^^^^^^^^^^^^^^^^
+
+Warning (5667): Unused function parameter. Remove or comment out the variable name to silence this warning.
+   --> test/unit/LendingPoolTest.t.sol:412:41:
+    |
+412 |     function _mockRegistryCommodityData(uint256 id, address owner) internal {
+    |                                         ^^^^^^^^^^
+
+Analysing contracts...
+Running tests...
+
+Ran 17 tests for test/unit/CommodityPriceOracleTest.t.sol:CommodityPriceOracleTest
+[PASS] test_Constructor_SetsInitialRolesAndState() (gas: 21117)
+[PASS] test_GetPriceFreshData_InteroperabilityLayout() (gas: 46058)
+[PASS] test_GetPriceFresh_Revert_Stale() (gas: 43329)
+[PASS] test_GetPriceFresh_Success() (gas: 42861)
+[PASS] test_GetPrice_Revert_Inactive() (gas: 12089)
+[PASS] test_InitializeCommodity_Revert_Unauthorized() (gas: 13739)
+[PASS] test_InitializeCommodity_Success() (gas: 42296)
+[PASS] test_IsFresh_ReturnsCorrectStatus() (gas: 47996)
+[PASS] test_Pausable_LocksPriceUpdates() (gas: 68501)
+[PASS] test_SetFeedStatus_CanDeactivateAndReactivate() (gas: 49454)
+[PASS] test_SetPrice_Revert_InvalidPrice_TooHigh() (gas: 16849)
+[PASS] test_SetPrice_Revert_InvalidPrice_TooLow() (gas: 16781)
+[PASS] test_SetPrice_Revert_InvalidTimestamp() (gas: 46066)
+[PASS] test_SetPrice_Success() (gas: 44481)
+[PASS] test_SetPrices_Revert_ArrayLengthMismatch() (gas: 18757)
+[PASS] test_SetPrices_Revert_Unauthorized() (gas: 18005)
+[PASS] test_SetPrices_Success() (gas: 77548)
+Suite result: ok. 17 passed; 0 failed; 0 skipped; finished in 2.20s (307.70ms CPU time)
+
+Ran 19 tests for test/unit/CommodityTokenTest.t.sol:CommodityTokenTest
+[PASS] test_Burn_Revert_NotBurnerRole() (gas: 18984)
+[PASS] test_Burn_Revert_ZeroAmount() (gas: 19223)
+[PASS] test_Burn_Success() (gas: 115317)
+[PASS] test_Constructor_Revert_ZeroAdmin() (gas: 47318)
+[PASS] test_Constructor_Revert_ZeroRegistry() (gas: 47361)
+[PASS] test_Constructor_Success() (gas: 39200)
+[PASS] test_Exists_ReturnsFalseInitially() (gas: 8530)
+[PASS] test_Mint_Revert_CommodityNotFound() (gas: 34217)
+[PASS] test_Mint_Revert_NotMinterRole() (gas: 18941)
+[PASS] test_Mint_Revert_TokenAlreadyExists() (gas: 132845)
+[PASS] test_Mint_Revert_UnauthorizedTargetFarmer() (gas: 56264)
+[PASS] test_Mint_Revert_ZeroAmount() (gas: 19193)
+[PASS] test_Mint_Revert_ZeroRecipientAddress() (gas: 16888)
+[PASS] test_Mint_Success() (gas: 136050)
+[PASS] test_Pause_And_Unpause_SystemLocks() (gas: 154891)
+[PASS] test_SetBaseURI_Revert_Unauthorized() (gas: 16826)
+[PASS] test_SetBaseURI_Success() (gas: 25688)
+[PASS] test_SupportsInterface() (gas: 10368)
+[PASS] test_Uri_Generation() (gas: 19097)
+Suite result: ok. 19 passed; 0 failed; 0 skipped; finished in 2.26s (371.21ms CPU time)
+
+Ran 9 tests for test/unit/AgriShareTokenTest.t.sol:AgriShareTokenTest
+[FAIL: AgriShareToken__NotLendingPool()] test_BurnSharesSucceedsAndEmitsEvent() (gas: 15784)
+[FAIL: next call did not revert as expected] test_ConstructorRejectsZeroAddresses() (gas: 1826953)
+[PASS] test_ConstructorSetsDynamicDecimalsCorrectly() (gas: 5891)
+[FAIL: AgriShareToken__NotLendingPool()] test_MintSharesSucceedsAndEmitsEvent() (gas: 18600)
+[PASS] test_ModifierOnlyRoleEnforcedRevertsOnUnauthorizedAccess() (gas: 20912)
+[FAIL: AgriShareToken__NotLendingPool()] test_TransferAllowsMintAndBurn() (gas: 15842)
+[FAIL: AgriShareToken__NotLendingPool()] test_TransferRevertsUserToUser() (gas: 15763)
+[FAIL: Error != expected error: AgriShareToken__NotLendingPool() != AgriShareToken__InvalidAddress()] test_ValidationCheckRejectsZeroAddressRecipient() (gas: 14089)
+[FAIL: Error != expected error: AgriShareToken__NotLendingPool() != AgriShareToken__InvalidAmount()] test_ValidationCheckRejectsZeroAmountMintOrBurn() (gas: 16392)
+Suite result: FAILED. 2 passed; 7 failed; 0 skipped; finished in 2.39s (497.05ms CPU time)
+
+Ran 14 tests for test/unit/CommodityRegistryTest.t.sol:CommodityRegistryTest
+[PASS] test_ApproveCommodity_InvalidStatusTransition() (gas: 180522)
+[PASS] test_ApproveCommodity_NotFound() (gas: 25271)
+[PASS] test_ApproveCommodity_Success_DueToZeroAddressNoCode() (gas: 179190)
+[PASS] test_Audit_MintCommodityTokens_ApprovalCallFailed() (gas: 262679)
+[PASS] test_Audit_SetCommodityTokenAddress_Inversion() (gas: 24178)
+[PASS] test_MarkCollateralized_SuccessAndErrors() (gas: 200644)
+[PASS] test_Pause_And_Unpause() (gas: 27830)
+[PASS] test_RegisterCommodity_InvalidHarvestDate() (gas: 17141)
+[PASS] test_RegisterCommodity_InvalidQuantity() (gas: 16925)
+[PASS] test_RegisterCommodity_InvalidStorageDuration_TooHigh() (gas: 17036)
+[PASS] test_RegisterCommodity_InvalidStorageDuration_TooLow() (gas: 17098)
+[PASS] test_RejectCommodity_SuccessAndErrors() (gas: 200940)
+[PASS] test_UpdateStatus_AllBranches() (gas: 170742)
+[PASS] test_ViewGetters_And_ValidationChecks() (gas: 210292)
+Suite result: ok. 14 passed; 0 failed; 0 skipped; finished in 2.40s (681.04ms CPU time)
+
+Ran 24 tests for test/unit/LendingPoolTest.t.sol:LendingPoolTest
+[PASS] test_Borrow_Revert_CommodityNotApproved() (gas: 329054)
+[PASS] test_Borrow_Revert_ExceedsMaxLTV() (gas: 362056)
+[PASS] test_Borrow_Revert_InsufficientCollateralBalance() (gas: 358076)
+[PASS] test_Borrow_Revert_InsufficientPoolCash() (gas: 27581)
+[PASS] test_Borrow_Revert_InvalidLoanBounds() (gas: 32894)
+[PASS] test_Borrow_Revert_UnauthorizedFarmer() (gas: 335185)
+[PASS] test_Borrow_Success() (gas: 595645)
+[PASS] test_Constructor_RevertOnZeroAddresses() (gas: 183519)
+[PASS] test_DepositAndWithdraw_Success() (gas: 356773)
+[PASS] test_Fallback_Reverts_InvalidCall() (gas: 10606)
+[PASS] test_InterestRateModel_KinkBranches() (gas: 799644)
+[PASS] test_Liquidate_Revert_PositionHealthy() (gas: 605827)
+[PASS] test_Liquidate_Success() (gas: 855254)
+[PASS] test_Modifier_CheckZeroAmount() (gas: 16647)
+[PASS] test_Modifier_OnlyAdmin() (gas: 13878)
+[PASS] test_Receive_Reverts_NativeNotSupported() (gas: 15580)
+[PASS] test_Repay_Full_Success() (gas: 841859)
+[PASS] test_Repay_Partial_Success() (gas: 824516)
+[PASS] test_Repay_Revert_LoanNotActive() (gas: 845183)
+[PASS] test_Repay_Revert_Overpayment() (gas: 812410)
+[PASS] test_SetReserveFactor_Revert_InvalidBounds() (gas: 14458)
+[PASS] test_SetReserveFactor_Success() (gas: 21676)
+[PASS] test_SyncCollateralizedStatus_Success() (gas: 601884)
+[PASS] test_Withdraw_Revert_InsufficientPoolCash() (gas: 236015)
+Suite result: ok. 24 passed; 0 failed; 0 skipped; finished in 1.10s (2.61s CPU time)
+
+Ran 5 test suites in 4.12s (10.35s CPU time): 76 tests passed, 7 failed, 0 skipped (83 total tests)
+
+╭-----------------------------------------+------------------+------------------+----------------+-----------------╮
+| File                                    | % Lines          | % Statements     | % Branches     | % Funcs         |
++==================================================================================================================+
+| script/DeployCommodityPriceOracle.s.sol | 0.00% (0/7)      | 0.00% (0/8)      | 100.00% (0/0)  | 0.00% (0/1)     |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| script/DeployCommodityRegistry.s.sol    | 0.00% (0/6)      | 0.00% (0/7)      | 100.00% (0/0)  | 0.00% (0/1)     |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| script/DeployCommodityToken.s.sol       | 0.00% (0/11)     | 0.00% (0/14)     | 0.00% (0/6)    | 0.00% (0/1)     |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| script/DeployProtocol.s.sol             | 0.00% (0/12)     | 0.00% (0/17)     | 100.00% (0/0)  | 0.00% (0/1)     |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| src/AgriShareToken.sol                  | 36.00% (9/25)    | 22.73% (5/22)    | 16.67% (1/6)   | 62.50% (5/8)    |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| src/CommodityPriceOracle.sol            | 100.00% (53/53)  | 96.08% (49/51)   | 77.78% (7/9)   | 100.00% (12/12) |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| src/CommodityRegistry.sol               | 88.76% (79/89)   | 88.18% (97/110)  | 80.95% (17/21) | 94.12% (16/17)  |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| src/CommodityToken.sol                  | 100.00% (35/35)  | 100.00% (38/38)  | 100.00% (7/7)  | 100.00% (10/10) |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| src/LendingPool.sol                     | 84.62% (132/156) | 83.07% (157/189) | 61.54% (16/26) | 75.00% (18/24)  |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| test/unit/AgriShareTokenTest.t.sol      | 100.00% (4/4)    | 100.00% (2/2)    | 100.00% (0/0)  | 100.00% (2/2)   |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| test/unit/CommodityRegistryTest.t.sol   | 100.00% (2/2)    | 100.00% (1/1)    | 100.00% (0/0)  | 100.00% (1/1)   |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| test/unit/CommodityTokenTest.t.sol      | 100.00% (4/4)    | 100.00% (2/2)    | 100.00% (0/0)  | 100.00% (2/2)   |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| test/unit/LendingPoolTest.t.sol         | 76.92% (10/13)   | 75.00% (6/8)     | 25.00% (1/4)   | 80.00% (4/5)    |
+|-----------------------------------------+------------------+------------------+----------------+-----------------|
+| Total                                   | 78.66% (328/417) | 76.12% (357/469) | 62.03% (49/79) | 82.35% (70/85)  |
+╰-----------------------------------------+------------------+------------------+----------------+-----------------╯
+
+Failing tests:
+Encountered 7 failing tests in test/unit/AgriShareTokenTest.t.sol:AgriShareTokenTest
+[FAIL: AgriShareToken__NotLendingPool()] test_BurnSharesSucceedsAndEmitsEvent() (gas: 15784)
+[FAIL: next call did not revert as expected] test_ConstructorRejectsZeroAddresses() (gas: 1826953)
+[FAIL: AgriShareToken__NotLendingPool()] test_MintSharesSucceedsAndEmitsEvent() (gas: 18600)
+[FAIL: AgriShareToken__NotLendingPool()] test_TransferAllowsMintAndBurn() (gas: 15842)
+[FAIL: AgriShareToken__NotLendingPool()] test_TransferRevertsUserToUser() (gas: 15763)
+[FAIL: Error != expected error: AgriShareToken__NotLendingPool() != AgriShareToken__InvalidAddress()] test_ValidationCheckRejectsZeroAddressRecipient() (gas: 14089)
+[FAIL: Error != expected error: AgriShareToken__NotLendingPool() != AgriShareToken__InvalidAmount()] test_ValidationCheckRejectsZeroAmountMintOrBurn() (gas: 16392)
+
+Encountered a total of 7 failing tests, 76 tests succeeded
+
+Tip: Run `forge test --rerun` to retry only the 7 failed tests

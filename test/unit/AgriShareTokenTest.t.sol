@@ -62,7 +62,7 @@ contract AgriShareTokenTest is Test {
         mockUsdc = new MockUSDC("Mock USDC", "USDC", TOKEN_DECIMALS);
 
         // Deploy the main target contract under investigation
-        shareToken = new AgriShareToken(lendingPool, address(mockUsdc), "AgriDeFi LP Receipt Token", "agLP");
+        shareToken = new AgriShareToken(address(mockUsdc), "AgriDeFi LP Receipt Token", "agLP");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -84,11 +84,11 @@ contract AgriShareTokenTest is Test {
     function test_ConstructorRejectsZeroAddresses() public {
         // Case A: _lendingPool is address(0)
         vm.expectRevert(AgriShareToken.AgriShareToken__InvalidAddress.selector);
-        new AgriShareToken(address(0), address(mockUsdc), "Test", "TST");
+        new AgriShareToken(address(mockUsdc), "Test", "TST");
 
         // Case B: _usdc is address(0)
         vm.expectRevert(AgriShareToken.AgriShareToken__InvalidAddress.selector);
-        new AgriShareToken(lendingPool, address(0), "Test", "TST");
+        new AgriShareToken(address(0), "Test", "TST");
     }
 
     /*//////////////////////////////////////////////////////////////

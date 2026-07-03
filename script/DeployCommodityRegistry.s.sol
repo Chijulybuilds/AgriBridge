@@ -14,7 +14,6 @@ contract DeployCommodityRegistry is Script {
         vm.startBroadcast();
         CommodityRegistry commodityRegistry = new CommodityRegistry(admin);
         vm.stopBroadcast();
-
         return commodityRegistry;
     }
 }

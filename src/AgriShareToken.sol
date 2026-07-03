@@ -28,7 +28,7 @@ contract AgriShareToken is ERC20, ERC20Permit {
                             IMMUTABLES
     //////////////////////////////////////////////////////////////*/
 
-    address public immutable i_lendingPool;
+    address public lendingPool;
     uint8 private immutable i_decimals;
 
     /*//////////////////////////////////////////////////////////////
@@ -46,13 +46,16 @@ contract AgriShareToken is ERC20, ERC20Permit {
     error AgriShareToken__InvalidAddress();
     error AgriShareToken__InvalidAmount();
     error AgriShareToken__TransferDisabled();
+    error AgriShareToken__InvalidLendingPoolAddress();
+    error AgriShareToken__LendingPoolAlreadySet();
+    error AgriShareToken__MustBeTheOwner();
 
     /*//////////////////////////////////////////////////////////////
                             MODIFIER HELPERS
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyRoleEnforced() {
-        if (msg.sender != i_lendingPool) revert AgriShareToken__NotLendingPool();
+        if (msg.sender != lendingPool) revert AgriShareToken__NotLendingPool();
         _;
     }
 
@@ -62,19 +65,15 @@ contract AgriShareToken is ERC20, ERC20Permit {
         _;
     }
 
+
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
 
-    constructor(address _lendingPool, address _usdc, string memory _name, string memory _symbol)
-        ERC20(_name, _symbol)
-        ERC20Permit(_name)
-    {
-        if (_lendingPool == address(0) || _usdc == address(0)) {
+    constructor(address _usdc, string memory _name, string memory _symbol) ERC20(_name, _symbol) ERC20Permit(_name) {
+        if (_usdc == address(0)) {
             revert AgriShareToken__InvalidAddress();
         }
-
-        i_lendingPool = _lendingPool;
 
         // Dynamically matches underlying asset decimals configuration to prevent mathematical mismatch
         i_decimals = IERC20Metadata(_usdc).decimals();
@@ -83,6 +82,15 @@ contract AgriShareToken is ERC20, ERC20Permit {
     /*//////////////////////////////////////////////////////////////
                         EXTERNAL MUTATIVE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    // --- Setter function for the Lending pool ---
+    function setLendingPool(address _lendingPool) external  {
+        if (_lendingPool == address(0)) {
+            revert AgriShareToken__InvalidLendingPoolAddress();
+        }
+    
+        lendingPool = _lendingPool;
+    }
 
     /**
      * @notice Mints yield-bearing pool receipt shares for an investor deposit.
