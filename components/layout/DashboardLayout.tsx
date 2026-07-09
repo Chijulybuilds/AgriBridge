@@ -21,7 +21,7 @@ import { connectWallet } from "../../lib/auth";
 
 interface Props {
   children: ReactNode;
-  userType: "farmer" | "investor";
+  userType: "farmer" | "investor" | "admin";
 }
 
 const farmerNav = [
@@ -43,6 +43,11 @@ const investorNav = [
   { label: "My Returns", icon: ChartPieIcon, href: "/investor/returns" },
 ];
 
+const adminNav = [
+  { label: "Overview", icon: Squares2X2Icon, href: "/admin/dashboard" },
+  { label: "Verification Queue", icon: ArchiveBoxIcon, href: "/admin/queue" },
+];
+
 function SidebarContent({
   userType,
   nav,
@@ -51,7 +56,7 @@ function SidebarContent({
   onClose,
   onLogout,
 }: {
-  userType: "farmer" | "investor";
+  userType: "farmer" | "investor" | "admin";
   nav: Array<{ label: string; icon: typeof Squares2X2Icon; href: string }>;
   accentColor: string;
   accentBg: string;
@@ -246,11 +251,24 @@ function SidebarContent({
 export default function DashboardLayout({ children, userType }: Props) {
   const router = useRouter();
   const { profile, signOut, refreshProfile } = useAuth();
-  const nav = userType === "farmer" ? farmerNav : investorNav;
+  const nav =
+    userType === "farmer"
+      ? farmerNav
+      : userType === "investor"
+      ? investorNav
+      : adminNav;
   const accentColor =
-    userType === "farmer" ? "var(--accent-green)" : "var(--accent-gold)";
+    userType === "farmer"
+      ? "var(--accent-green)"
+      : userType === "investor"
+      ? "var(--accent-gold)"
+      : "var(--accent-blue)";
   const accentBg =
-    userType === "farmer" ? "var(--accent-green-bg)" : "var(--accent-gold-bg)";
+    userType === "farmer"
+      ? "var(--accent-green-bg)"
+      : userType === "investor"
+      ? "var(--accent-gold-bg)"
+      : "var(--accent-blue-bg)";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [connectingWallet, setConnectingWallet] = useState(false);
   const walletAddress = profile?.wallet_address || "";

@@ -1,9 +1,11 @@
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import { CubeIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 import { useState } from "react";
+import { useRouter } from "next/router";
 import { submitCommodity } from "../../lib/api";
 
 export default function TokenizeCommodity() {
+  const router = useRouter();
   const [type, setType] = useState("");
   const [quantity, setQuantity] = useState<number | "">("");
   const [unit, setUnit] = useState("kg");
@@ -20,7 +22,7 @@ export default function TokenizeCommodity() {
     setSuccess(null);
     setLoading(true);
     try {
-      await submitCommodity({
+      const record = await submitCommodity({
         type,
         quantity: Number(quantity),
         unit,
@@ -28,7 +30,22 @@ export default function TokenizeCommodity() {
         location,
         warehouseReceipt,
       });
-      setSuccess("Commodity submitted — awaiting verifier review");
+
+      // Clear all form inputs
+      setType("");
+      setQuantity("");
+      setUnit("kg");
+      setQuality("Grade A");
+      setLocation("");
+      setWarehouseReceipt("");
+
+      // Confirm it saved to DB with the ID
+      setSuccess(`Commodity successfully saved to DB! (Database Record ID: ${record.id}). Redirecting...`);
+
+      // Redirect to the commodities list page
+      setTimeout(() => {
+        router.push("/farmer/commodities");
+      }, 1500);
     } catch (err) {
       console.error("Submit failed", err);
       setError(err instanceof Error ? err.message : String(err));
@@ -342,16 +359,18 @@ export default function TokenizeCommodity() {
                 width: "100%",
                 padding: "11px",
                 borderRadius: "7px",
-                background: "var(--accent-green)",
+                background: loading ? "var(--border)" : "var(--accent-green)",
                 border: "none",
-                color: "#fff",
+                color: loading ? "var(--text-muted)" : "#fff",
                 fontSize: "14px",
                 fontWeight: 600,
                 cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading ? 0.7 : 1,
                 marginTop: "8px",
+                transition: "all 0.2s ease",
               }}
             >
-              {loading ? "Submitting…" : "Tokenize Asset →"}
+              {loading ? "Submitting..." : "Tokenize Asset →"}
             </button>
           </form>
         </div>

@@ -1,11 +1,18 @@
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import {
-  investorStats,
   liquidityPools,
   earningsChartData,
 } from "../../lib/mockData";
 
 export default function InvestorDashboard() {
+  const pools = liquidityPools.map(p => ({ ...p, myDeposit: 0 }));
+  const investorStats = [
+    { label: "Total Deposited", value: "$0", change: "Live", up: true },
+    { label: "Total Earned", value: "$0", change: "Live", up: true },
+    { label: "Active Positions", value: "0", change: "Live", up: true },
+    { label: "Avg APY", value: "0.0%", change: "Live", up: true },
+  ];
+
   return (
     <DashboardLayout userType="investor">
       {/* PAGE HEADER */}
@@ -16,47 +23,46 @@ export default function InvestorDashboard() {
           alignItems: "center",
           marginBottom: "32px",
         }}
-        div
-      />
-      <div>
-        <h1
-          style={{
-            fontSize: "32px",
-            fontWeight: 800,
-            color: "var(--text-primary)",
-            marginBottom: "6px",
-          }}
-        >
-          Investor Dashboard
-        </h1>
-
-        <p
-          style={{
-            fontSize: "14px",
-            color: "var(--text-secondary)",
-          }}
-        >
-          Here's your investment portfolio overview.
-        </p>
-      </div>
-
-      <button
-        style={{
-          background: "linear-gradient(135deg,#22c55e,#16a34a)",
-          color: "#ffffff",
-          border: "none",
-          padding: "12px 22px",
-          borderRadius: "12px",
-          cursor: "pointer",
-          fontWeight: 700,
-          fontSize: "14px",
-          boxShadow: "0 10px 25px rgba(34,197,94,.25)",
-          transition: "0.3s ease",
-        }}
       >
-        + Invest More
-      </button>
-      <div />
+        <div>
+          <h1
+            style={{
+              fontSize: "32px",
+              fontWeight: 800,
+              color: "var(--text-primary)",
+              marginBottom: "6px",
+            }}
+          >
+            Investor Dashboard
+          </h1>
+
+          <p
+            style={{
+              fontSize: "14px",
+              color: "var(--text-secondary)",
+            }}
+          >
+            Here's your investment portfolio overview.
+          </p>
+        </div>
+
+        <button
+          style={{
+            background: "linear-gradient(135deg,#22c55e,#16a34a)",
+            color: "#ffffff",
+            border: "none",
+            padding: "12px 22px",
+            borderRadius: "12px",
+            cursor: "pointer",
+            fontWeight: 700,
+            fontSize: "14px",
+            boxShadow: "0 10px 25px rgba(34,197,94,.25)",
+            transition: "0.3s ease",
+          }}
+        >
+          + Invest More
+        </button>
+      </div>
 
       {/* STAT CARDS */}
       <div
@@ -271,7 +277,7 @@ export default function InvestorDashboard() {
           <span>Risk</span>
         </div>
 
-        {liquidityPools.map((pool) => (
+        {pools.map((pool) => (
           <div
             key={pool.id}
             style={{

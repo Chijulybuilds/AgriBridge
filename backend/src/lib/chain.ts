@@ -14,7 +14,7 @@ import { env } from '../config/env.js';
  */
 export const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
 
-let verifierWallet: ethers.Wallet;
+let verifierWallet: ethers.HDNodeWallet | ethers.Wallet;
 try {
   verifierWallet = new ethers.Wallet(env.VERIFIER_PRIVATE_KEY, provider);
 } catch (error) {
