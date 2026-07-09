@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f8f5;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f9faf8;
+  --border: #e8ede6;
+  --border-light: #d4ddd1;
+  --text-primary: #1a2e1a;
+  --text-secondary: #5a7a5a;
+  --text-muted: #9ab09a;
+  --accent-green: #2d6a2d;
+  --accent-green-light: #4a9e4a;
+  --accent-green-bg: #f0f7f0;
+  --accent-gold: #b8860b;
+  --accent-gold-bg: #fdf8ed;
+  --accent-red: #c0392b;
+  --accent-red-bg: #fdf2f0;
+  --accent-blue: #2471a3;
+  --accent-blue-bg: #eaf4fd;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1024px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+@media (max-width: 768px) {
+  .nav-links { display: none !important; }
+  .desktop-sidebar { display: none !important; }
+  .mobile-topbar-menu { display: flex !important; }
+  .main-content { margin-left: 0 !important; }
+  .mobile-close-btn { display: block !important; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .two-col { grid-template-columns: 1fr !important; }
+  .pool-grid { grid-template-columns: 1fr !important; }
+  .topbar-date { display: none !important; }
+  main { padding: 16px 12px !important; }
+  .features-inner-grid { grid-template-columns: 1fr !important; }
+  .how-it-works-inner { grid-template-columns: 1fr !important; gap: 32px !important; }
+  .stats-inner { grid-template-columns: repeat(2, 1fr) !important; }
+  .hero-buttons { flex-direction: column !important; align-items: stretch !important; }
+  .cta-buttons { flex-direction: column !important; align-items: stretch !important; }
+  .footer-inner { flex-direction: column !important; text-align: center !important; gap: 12px !important; }
+}
+
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr !important; }
+  .hide-mobile { display: none !important; }
+  h1 { font-size: 32px !important; letter-spacing: -1px !important; }
+}
