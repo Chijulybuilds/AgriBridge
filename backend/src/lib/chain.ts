@@ -14,7 +14,19 @@ import { env } from '../config/env.js';
  */
 export const provider = new ethers.JsonRpcProvider(env.RPC_URL, env.CHAIN_ID);
 
-export const signer = new ethers.Wallet(env.VERIFIER_PRIVATE_KEY, provider);
+let verifierWallet: ethers.Wallet;
+try {
+  verifierWallet = new ethers.Wallet(env.VERIFIER_PRIVATE_KEY, provider);
+} catch (error) {
+  console.warn(
+    `\n⚠️  Warning: Failed to initialize Wallet with VERIFIER_PRIVATE_KEY from environment.\n` +
+    `Falling back to a randomly generated wallet for development.\n` +
+    `On-chain write operations will fail until a valid private key is configured.\n`
+  );
+  verifierWallet = ethers.Wallet.createRandom(provider);
+}
+
+export const signer = verifierWallet;
 
 export const contractAddresses = {
   registry: env.COMMODITY_REGISTRY_ADDRESS,
