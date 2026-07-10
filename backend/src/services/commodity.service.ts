@@ -57,4 +57,17 @@ export const commodityService = {
     if (error) throw error;
     return data as CommodityRecord;
   },
+
+  async createVerificationReport(report: {
+    commodity_id: string;
+    inspection_reference: string;
+    warehouse_reference: string;
+    report_hash: string;
+  }): Promise<void> {
+    const { error } = await supabaseAdmin
+      .from('verification_reports')
+      .insert(report);
+    if (error) throw error;
+  },
 };
+

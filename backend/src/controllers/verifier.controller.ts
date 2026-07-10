@@ -30,15 +30,21 @@ export const verifierController = {
     // 1) On-chain: approve + mint the ERC-1155 collateral token.
     const { txHash } = await chainService.verifyCommodity({
       onChainId: body.on_chain_id,
-      inspectionReference: body.inspection_reference,
-      warehouseReference: body.warehouse_reference,
-      reportHash: body.report_hash,
     });
 
     // 2) Off-chain: mirror the new status in Supabase.
     const record = await commodityService.updateStatus(id, CommodityStatus.Verified, {
       tx_hash: txHash,
     });
+
+    // 3) Off-chain: save the detailed verification report.
+    await commodityService.createVerificationReport({
+      commodity_id: id,
+      inspection_reference: body.inspection_reference,
+      warehouse_reference: body.warehouse_reference,
+      report_hash: body.report_hash,
+    });
+
     res.json({ record, txHash });
   },
 

@@ -4,17 +4,12 @@ import { COMMODITY_TYPE_ORDER, type CommodityType } from '../types/index.js';
 
 /**
  * On-chain half of the flow. This is where the backend acts as the authorized
- * VERIFIER: it calls CommodityVerifier.verifyCommodity(...), which prices the
- * batch via the oracle and mints the ERC-1155 collateral token.
- *
- * Minimal ABIs are inlined for the calls the backend actually makes. Once the
- * contracts are compiled you can instead import the full ABIs from Foundry's
- * `out/` artifacts.
+ * VERIFIER: it calls CommodityRegistry.approveCommodity(...) to verify and mint
+ * the ERC-1155 collateral token.
  */
-const verifierAbi = [
-  'function verifyCommodity(uint256 commodityId, string inspectionReference, string warehouseReference, bytes32 reportHash) external',
-  'function rejectCommodity(uint256 commodityId, string reason) external',
-  'event VerificationApproved(uint256 indexed commodityId, address indexed verifier, uint256 tokenId, uint96 quantity, uint256 collateralValueUsd, address farmer, bytes32 verificationHash, uint256 timestamp)',
+const registryAbi = [
+  'function approveCommodity(uint256 _commodityId) external',
+  'function rejectCommodity(uint256 _commodityId, bytes32 _rejectionReason) external',
 ];
 
 const oracleAbi = [
@@ -26,28 +21,32 @@ function toChainType(t: CommodityType): number {
   return COMMODITY_TYPE_ORDER.indexOf(t);
 }
 
+function stringToBytes32(str: string): string {
+  try {
+    const truncated = str.substring(0, 31);
+    return ethers.encodeBytes32String(truncated);
+  } catch (error) {
+    const bytes = ethers.toUtf8Bytes(str);
+    const sliced = bytes.slice(0, 32);
+    return ethers.hexlify(ethers.zeroPadValue(sliced, 32));
+  }
+}
+
 export const chainService = {
-  /** Approve + mint. Returns the tx hash; the emitted event carries the tokenId. */
+  /** Approve + mint. Returns the tx hash. */
   async verifyCommodity(params: {
     onChainId: number;
-    inspectionReference: string;
-    warehouseReference: string;
-    reportHash: string;
   }): Promise<{ txHash: string }> {
-    const verifier = new ethers.Contract(contractAddresses.verifier, verifierAbi, signer);
-    const tx = await verifier.verifyCommodity(
-      params.onChainId,
-      params.inspectionReference,
-      params.warehouseReference,
-      params.reportHash,
-    );
+    const registry = new ethers.Contract(contractAddresses.registry, registryAbi, signer);
+    const tx = await registry.approveCommodity(params.onChainId);
     const receipt = await tx.wait();
     return { txHash: receipt.hash };
   },
 
   async rejectCommodity(onChainId: number, reason: string): Promise<{ txHash: string }> {
-    const verifier = new ethers.Contract(contractAddresses.verifier, verifierAbi, signer);
-    const tx = await verifier.rejectCommodity(onChainId, reason);
+    const registry = new ethers.Contract(contractAddresses.registry, registryAbi, signer);
+    const reasonBytes32 = stringToBytes32(reason);
+    const tx = await registry.rejectCommodity(onChainId, reasonBytes32);
     const receipt = await tx.wait();
     return { txHash: receipt.hash };
   },
