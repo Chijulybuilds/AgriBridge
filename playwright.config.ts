@@ -35,7 +35,8 @@ export default defineConfig({
     command: `npm run dev -- --port ${PORT}`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    // Next's first dev compile is slow on cold caches and slow filesystems.
+    timeout: 300_000,
     env: {
       NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4000",
       NEXT_PUBLIC_CHAIN_ID: "31337",
