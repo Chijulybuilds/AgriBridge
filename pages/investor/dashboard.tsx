@@ -1,362 +1,219 @@
-import DashboardLayout from "../../components/layout/DashboardLayout";
+import Link from "next/link";
 import {
-  liquidityPools,
-  earningsChartData,
-} from "../../lib/mockData";
+  BanknotesIcon,
+  ArrowTrendingUpIcon,
+  ChartPieIcon,
+  WalletIcon,
+} from "@heroicons/react/24/outline";
 
-export default function InvestorDashboard() {
-  const pools = liquidityPools.map(p => ({ ...p, myDeposit: 0 }));
-  const investorStats = [
-    { label: "Total Deposited", value: "$0", change: "Live", up: true },
-    { label: "Total Earned", value: "$0", change: "Live", up: true },
-    { label: "Active Positions", value: "0", change: "Live", up: true },
-    { label: "Avg APY", value: "0.0%", change: "Live", up: true },
-  ];
+import DashboardLayout from "../../components/layout/DashboardLayout";
+import withAuth from "../../components/withAuth";
+import { NetworkGuard } from "../../components/NetworkGuard";
+import { useInvestorPosition, usePoolStats, formatUsdc } from "../../hooks/useProtocol";
+
+const card: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border)",
+  borderRadius: "8px",
+  padding: "20px",
+};
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  accent,
+  testId,
+}: {
+  icon: typeof BanknotesIcon;
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: string;
+  testId?: string;
+}) {
+  return (
+    <div style={card}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <div
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 6,
+            background: "var(--accent-green-bg)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon style={{ width: 15, height: 15, color: accent ?? "var(--accent-green)" }} />
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+          {label}
+        </span>
+      </div>
+      <div
+        data-testid={testId}
+        style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.5px" }}
+      >
+        {value}
+      </div>
+      {sub && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function InvestorDashboard() {
+  const pool = usePoolStats();
+  const position = useInvestorPosition();
 
   return (
     <DashboardLayout userType="investor">
-      {/* PAGE HEADER */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "32px",
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: "32px",
-              fontWeight: 800,
-              color: "var(--text-primary)",
-              marginBottom: "6px",
-            }}
-          >
-            Investor Dashboard
-          </h1>
-
-          <p
-            style={{
-              fontSize: "14px",
-              color: "var(--text-secondary)",
-            }}
-          >
-            Here's your investment portfolio overview.
-          </p>
-        </div>
-
-        <button
+      <div style={{ marginBottom: 32 }}>
+        <h1
           style={{
-            background: "linear-gradient(135deg,#22c55e,#16a34a)",
-            color: "#ffffff",
-            border: "none",
-            padding: "12px 22px",
-            borderRadius: "12px",
-            cursor: "pointer",
+            fontSize: 20,
             fontWeight: 700,
-            fontSize: "14px",
-            boxShadow: "0 10px 25px rgba(34,197,94,.25)",
-            transition: "0.3s ease",
+            color: "var(--text-primary)",
+            letterSpacing: "-0.3px",
+            marginBottom: 4,
           }}
         >
-          + Invest More
-        </button>
+          Investor Dashboard
+        </h1>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+          Your position in the AgriBridge lending pool, read live from the chain.
+        </p>
       </div>
 
-      {/* STAT CARDS */}
+      <NetworkGuard />
+
       <div
-        className="stat-grid"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "12px",
-          marginBottom: "32px",
+          gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+          gap: 16,
+          marginBottom: 28,
         }}
       >
-        {investorStats.map((stat) => (
-          <div
-            key={stat.label}
-            style={{
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderRadius: "8px",
-              padding: "16px",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "12px",
-                color: "var(--text-muted)",
-                marginBottom: "8px",
-              }}
-            >
-              {stat.label}
-            </div>
-            <div
-              style={{
-                fontSize: "22px",
-                fontWeight: 700,
-                color: "var(--text-primary)",
-                letterSpacing: "-0.5px",
-                marginBottom: "6px",
-              }}
-            >
-              {stat.value}
-            </div>
-            <div
-              style={{
-                fontSize: "12px",
-                color: stat.up ? "var(--accent-green)" : "var(--accent-red)",
-              }}
-            >
-              {stat.change}
-            </div>
-          </div>
-        ))}
+        <StatCard
+          icon={WalletIcon}
+          label="Position value"
+          value={`$${formatUsdc(position.positionValue)}`}
+          sub={`${formatUsdc(position.shares)} agUSDC`}
+          testId="stat-position"
+        />
+        <StatCard
+          icon={ArrowTrendingUpIcon}
+          label="Interest earned"
+          value={`$${formatUsdc(position.earnings)}`}
+          sub="Accrued since deposit"
+        />
+        <StatCard
+          icon={BanknotesIcon}
+          label="Supply APR"
+          value={pool.supplyApr !== undefined ? `${pool.supplyApr.toFixed(2)}%` : "—"}
+          sub={`Borrow APR ${pool.borrowApr !== undefined ? `${pool.borrowApr.toFixed(2)}%` : "—"}`}
+          accent="var(--accent-gold)"
+        />
+        <StatCard
+          icon={ChartPieIcon}
+          label="Pool utilisation"
+          value={`${pool.utilisation.toFixed(1)}%`}
+          sub={`$${formatUsdc(pool.availableLiquidity)} available`}
+          accent="var(--accent-blue)"
+        />
       </div>
 
-      {/* LIQUIDITY POOLS */}
-      <div
-        className="table-scroll"
-        style={{
-          background: "#ffffff",
-          borderRadius: "22px",
-          padding: "28px",
-          marginBottom: "28px",
-          boxShadow: "0 20px 50px rgba(15,23,42,.08)",
-          border: "1px solid #eef2f7",
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "28px",
-          }}
-        >
-          <div>
-            <h2
-              style={{
-                fontSize: "24px",
-                fontWeight: 800,
-                color: "#0f172a",
-                margin: 0,
-              }}
-            >
-              🌾 Liquidity Pools
-            </h2>
+      <div className="two-col" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24 }}>
+        <div style={card}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Pool overview</h2>
 
-            <p
-              style={{
-                color: "#64748b",
-                fontSize: "14px",
-                marginTop: "6px",
-              }}
-            >
-              Invest in verified agricultural assets and earn stable passive
-              returns.
-            </p>
+          <Bar
+            label="Borrowed"
+            value={pool.totalBorrowed}
+            total={pool.totalAssets}
+            colour="var(--accent-green)"
+          />
+
+          <div style={{ marginTop: 20, display: "grid", gap: 10 }}>
+            <Row label="Total supplied" value={`$${formatUsdc(pool.totalAssets)}`} />
+            <Row label="Total borrowed" value={`$${formatUsdc(pool.totalBorrowed)}`} />
+            <Row label="Available liquidity" value={`$${formatUsdc(pool.availableLiquidity)}`} />
           </div>
+        </div>
 
-          <button
+        <div style={card}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Get started</h2>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 16 }}>
+            Supply USDC to earn interest paid by farmers borrowing against
+            verified, tokenised harvests. Your shares accrue value continuously.
+          </p>
+
+          <Link
+            href="/investor/deposit"
             style={{
-              background: "linear-gradient(135deg,#22c55e,#16a34a)",
+              display: "block",
+              textAlign: "center",
+              padding: "11px",
+              borderRadius: 6,
+              background: "var(--accent-green)",
               color: "#fff",
-              border: "none",
-              padding: "12px 22px",
-              borderRadius: "12px",
-              fontWeight: 700,
-              cursor: "pointer",
-              boxShadow: "0 12px 24px rgba(34,197,94,.25)",
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: "none",
             }}
           >
-            Explore Pools →
-          </button>
+            Deposit USDC
+          </Link>
+
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 14, lineHeight: 1.5 }}>
+            Need testnet USDC? Claim it from the Circle faucet, then import the
+            token into your wallet.
+          </p>
         </div>
-
-        {/* Quick Overview */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3,1fr)",
-            gap: "18px",
-            marginBottom: "28px",
-          }}
-        >
-          <div
-            style={{
-              background: "#f8fafc",
-              borderRadius: "16px",
-              padding: "18px",
-            }}
-          >
-            <div style={{ fontSize: "13px", color: "#64748b" }}>
-              Total Value Locked
-            </div>
-
-            <div
-              style={{
-                fontSize: "28px",
-                fontWeight: 800,
-                color: "#22c55e",
-                marginTop: "6px",
-              }}
-            >
-              $2.4M
-            </div>
-          </div>
-
-          <div
-            style={{
-              background: "#f8fafc",
-              borderRadius: "16px",
-              padding: "18px",
-            }}
-          >
-            <div style={{ fontSize: "13px", color: "#64748b" }}>
-              Average APY
-            </div>
-
-            <div
-              style={{
-                fontSize: "28px",
-                fontWeight: 800,
-                color: "#2563eb",
-                marginTop: "6px",
-              }}
-            >
-              9.2%
-            </div>
-          </div>
-
-          <div
-            style={{
-              background: "#f8fafc",
-              borderRadius: "16px",
-              padding: "18px",
-            }}
-          >
-            <div style={{ fontSize: "13px", color: "#64748b" }}>
-              Active Investors
-            </div>
-
-            <div
-              style={{
-                fontSize: "28px",
-                fontWeight: 800,
-                color: "#f59e0b",
-                marginTop: "6px",
-              }}
-            >
-              1,240
-            </div>
-          </div>
-        </div>
-
-        {/* Table header */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
-            padding: "8px 12px",
-            marginBottom: "4px",
-            fontSize: "11px",
-            fontWeight: 600,
-            color: "var(--text-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-          }}
-        >
-          <span>Pool</span>
-          <span>Total Liquidity</span>
-          <span>My Deposit</span>
-          <span>APY</span>
-          <span>Risk</span>
-        </div>
-
-        {pools.map((pool) => (
-          <div
-            key={pool.id}
-            style={{
-              background: "#ffffff",
-              border: "1px solid #edf2f7",
-              borderRadius: "18px",
-              padding: "22px",
-              marginBottom: "18px",
-              boxShadow: "0 10px 35px rgba(15,23,42,.06)",
-              transition: ".3s ease",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontSize: "20px" }}>{pool.image}</span>
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  {pool.name}
-                </div>
-                <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                  {pool.commodity}
-                </div>
-              </div>
-            </div>
-            <span style={{ fontSize: "13px", color: "var(--text-primary)" }}>
-              ${pool.totalLiquidity.toLocaleString()}
-            </span>
-            <span
-              style={{
-                fontSize: "13px",
-                color:
-                  pool.myDeposit > 0
-                    ? "var(--text-primary)"
-                    : "var(--text-muted)",
-              }}
-            >
-              {pool.myDeposit > 0 ? `$${pool.myDeposit.toLocaleString()}` : "—"}
-            </span>
-            <span
-              style={{
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "var(--accent-green)",
-              }}
-            >
-              {pool.apy}%
-            </span>
-            <div>
-              <span
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  padding: "2px 8px",
-                  borderRadius: "4px",
-                  background:
-                    pool.risk === "low"
-                      ? "var(--accent-green-bg)"
-                      : pool.risk === "medium"
-                        ? "var(--accent-gold-bg)"
-                        : "var(--accent-red-bg)",
-                  color:
-                    pool.risk === "low"
-                      ? "var(--accent-green)"
-                      : pool.risk === "medium"
-                        ? "var(--accent-gold)"
-                        : "var(--accent-red)",
-                }}
-              >
-                {pool.risk}
-              </span>
-            </div>
-          </div>
-        ))}
       </div>
     </DashboardLayout>
   );
 }
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+      <span style={{ color: "var(--text-secondary)" }}>{label}</span>
+      <span style={{ fontWeight: 600 }}>{value}</span>
+    </div>
+  );
+}
+
+function Bar({
+  label,
+  value,
+  total,
+  colour,
+}: {
+  label: string;
+  value: bigint | undefined;
+  total: bigint | undefined;
+  colour: string;
+}) {
+  const pct =
+    value !== undefined && total !== undefined && total > 0n
+      ? Number((value * 10_000n) / total) / 100
+      : 0;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6 }}>
+        <span style={{ color: "var(--text-secondary)" }}>{label}</span>
+        <span style={{ fontWeight: 600 }}>{pct.toFixed(1)}%</span>
+      </div>
+      <div style={{ height: 8, borderRadius: 4, background: "var(--bg-secondary)", overflow: "hidden" }}>
+        <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: colour }} />
+      </div>
+    </div>
+  );
+}
+
+export default withAuth(InvestorDashboard, "investor");

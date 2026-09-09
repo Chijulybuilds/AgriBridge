@@ -1,412 +1,213 @@
+import Link from "next/link";
+import { CubeIcon } from "@heroicons/react/24/outline";
+
 import DashboardLayout from "../../components/layout/DashboardLayout";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import { getMyCommodities } from "../../lib/api";
-import { PlusIcon, FunnelIcon } from "@heroicons/react/24/outline";
+import withAuth from "../../components/withAuth";
+import { NetworkGuard } from "../../components/NetworkGuard";
+import { useMyCommodities, formatKg, type OnChainCommodity } from "../../hooks/useProtocol";
 
-export default function FarmerCommodities() {
-  const router = useRouter();
-  const [commodities, setCommodities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState("all");
+const card: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border)",
+  borderRadius: "8px",
+  padding: "20px",
+};
 
-  useEffect(() => {
-    let mounted = true;
-    setLoading(true);
-    getMyCommodities()
-      .then((data) => {
-        if (!mounted) return;
-        setCommodities(Array.isArray(data) ? data : []);
-      })
-      .catch((err) => {
-        console.error("Failed to load commodities", err);
-        setError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => mounted && setLoading(false));
-    return () => {
-      mounted = false;
-    };
-  }, []);
+/** Colour per registry status. */
+const STATUS_COLOURS: Record<string, { bg: string; fg: string }> = {
+  Pending: { bg: "var(--accent-gold-bg)", fg: "var(--accent-gold)" },
+  Verified: { bg: "var(--accent-green-bg)", fg: "var(--accent-green)" },
+  Rejected: { bg: "#fdecea", fg: "var(--accent-red)" },
+  Collateralized: { bg: "#e3f2fd", fg: "var(--accent-blue)" },
+  Released: { bg: "var(--bg-secondary)", fg: "var(--text-secondary)" },
+  Liquidated: { bg: "#fdecea", fg: "var(--accent-red)" },
+  Expired: { bg: "var(--bg-secondary)", fg: "var(--text-muted)" },
+};
 
-  // Filter logic
-  const filteredCommodities = commodities.filter((c) => {
-    if (activeFilter === "all") return true;
-    const status = (c.status || "Pending").toLowerCase();
-    
-    if (activeFilter === "verified") {
-      return status === "verified" || status === "tokenized";
-    }
-    if (activeFilter === "collateralized") {
-      return status === "collateralized" || status === "collateral";
-    }
-    return status === activeFilter;
-  });
+function StatusBadge({ status }: { status: string }) {
+  const colours = STATUS_COLOURS[status] ?? STATUS_COLOURS.Pending;
+  return (
+    <span
+      style={{
+        background: colours.bg,
+        color: colours.fg,
+        padding: "3px 10px",
+        borderRadius: 12,
+        fontSize: 11,
+        fontWeight: 600,
+      }}
+    >
+      {status}
+    </span>
+  );
+}
 
-  // Dynamic statistics calculations
-  const totalCount = commodities.length;
-  
-  const tokenizedCount = commodities.filter(
-    (c) => c.status === "Verified" || c.status === "tokenized"
-  ).length;
+function formatDate(seconds: number) {
+  if (!seconds) return "—";
+  return new Date(seconds * 1000).toLocaleDateString();
+}
 
-  const collateralCount = commodities.filter(
-    (c) => c.status === "Collateralized" || c.status === "collateral"
-  ).length;
+function MyCommodities() {
+  const { commodities, isLoading } = useMyCommodities();
 
-  const totalValue = commodities.reduce((sum, c) => {
-    const qty = c.quantity_kg !== undefined ? c.quantity_kg : (c.quantity || 0);
-    let pricePerKg = 2.5;
-    const type = (c.commodity_type || c.type || c.name || "").toLowerCase();
-    if (type.includes("maize")) pricePerKg = 0.8;
-    else if (type.includes("rice")) pricePerKg = 1.2;
-    
-    const val = c.tokenValue !== undefined ? c.tokenValue : qty * pricePerKg;
-    return sum + val;
-  }, 0);
-
-  const stats = [
-    { label: "Total Commodities", value: totalCount.toString() },
-    { label: "Tokenized (Verified)", value: tokenizedCount.toString() },
-    { label: "As Collateral", value: collateralCount.toString() },
-    { label: "Total Value", value: `$${totalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` },
-  ];
+  const counts = commodities.reduce<Record<string, number>>((acc, c) => {
+    acc[c.status] = (acc[c.status] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <DashboardLayout userType="farmer">
-      {/* HEADER */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-          marginBottom: "32px",
+          marginBottom: 32,
+          gap: 16,
+          flexWrap: "wrap",
         }}
       >
         <div>
           <h1
             style={{
-              fontSize: "20px",
+              fontSize: 20,
               fontWeight: 700,
               color: "var(--text-primary)",
               letterSpacing: "-0.3px",
-              marginBottom: "4px",
+              marginBottom: 4,
             }}
           >
             My Commodities
           </h1>
-          <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-            Manage and track your tokenized agricultural assets.
+          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            Every harvest you have registered on-chain, with its current status.
           </p>
         </div>
-        <button
-          onClick={() => router.push("/farmer/tokenize")}
+
+        <Link
+          href="/farmer/tokenize"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "8px 16px",
-            borderRadius: "7px",
-            fontSize: "13px",
+            padding: "9px 18px",
+            borderRadius: 6,
             background: "var(--accent-green)",
-            border: "none",
             color: "#fff",
-            cursor: "pointer",
+            fontSize: 13,
             fontWeight: 600,
+            textDecoration: "none",
+            whiteSpace: "nowrap",
           }}
         >
-          <PlusIcon style={{ width: "15px", height: "15px" }} />
-          Add Commodity
-        </button>
+          Tokenize new
+        </Link>
       </div>
 
-      {/* STATS ROW */}
+      <NetworkGuard />
+
       <div
         className="stat-grid"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: "12px",
-          marginBottom: "28px",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: 12,
+          marginBottom: 28,
         }}
       >
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            style={{
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderRadius: "8px",
-              padding: "16px",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "12px",
-                color: "var(--text-muted)",
-                marginBottom: "6px",
-              }}
-            >
-              {s.label}
-            </div>
-            <div
-              style={{
-                fontSize: "20px",
-                fontWeight: 700,
-                color: "var(--text-primary)",
-              }}
-            >
-              {s.value}
-            </div>
-          </div>
-        ))}
+        <Stat label="Total" value={String(commodities.length)} />
+        <Stat label="Pending" value={String(counts.Pending ?? 0)} />
+        <Stat label="Verified" value={String(counts.Verified ?? 0)} highlight />
+        <Stat label="Collateralized" value={String(counts.Collateralized ?? 0)} />
       </div>
 
-      {/* FILTER TABS */}
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          marginBottom: "16px",
-          overflowX: "auto",
-          paddingBottom: "4px",
-        }}
-      >
-        {["All", "Pending", "Verified", "Collateralized", "Rejected"].map((tab) => {
-          const value = tab.toLowerCase();
-          const isActive = activeFilter === value;
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveFilter(value)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: "20px",
-                fontSize: "12px",
-                fontWeight: 600,
-                border: "1px solid var(--border)",
-                background: isActive ? "var(--accent-green)" : "var(--bg-card)",
-                color: isActive ? "#fff" : "var(--text-secondary)",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {tab}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* TABLE */}
-      <div
-        style={{
-          background: "var(--bg-card)",
-          border: "1px solid var(--border)",
-          borderRadius: "8px",
-          overflow: "hidden",
-        }}
-      >
-        {/* Table toolbar */}
-        <div
-          style={{
-            padding: "14px 20px",
-            borderBottom: "1px solid var(--border)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "13px",
-              fontWeight: 600,
-              color: "var(--text-primary)",
-            }}
-          >
-            Commodities ({loading ? "..." : filteredCommodities.length})
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "var(--text-muted)" }}>
-            <FunnelIcon style={{ width: "13px", height: "13px" }} />
-            <span>Filter Active</span>
-          </div>
+      {isLoading ? (
+        <div style={card}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading your commodities…</p>
         </div>
+      ) : commodities.length === 0 ? (
+        <div style={{ ...card, textAlign: "center", padding: 48 }} data-testid="commodities-empty">
+          <CubeIcon
+            style={{ width: 36, height: 36, color: "var(--text-muted)", margin: "0 auto 12px" }}
+          />
+          <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>No commodities yet</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>
+            Register your first harvest to begin the tokenisation process.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 12 }} data-testid="commodities-list">
+          {commodities.map((c: OnChainCommodity) => (
+            <div key={c.id.toString()} style={card} data-testid={`commodity-${c.id}`}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>
+                      {c.commodityType} #{c.id.toString()}
+                    </span>
+                    <StatusBadge status={c.status} />
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                    Grade {c.grade} · Harvested {formatDate(c.harvestDate)} · Storage ends{" "}
+                    {formatDate(c.storageEndDate)}
+                  </div>
+                </div>
 
-        {/* Scrollable container for table content */}
-        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: "400px" }}>
-          {/* Table Header - enforces minimum width so columns don't squish */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "2.2fr 1fr 1fr 1fr 1fr 1fr",
-              minWidth: "750px",
-              padding: "10px 20px",
-              background: "var(--bg-secondary)",
-              fontSize: "11px",
-              fontWeight: 600,
-              color: "var(--text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              borderBottom: "1px solid var(--border)",
-              position: "sticky",
-              top: 0,
-              zIndex: 10,
-            }}
-          >
-            <span>Commodity</span>
-            <span>Quantity</span>
-            <span>Quality</span>
-            <span>Token ID</span>
-            <span>Est. Value</span>
-            <span>Status</span>
-          </div>
+                <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Quantity</div>
+                    <div style={{ fontSize: 15, fontWeight: 700 }}>{formatKg(c.quantity)} kg</div>
+                  </div>
 
-          {/* Table rows */}
-          {error && (
-            <div style={{ padding: "14px 20px", color: "#c0392b" }}>
-              Failed to load commodities: {error}
-            </div>
-          )}
-
-          {!error && loading && (
-            <div style={{ padding: "14px 20px", color: "var(--text-secondary)" }}>Loading...</div>
-          )}
-
-          {!error && !loading && filteredCommodities.length === 0 && (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
-              No commodities found matching filter "{activeFilter}".
-            </div>
-          )}
-
-          {!error &&
-            !loading &&
-            filteredCommodities.map((c, i) => {
-              const type = c.commodity_type || c.type || c.name || "Unknown";
-              const qty = c.quantity_kg !== undefined ? c.quantity_kg : (c.quantity || 0);
-              const unit = c.unit || "kg";
-              const grade = c.grade !== undefined ? `Grade ${c.grade}` : (c.quality || "Grade A");
-              const tokenSymbol = c.token_id !== null && c.token_id !== undefined ? `CROP-${c.token_id}` : (c.tokenSymbol || "-");
-              
-              let pricePerKg = 2.5;
-              if (type.toLowerCase().includes("maize")) pricePerKg = 0.8;
-              else if (type.toLowerCase().includes("rice")) pricePerKg = 1.2;
-              const value = c.tokenValue !== undefined ? c.tokenValue : qty * pricePerKg;
-
-              const isVerified = c.status === "Verified" || c.status === "tokenized";
-              const isCollateral = c.status === "Collateralized" || c.status === "collateral";
-              const isRejected = c.status === "Rejected";
-
-              let icon = "🌾";
-              const typeLower = type.toLowerCase();
-              if (typeLower.includes("cocoa")) icon = "🫘";
-              else if (typeLower.includes("cassava") || typeLower.includes("yam")) icon = "🌿";
-              else if (typeLower.includes("maize")) icon = "🌽";
-              else if (typeLower.includes("oil")) icon = "🫙";
-
-              return (
-                <div
-                  key={c.id ?? i}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "2.2fr 1fr 1fr 1fr 1fr 1fr",
-                    minWidth: "750px",
-                    padding: "14px 20px",
-                    alignItems: "center",
-                    borderBottom:
-                      i < filteredCommodities.length - 1
-                        ? "1px solid var(--border)"
-                        : "none",
-                  }}
-                >
-                  <div
-                    style={{ display: "flex", alignItems: "center", gap: "12px" }}
-                  >
-                    <div
+                  {c.status === "Verified" && (
+                    <Link
+                      href="/farmer/borrow"
                       style={{
-                        width: "36px",
-                        height: "36px",
-                        borderRadius: "8px",
-                        background: "var(--accent-green-bg)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "18px",
-                        flexShrink: 0,
+                        padding: "8px 16px",
+                        borderRadius: 6,
+                        border: "1px solid var(--accent-green)",
+                        color: "var(--accent-green)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      {icon}
-                    </div>
-                    <div>
-                      <div
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          color: "var(--text-primary)",
-                        }}
-                      >
-                        {type}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                        {c.location ? c.location.split(",")[0] : "Local Warehouse"}
-                      </div>
-                    </div>
-                  </div>
-                  <span style={{ fontSize: "13px", color: "var(--text-primary)" }}>
-                    {qty.toLocaleString()} {unit}
-                  </span>
-                  <span
-                    style={{ fontSize: "13px", color: "var(--text-secondary)" }}
-                  >
-                    {grade}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      fontFamily: "monospace",
-                      color: "var(--accent-blue)",
-                    }}
-                  >
-                    {tokenSymbol}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      color: "var(--text-primary)",
-                    }}
-                  >
-                    ${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      padding: "3px 8px",
-                      borderRadius: "4px",
-                      display: "inline-block",
-                      background: isVerified
-                        ? "var(--accent-green-bg)"
-                        : isCollateral
-                        ? "var(--accent-gold-bg)"
-                        : isRejected
-                        ? "#fdecea"
-                        : "var(--accent-blue-bg)",
-                      color: isVerified
-                        ? "var(--accent-green)"
-                        : isCollateral
-                        ? "var(--accent-gold)"
-                        : isRejected
-                        ? "#b71c1c"
-                        : "var(--accent-blue)",
-                    }}
-                  >
-                    {(c.status || "Pending").toLowerCase()}
-                  </span>
+                      Borrow
+                    </Link>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </DashboardLayout>
   );
 }
+
+function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div style={card}>
+      <div style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 600, marginBottom: 6 }}>
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: 20,
+          fontWeight: 700,
+          color: highlight ? "var(--accent-green)" : "var(--text-primary)",
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+export default withAuth(MyCommodities, "farmer");

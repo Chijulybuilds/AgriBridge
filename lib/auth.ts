@@ -1,125 +1,75 @@
-declare global {
-  interface Window {
-    ethereum?: import("ethers").Eip1193Provider;
-  }
-}
-
-import { ethers } from "ethers";
+/**
+ * Session handling for wallet-based sign-in.
+ *
+ * Wallet connection and message signing are handled by RainbowKit and Wagmi
+ * (see lib/wagmi.ts and hooks/useSiweLogin.ts). This module owns only the
+ * backend half: exchanging a signature for a session token, storing it, and
+ * attaching it to API requests.
+ */
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const SESSION_STORAGE_KEY = "agribridge_session";
 const PROFILE_STORAGE_KEY = "agribridge_profile";
 
-type StoredProfile = {
+export type UserRole = "farmer" | "investor" | "admin";
+export type SignupRole = Extract<UserRole, "farmer" | "investor">;
+
+export type Profile = {
   id?: string;
   email?: string | null;
   display_name?: string | null;
-  wallet_address?: string | null;
-  role?: string | null;
+  wallet_address: string;
+  role: UserRole;
 };
 
-function persistProfile(profile: StoredProfile | null) {
-  if (typeof window === "undefined") return;
+/*//////////////////////////////////////////////////////////////
+                          SESSION STORAGE
+//////////////////////////////////////////////////////////////*/
 
-  if (!profile) {
-    window.localStorage.removeItem(PROFILE_STORAGE_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+export function getSessionToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(SESSION_STORAGE_KEY);
 }
 
-export function getStoredProfile(): StoredProfile | null {
-  if (typeof window === "undefined") return null;
+/** Kept async because callers await it, and it once hit the network. */
+export async function getSession(): Promise<string | null> {
+  return getSessionToken();
+}
 
+export function getStoredProfile(): Profile | null {
+  if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(PROFILE_STORAGE_KEY);
   if (!raw) return null;
-
   try {
-    return JSON.parse(raw) as StoredProfile;
+    return JSON.parse(raw) as Profile;
   } catch {
     return null;
   }
 }
 
-export async function signUpWithBackend(email: string, password: string) {
-  const res = await fetch(`${API_URL}/api/account/signup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || "Account creation failed");
-  }
-
-  return data;
+function persistSession(token: string, profile: Profile) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(SESSION_STORAGE_KEY, token);
+  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
 }
 
-export async function signUpWithEmail(email: string, password: string) {
-  return signUpWithBackend(email, password);
-}
-
-export async function signInWithEmail(email: string, password: string) {
-  const res = await fetch(`${API_URL}/api/account/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || "Sign in failed");
-  }
-
-  return data;
-}
-
-export async function signInWithGoogle() {
-  throw new Error(
-    "MetaMask wallet authentication is enabled. Please use the MetaMask button.",
-  );
-}
-
-export async function getSession() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  return window.localStorage.getItem(SESSION_STORAGE_KEY) || null;
-}
-
-export async function getAccessToken(): Promise<string | null> {
-  return getSession();
-}
-
-export async function signOut() {
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem(SESSION_STORAGE_KEY);
-    window.localStorage.removeItem(PROFILE_STORAGE_KEY);
-  }
-}
-
-function clearStaleSession() {
+export function clearSession() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(SESSION_STORAGE_KEY);
   window.localStorage.removeItem(PROFILE_STORAGE_KEY);
 }
 
-export async function waitForSession(timeoutMs = 5000, intervalMs = 200) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const token = await getSession();
-    if (token) return token;
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-  return null;
+export async function signOut() {
+  clearSession();
 }
 
-async function parseJsonResponse(res: Response) {
+/*//////////////////////////////////////////////////////////////
+                            HTTP HELPERS
+//////////////////////////////////////////////////////////////*/
+
+async function parseJson(res: Response) {
   const text = await res.text();
   if (!text) return null;
-
   try {
     return JSON.parse(text);
   } catch {
@@ -127,11 +77,33 @@ async function parseJsonResponse(res: Response) {
   }
 }
 
-export async function authedFetch(path: string, options: RequestInit = {}) {
-  const token = await getAccessToken();
-  if (!token) {
-    throw new Error("Not logged in. Please sign in with MetaMask first.");
+function errorFrom(data: unknown, fallback: string): string {
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    if (typeof record.error === "string") return record.error;
+    if (typeof record.message === "string") return record.message;
   }
+  return fallback;
+}
+
+/** Unauthenticated request to the backend. */
+export async function apiFetch(path: string, options: RequestInit = {}) {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...options.headers },
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(errorFrom(data, `Request to ${path} failed (${res.status})`));
+  return data ?? {};
+}
+
+/**
+ * Authenticated request. A 401 or 403 means the session is no longer usable, so
+ * it is cleared rather than left behind to fail every subsequent call.
+ */
+export async function authedFetch(path: string, options: RequestInit = {}) {
+  const token = getSessionToken();
+  if (!token) throw new Error("Not signed in. Connect your wallet to continue.");
 
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -142,169 +114,76 @@ export async function authedFetch(path: string, options: RequestInit = {}) {
     },
   });
 
-  const data = await parseJsonResponse(res);
+  const data = await parseJson(res);
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
-      clearStaleSession();
-    }
-
-    const message =
-      (data && typeof data === "object" && "error" in data
-        ? (data as { error?: string }).error
-        : null) ||
-      (data && typeof data === "object" && "message" in data
-        ? (data as { message?: string }).message
-        : null) ||
-      `Request to ${path} failed (${res.status})`;
-    throw new Error(message);
+    if (res.status === 401 || res.status === 403) clearSession();
+    throw new Error(errorFrom(data, `Request to ${path} failed (${res.status})`));
   }
-
   return data ?? {};
 }
 
-export async function getWalletNonce(wallet: string): Promise<string> {
-  const data = await authedFetch("/api/wallet/nonce", {
+/*//////////////////////////////////////////////////////////////
+                        SIGN-IN WITH ETHEREUM
+//////////////////////////////////////////////////////////////*/
+
+/**
+ * Step 1: ask the backend for the exact message to sign.
+ * The message carries a one-time nonce and is bound to this app's domain.
+ */
+export async function requestLoginMessage(wallet: string): Promise<string> {
+  const data = await apiFetch("/api/account/wallet/nonce", {
     method: "POST",
     body: JSON.stringify({ wallet }),
   });
-  if (!data?.message) {
-    throw new Error("Wallet nonce response was empty.");
-  }
-  return data.message;
+  if (!data?.message) throw new Error("Backend returned no message to sign.");
+  return data.message as string;
 }
 
-export async function signMessage(message: string): Promise<string> {
-  if (typeof window === "undefined" || !window.ethereum) {
-    throw new Error("MetaMask not found. Please install MetaMask.");
-  }
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  const signer = await provider.getSigner();
-  return signer.signMessage(message);
-}
-
-export async function linkWallet(wallet: string, signature: string) {
-  const data = await authedFetch("/api/wallet/link", {
+/**
+ * Step 2: exchange the signature for a session.
+ *
+ * @param role Applied only when this wallet has never signed in before.
+ */
+export async function submitLoginSignature(
+  wallet: string,
+  signature: string,
+  role?: SignupRole,
+): Promise<{ token: string; profile: Profile }> {
+  const data = await apiFetch("/api/account/wallet/auth", {
     method: "POST",
-    body: JSON.stringify({ wallet, signature }),
-  });
-  return data.profile;
-}
-
-export async function getWalletAuthNonce(wallet: string): Promise<string> {
-  const res = await fetch(`${API_URL}/api/account/wallet/nonce`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ wallet }),
+    body: JSON.stringify({ wallet, signature, role }),
   });
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.error || "Unable to start wallet authentication");
-  }
+  const token = data?.session?.access_token as string | undefined;
+  const profile = data?.profile as Profile | undefined;
+  if (!token || !profile) throw new Error("Sign-in did not return a session.");
 
-  return data.message;
+  persistSession(token, profile);
+  return { token, profile };
 }
 
-export async function signInWithWallet(): Promise<{
-  address: string;
-  profile: { role?: string | null } | null;
-  session: { access_token: string } | null;
-}> {
-  if (typeof window === "undefined" || !window.ethereum) {
-    throw new Error("MetaMask not found. Please install MetaMask.");
+/** Fetches the signed-in user's profile, refreshing what is stored locally. */
+export async function getCurrentUser(): Promise<{ profile: Profile } | null> {
+  const data = await authedFetch("/api/account/me");
+  const profile = data?.profile as Profile | undefined;
+  if (!profile) return null;
+
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
   }
-
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  const accounts = await provider.send("eth_requestAccounts", []);
-  const address = accounts[0] as string;
-
-  const message = await getWalletAuthNonce(address);
-  const signer = await provider.getSigner();
-  const signature = await signer.signMessage(message);
-
-  const res = await fetch(`${API_URL}/api/account/wallet/auth`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ wallet: address, signature }),
-  });
-
-  const data = await parseJsonResponse(res);
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
-      clearStaleSession();
-    }
-
-    const message =
-      (data && typeof data === "object" && "error" in data
-        ? (data as { error?: string }).error
-        : null) || "Wallet authentication failed";
-    throw new Error(message);
-  }
-
-  if (data?.session?.access_token) {
-    window.localStorage.setItem(SESSION_STORAGE_KEY, data.session.access_token);
-    persistProfile(data.profile ?? null);
-  }
-
-  return {
-    address,
-    profile: data?.profile ?? null,
-    session: data?.session ?? null,
-  };
+  return { profile };
 }
 
-export async function signUpWithWallet() {
-  return signInWithWallet();
-}
-
-export async function connectWallet(): Promise<{
-  address: string;
-  profile: StoredProfile | null;
-  session: { access_token: string } | null;
-}> {
-  try {
-    if (typeof window === "undefined" || !window.ethereum) {
-      throw new Error("MetaMask not found. Please install MetaMask.");
-    }
-
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const accounts = await provider.send("eth_requestAccounts", []);
-    const address = accounts[0] as string;
-
-    const existingSession = await getSession();
-    if (!existingSession) {
-      const authResult = await signInWithWallet();
-      return {
-        address: authResult.address,
-        profile: authResult.profile,
-        session: authResult.session,
-      };
-    }
-
-    const message = await getWalletNonce(address);
-    const signature = await signMessage(message);
-    const profile = await linkWallet(address, signature);
-    persistProfile(profile as StoredProfile | null);
-
-    return { address, profile: profile as StoredProfile | null, session: null };
-  } catch (err) {
-    console.error("Wallet connect failed:", err);
-    throw err;
-  }
-}
-
-export async function getCurrentUser() {
-  try {
-    const data = await authedFetch("/api/account/me");
-    if (data?.profile) {
-      persistProfile(data.profile);
-    }
-    return data;
-  } catch (error) {
-    const fallbackProfile = getStoredProfile();
-    if (fallbackProfile?.role) {
-      return { profile: fallbackProfile, user: null };
-    }
-    throw error;
+/** Landing page for a role. Used after sign-in and by the route guards. */
+export function dashboardPathFor(role: UserRole | string | null | undefined): string {
+  switch (role) {
+    case "admin":
+      return "/admin/dashboard";
+    case "investor":
+      return "/investor/dashboard";
+    case "farmer":
+      return "/farmer/dashboard";
+    default:
+      return "/login";
   }
 }

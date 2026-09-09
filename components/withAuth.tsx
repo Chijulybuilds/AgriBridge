@@ -1,68 +1,63 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { getCurrentUser, getSession, getStoredProfile } from "../lib/auth";
+
+import {
+  dashboardPathFor,
+  getCurrentUser,
+  getSessionToken,
+  getStoredProfile,
+  type UserRole,
+} from "../lib/auth";
+import { useAuth } from "../pages/_app";
 
 type ProtectedPageProps = Record<string, unknown>;
 
-interface ProfileResponse {
-  profile?: {
-    role?: string | null;
-  } | null;
-}
-
+/**
+ * Gates a page behind an authenticated session, and optionally behind a role.
+ *
+ * Unauthenticated visitors go to /login. A signed-in user who lands on a page
+ * belonging to a different role is redirected to their own dashboard rather
+ * than shown an error, since the nav is role-specific anyway.
+ */
 export default function withAuth(
   Component: React.ComponentType,
-  requiredRole?: string,
+  requiredRole?: UserRole,
 ) {
   return function ProtectedPage(props: ProtectedPageProps) {
     const router = useRouter();
+    const { setProfile } = useAuth();
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
       let cancelled = false;
 
       async function check() {
-        const token = await getSession();
-
-        if (!token) {
-          if (router.pathname !== "/login") {
-            router.replace("/login");
-          }
+        if (!getSessionToken()) {
+          void router.replace("/login");
           return;
         }
 
         try {
-          const response = (await getCurrentUser()) as ProfileResponse;
+          const result = await getCurrentUser();
           if (cancelled) return;
 
-          const profileRole =
-            response?.profile?.role ?? getStoredProfile()?.role;
-          if (!profileRole) {
-            if (router.pathname !== "/login") {
-              router.replace("/login");
-            }
+          const role = result?.profile?.role ?? getStoredProfile()?.role;
+          if (!role) {
+            void router.replace("/login");
             return;
           }
 
-          if (requiredRole && profileRole !== requiredRole) {
-            const targetPath = `/${profileRole}/dashboard`;
-            if (router.pathname !== targetPath) {
-              router.replace(targetPath);
-            }
-            return;
-          }
+          if (result?.profile) setProfile(result.profile);
 
-          if (router.pathname === "/login") {
-            router.replace(`/${profileRole}/dashboard`);
+          if (requiredRole && role !== requiredRole) {
+            void router.replace(dashboardPathFor(role));
             return;
           }
 
           setChecking(false);
-        } catch (err) {
-          console.error("Auth check failed:", err);
-          if (router.pathname !== "/login") {
-            router.replace("/login");
-          }
+        } catch {
+          // authedFetch already cleared a rejected session.
+          if (!cancelled) void router.replace("/login");
         }
       }
 
@@ -70,11 +65,15 @@ export default function withAuth(
       return () => {
         cancelled = true;
       };
+      // router is intentionally the only dependency: re-running on setProfile
+      // identity changes would refetch the profile on every render.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [router]);
 
     if (checking) {
       return (
         <div
+          data-testid="auth-checking"
           style={{
             minHeight: "100vh",
             display: "flex",
@@ -96,7 +95,7 @@ export default function withAuth(
               }}
             />
             <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-              Checking auth...
+              Checking your session…
             </p>
           </div>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

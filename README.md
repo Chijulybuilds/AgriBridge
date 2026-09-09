@@ -1,64 +1,161 @@
-# AgriBridge — Frontend Overview
+# AgriBridge
+
+Tokenize agricultural commodities, then borrow stablecoins against them.
+
+A farmer registers a harvest on-chain. A verifier inspects and approves it,
+which mints an ERC-1155 token representing that specific lot. The farmer
+deposits the token as collateral in a lending pool and borrows USDC supplied by
+investors, who earn the interest.
+
+```
+Farmer registers commodity  ──►  Verifier approves  ──►  ERC-1155 minted
+                                                              │
+                                                              ▼
+        Investors supply USDC  ──►  Lending Pool  ◄──  Collateral deposited
+                                         │
+                                         ▼
+                              Farmer borrows USDC
+```
 
 ## Stack
 
-- **Framework:** Next.js (Pages Router)
-- **Auth:** Supabase (Sign-In with Ethereum / wallet-based auth)
-- **Wallet connection:** `ethers` (`BrowserProvider`) for MetaMask
-- **Styling:** Inline styles using CSS custom properties (`var(--accent-green)`, `var(--bg-primary)`, etc.) — these variables should be defined globally (e.g. in `globals.css` or `_app.tsx`)
-- **Icons:** Heroicons (`@heroicons/react`)
-
-## Folder structure (added/changed in this PR)
-
-```
-components/
-  layout/DashboardLayout.tsx   → shared shell for authenticated dashboard pages
-  withAuth.tsx                 → HOC that gates a page behind an authenticated session
-lib/
-  auth.ts                      → wallet sign-in, session, and current-user helpers
-  supabase.ts                  → Supabase client setup
-  api.ts                       → API request helper(s) for talking to the backend
-pages/
-  _app.tsx                     → app wrapper (global styles/providers)
-  index.tsx                    → public landing page
-  login.tsx                    → wallet connect / sign-in page
-  farmer/commodities.tsx       → farmer dashboard: commodities view
-  farmer/tokenize.tsx          → farmer dashboard: tokenize a commodity
-public/
-  videos/                      → hero background video used on the landing page
-```
-
-## Auth flow
-
-1. **Landing page (`index.tsx`)** — visitor picks a role (Farmer / Investor) or clicks "Connect Wallet." Every path routes to `/login` first (no dashboard is reachable without an authenticated wallet).
-2. **Login page (`login.tsx`)**:
-   - On mount, it calls `getSession()` — if a session already exists, it fetches the current user's profile via `getCurrentUser()` and redirects straight to `/{role}/dashboard`, skipping the login button entirely for returning users.
-   - On click, `signInWithWallet()` (from `lib/auth.ts`) triggers the MetaMask sign-in flow. On success, it reads the user's role from the returned profile and redirects to `/{role}/dashboard`.
-   - Errors (e.g. wallet rejected, no session token returned) are shown inline.
-3. **`withAuth.tsx`** wraps dashboard pages (e.g. `farmer/commodities.tsx`, `farmer/tokenize.tsx`) so unauthenticated visits get redirected back to login rather than rendering protected content.
-4. **`DashboardLayout.tsx`** provides the shared nav/sidebar shell around farmer/investor dashboard pages.
-
-## Pages included in this PR
-
-| Page | Purpose |
+| Layer | Technology |
 |---|---|
-| `index.tsx` | Public marketing/landing page — hero, stats, features, "how it works," CTA |
-| `login.tsx` | Wallet-based sign-in for both farmer and investor roles |
-| `farmer/commodities.tsx` | Lists a farmer's tokenized/stored commodities |
-| `farmer/tokenize.tsx` | Flow for a farmer to tokenize a new commodity |
+| Contracts | Solidity 0.8.24, Foundry, OpenZeppelin |
+| Backend | Express, TypeScript, Supabase, ethers |
+| Frontend | Next.js (Pages Router), Wagmi, RainbowKit, viem |
+| Testing | Foundry (unit, fuzz, integration), Playwright (e2e) |
+| Network | Sepolia testnet |
 
-## Setup / environment
+## Contracts
 
-The following environment variables are expected (see `.env.local.example`):
-- Supabase URL + anon key (used in `lib/supabase.ts`)
-- Any RPC/contract-related values needed for wallet sign-in, if applicable
+| Contract | Role |
+|---|---|
+| `CommodityRegistry` | Commodity records and their lifecycle. Verifiers approve or reject here, which triggers minting. |
+| `CommodityToken` | ERC-1155 collateral. Token id equals commodity id. Only the registry can mint. |
+| `CommodityPriceOracle` | Prices per commodity type, and collateral valuation by commodity id. |
+| `AgriShareToken` | Soulbound agUSDC receipt for pool deposits. |
+| `LendingPool` | USDC deposits, collateralised borrowing, interest accrual, liquidation. |
 
-Run locally:
+Loans are capped at 70% loan-to-value. Interest follows a kink-based model that
+rises steeply past 80% utilisation so liquidity remains available for
+withdrawals.
+
+## Getting started
+
+Prerequisites: Node 20+, Foundry, and Git.
+
 ```bash
-npm install
-npm run dev
+git clone --recurse-submodules https://github.com/Chijulybuilds/AgriBridge.git
+cd AgriBridge
+make dependency          # Foundry libraries
+npm install              # frontend
+npm ci --prefix backend  # backend
 ```
 
-## Note for review
+### 1. Contracts
 
-`lib/auth.ts` was written independently on the frontend side and may overlap conceptually with the backend's recent **"Rework auth into two layers: account login + linked wallet"** change (`backend/scaffold` branch). Worth a quick side-by-side check to confirm the two layers line up — frontend currently expects a single `signInWithWallet()` call to return both a session token and a role-tagged profile.
+```bash
+forge build
+make test                # unit, fuzz and integration suites, all local
+```
+
+Deploy. `DeployAll` is the supported path: it deploys all five contracts,
+performs every cross-contract wiring step, and seeds initial prices.
+
+```bash
+cp .env.example .env     # fill in SEPOLIA_URL, PRIVATE_KEY, USDC_CONTRACT_ADDRESS, VERIFIER_ADDRESS
+make deploy-all          # or: make verify, to also verify on Etherscan
+```
+
+The script prints every deployed address. Copy them into `.env.local` as the
+`NEXT_PUBLIC_*` values and into `backend/.env`.
+
+To run entirely locally instead:
+
+```bash
+anvil                    # terminal 1
+make deploy-local        # terminal 2
+```
+
+### 2. Backend
+
+```bash
+cd backend
+cp .env.example .env     # set JWT_SECRET (openssl rand -hex 32) and the addresses
+npm run dev              # http://localhost:4000
+```
+
+Apply the database migrations in `backend/supabase/migrations/` to your Supabase
+project, in order. For local UI work you can skip Supabase entirely by setting
+`USE_MOCK_DB=true`, which serves an in-memory database. That flag is refused
+when `NODE_ENV=production`.
+
+### 3. Frontend
+
+```bash
+npm run abis             # generate ABIs from Foundry artifacts
+cp .env.example .env.local
+npm run dev              # http://localhost:3000
+```
+
+Investors need testnet USDC. Claim it from [faucet.circle.com](https://faucet.circle.com)
+and import the token into your wallet.
+
+## Testing
+
+```bash
+make test                # Foundry: unit, fuzz, integration
+forge coverage
+npm run test:e2e         # Playwright, needs the backend running
+npm run test:e2e:ui      # interactive
+```
+
+The end-to-end suite injects a mock wallet into the page, so it needs no browser
+extension and no private key. Run the backend with `USE_MOCK_DB=true` alongside it.
+
+Contract behaviour is covered by Foundry rather than Playwright. The integration
+suite in `test/integration/` wires the real contracts together and drives the
+full journey, which is what catches interface drift between them.
+
+## Authentication
+
+Sign-In with Ethereum. The wallet address is the identity; there is no password.
+
+1. The client requests a nonce for its address.
+2. The backend stores a one-time nonce and returns a message binding the domain,
+   URI, chain id, issue time and expiry.
+3. The wallet signs it. Signing is free and creates no transaction.
+4. The backend rebuilds the message server-side, recovers the signer, burns the
+   nonce, and issues a session JWT.
+
+Users choose farmer or investor at first sign-in. The `admin` role gates the
+verifier queue and is granted directly in the database, never self-selected.
+
+## Project layout
+
+```
+src/                 Solidity contracts
+script/              Foundry deploy scripts
+test/                unit, fuzz and integration tests
+backend/             Express API, Supabase migrations
+pages/               Next.js pages (Pages Router)
+components/          shared UI
+hooks/               Wagmi contract hooks
+lib/                 auth, API client, contract config, generated ABIs
+e2e/                 Playwright specs and the mock wallet fixture
+scripts/             ABI generation
+```
+
+## Environment
+
+Three files, each with a committed template:
+
+| File | Template | Purpose |
+|---|---|---|
+| `.env` | `.env.example` | Foundry deployment |
+| `.env.local` | `.env.example` | Frontend `NEXT_PUBLIC_*` values |
+| `backend/.env` | `backend/.env.example` | Backend |
+
+None of the filled-in files are committed. `JWT_SECRET` is required and must be
+at least 32 characters; the app refuses to boot without it.

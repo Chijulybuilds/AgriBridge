@@ -1,72 +1,73 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { getCurrentUser, getSession, signInWithWallet } from "../lib/auth";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
+
+import { useSiweLogin } from "../hooks/useSiweLogin";
+import { useAuth } from "./_app";
+import {
+  dashboardPathFor,
+  getCurrentUser,
+  getSessionToken,
+  type SignupRole,
+} from "../lib/auth";
+
+const card: React.CSSProperties = {
+  width: "100%",
+  maxWidth: "420px",
+  background: "var(--bg-primary)",
+  borderRadius: "28px",
+  boxShadow: "0 24px 70px rgba(17, 34, 17, 0.12)",
+  border: "1px solid var(--border)",
+  padding: "32px",
+};
 
 export default function Login() {
   const router = useRouter();
-  const role = (router.query.role as string) || "farmer";
+  const { isConnected } = useAccount();
+  const { signIn, isSigningIn, error } = useSiweLogin();
+  const { setProfile } = useAuth();
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const submittingRef = useRef(false);
+  const queryRole = router.query.role;
+  const role: SignupRole = queryRole === "investor" ? "investor" : "farmer";
 
+  const [restoring, setRestoring] = useState(true);
+
+  // If a valid session already exists, skip the sign-in step entirely.
   useEffect(() => {
     let cancelled = false;
 
-    async function restoreSession() {
-      const token = await getSession();
-      if (!token) return;
-
-      try {
-        const response = await getCurrentUser();
-        if (cancelled) return;
-
-        const profileRole = (
-          response?.profile as { role?: string } | null | undefined
-        )?.role;
-        const destinationRole = profileRole || role;
-        const targetPath = `/${destinationRole}/dashboard`;
-
-        if (router.pathname !== targetPath) {
-          router.replace(targetPath);
-        }
-      } catch (err) {
-        console.error("Session restore failed:", err);
-      }
-    }
-
-    void restoreSession();
-    return () => {
-      cancelled = true;
-    };
-  }, [role, router]);
-
-  async function handleWalletAuth() {
-    if (submittingRef.current) return;
-
-    submittingRef.current = true;
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await signInWithWallet();
-      if (result.session?.access_token) {
-        const profileRole = (
-          result.profile as { role?: string } | null | undefined
-        )?.role;
-        const destinationRole = profileRole || role;
-        router.push(`/${destinationRole}/dashboard`);
+    async function restore() {
+      if (!getSessionToken()) {
+        if (!cancelled) setRestoring(false);
         return;
       }
 
-      setError("Wallet authentication did not return a session token.");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Wallet authentication failed",
-      );
-    } finally {
-      submittingRef.current = false;
-      setLoading(false);
+      try {
+        const result = await getCurrentUser();
+        if (cancelled) return;
+        if (result?.profile) {
+          setProfile(result.profile);
+          void router.replace(dashboardPathFor(result.profile.role));
+          return;
+        }
+      } catch {
+        // Expired or rejected token: fall through and show the sign-in card.
+      }
+      if (!cancelled) setRestoring(false);
+    }
+
+    void restore();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, setProfile]);
+
+  async function handleSignIn() {
+    const profile = await signIn(role);
+    if (profile) {
+      setProfile(profile);
+      void router.push(dashboardPathFor(profile.role));
     }
   }
 
@@ -81,19 +82,9 @@ export default function Login() {
         padding: "24px",
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "360px",
-          background: "var(--bg-primary)",
-          borderRadius: "28px",
-          boxShadow: "0 24px 70px rgba(17, 34, 17, 0.12)",
-          border: "1px solid var(--border)",
-          padding: "32px",
-        }}
-      >
+      <div style={card}>
         <h1 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "4px" }}>
-          Continue with MetaMask
+          Sign in to AgriBridge
         </h1>
         <p
           style={{
@@ -102,43 +93,62 @@ export default function Login() {
             marginBottom: "24px",
           }}
         >
-          Sign in or create your account with your wallet as{" "}
-          {role === "farmer" ? "a Farmer" : "an Investor"}.
+          Connect your wallet and sign a message to continue as{" "}
+          {role === "farmer" ? "a Farmer" : "an Investor"}. Signing is free and
+          does not create a blockchain transaction.
         </p>
 
-        {error && (
-          <p
-            style={{
-              background: "#fdecea",
-              color: "#b71c1c",
-              padding: "10px 12px",
-              borderRadius: "10px",
-              fontSize: "13px",
-              marginBottom: "12px",
-            }}
-          >
-            {error}
+        {restoring ? (
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            Restoring your session…
           </p>
-        )}
+        ) : (
+          <>
+            {error && (
+              <p
+                data-testid="login-error"
+                style={{
+                  background: "#fdecea",
+                  color: "#b71c1c",
+                  padding: "10px 12px",
+                  borderRadius: "10px",
+                  fontSize: "13px",
+                  marginBottom: "12px",
+                }}
+              >
+                {error}
+              </p>
+            )}
 
-        <button
-          onClick={handleWalletAuth}
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "12px",
-            borderRadius: "12px",
-            border: "none",
-            background: "var(--accent-green)",
-            color: "#fff",
-            fontSize: "14px",
-            fontWeight: 600,
-            cursor: loading ? "not-allowed" : "pointer",
-            opacity: loading ? 0.7 : 1,
-          }}
-        >
-          {loading ? "Connecting MetaMask..." : "Connect MetaMask"}
-        </button>
+            <div style={{ marginBottom: 16 }}>
+              <ConnectButton showBalance={false} />
+            </div>
+
+            <button
+              onClick={handleSignIn}
+              disabled={!isConnected || isSigningIn}
+              data-testid="siwe-sign-in"
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "12px",
+                border: "none",
+                background: isConnected ? "var(--accent-green)" : "var(--border)",
+                color: isConnected ? "#fff" : "var(--text-muted)",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: !isConnected || isSigningIn ? "not-allowed" : "pointer",
+                opacity: isSigningIn ? 0.7 : 1,
+              }}
+            >
+              {isSigningIn
+                ? "Waiting for signature…"
+                : isConnected
+                  ? "Sign in with Ethereum"
+                  : "Connect a wallet first"}
+            </button>
+          </>
+        )}
 
         <p
           style={{
@@ -148,8 +158,8 @@ export default function Login() {
             lineHeight: 1.5,
           }}
         >
-          Your first wallet sign-in creates your account automatically. No email
-          or password is needed.
+          Your first sign-in creates your account automatically. No email or
+          password is needed.
         </p>
       </div>
     </main>

@@ -12,12 +12,11 @@ import {
   ChartPieIcon,
   Bars3Icon,
   XMarkIcon,
-  WalletIcon,
   ArrowsRightLeftIcon,
   HomeIcon,
 } from "@heroicons/react/24/outline";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAuth } from "../../pages/_app";
-import { connectWallet } from "../../lib/auth";
 
 interface Props {
   children: ReactNode;
@@ -250,7 +249,7 @@ function SidebarContent({
 
 export default function DashboardLayout({ children, userType }: Props) {
   const router = useRouter();
-  const { profile, signOut, refreshProfile } = useAuth();
+  const { profile, signOut } = useAuth();
   const nav =
     userType === "farmer"
       ? farmerNav
@@ -270,20 +269,7 @@ export default function DashboardLayout({ children, userType }: Props) {
       ? "var(--accent-gold-bg)"
       : "var(--accent-blue-bg)";
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [connectingWallet, setConnectingWallet] = useState(false);
   const walletAddress = profile?.wallet_address || "";
-
-  async function handleConnectWallet() {
-    try {
-      setConnectingWallet(true);
-      await connectWallet();
-      await refreshProfile();
-    } catch (err) {
-      console.error("Wallet connect failed:", err);
-    } finally {
-      setConnectingWallet(false);
-    }
-  }
 
   function handleLogout() {
     signOut();
@@ -428,36 +414,11 @@ export default function DashboardLayout({ children, userType }: Props) {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <button
-                onClick={handleConnectWallet}
-                disabled={connectingWallet}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "5px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--border-light)",
-                  background: walletAddress
-                    ? "var(--bg-card)"
-                    : "var(--accent-green-bg)",
-                  fontSize: "12px",
-                  color: walletAddress
-                    ? "var(--text-secondary)"
-                    : "var(--accent-green)",
-                  cursor: connectingWallet ? "not-allowed" : "pointer",
-                  opacity: connectingWallet ? 0.7 : 1,
-                }}
-              >
-                <WalletIcon style={{ width: "13px", height: "13px" }} />
-                <span>
-                  {connectingWallet
-                    ? "Connecting..."
-                    : walletAddress
-                      ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
-                      : "Connect Wallet"}
-                </span>
-              </button>
+              <ConnectButton
+                showBalance={false}
+                accountStatus="address"
+                chainStatus="icon"
+              />
               <div
                 style={{
                   width: "30px",

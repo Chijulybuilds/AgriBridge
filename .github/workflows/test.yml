@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  check:
-    name: Foundry project
+  contracts:
+    name: Contracts (Foundry)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,11 +25,150 @@ jobs:
       - name: Show Forge version
         run: forge --version
 
-      - name: Run Forge fmt
+      - name: Check formatting
         run: forge fmt --check
 
-      - name: Run Forge build
+      - name: Build
         run: forge build --sizes
 
-      - name: Run Forge tests
+      # Unit, fuzz and integration suites all run on a local EVM, so no RPC
+      # endpoint or fork URL is needed.
+      - name: Test
         run: forge test -vvv
+
+  backend:
+    name: Backend (TypeScript)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  frontend:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      # ABIs are generated from build artifacts rather than committed, so the
+      # contracts must be compiled before the frontend can typecheck.
+      - name: Build contracts and generate ABIs
+        run: |
+          forge build
+          node scripts/generate-abis.mjs
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  e2e:
+    name: End-to-end (Playwright)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Build contracts and generate ABIs
+        run: |
+          forge build
+          node scripts/generate-abis.mjs
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # A local chain plus the backend's in-memory database means the suite
+      # needs no Supabase project, no RPC provider and no funded key.
+      - name: Start anvil
+        run: anvil --silent &
+
+      - name: Start backend
+        run: npm run dev --prefix backend &
+        env:
+          PORT: 4000
+          NODE_ENV: development
+          USE_MOCK_DB: "true"
+          JWT_SECRET: ci_only_secret_at_least_32_characters_long
+          APP_DOMAIN: 127.0.0.1:3100
+          APP_URI: http://127.0.0.1:3100
+          RPC_URL: http://127.0.0.1:8545
+          CHAIN_ID: 31337
+          VERIFIER_PRIVATE_KEY: "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+
+      - name: Wait for backend
+        run: npx wait-on http://127.0.0.1:4000/health --timeout 60000
+
+      - name: Run Playwright
+        run: npm run test:e2e
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:4000
+          NEXT_PUBLIC_CHAIN_ID: "31337"
+          NEXT_PUBLIC_RPC_URL: http://127.0.0.1:8545
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
