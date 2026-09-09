@@ -288,7 +288,7 @@ export function useMyCommodities() {
           | undefined;
         if (!value) return null;
 
-        return {
+        const commodity: OnChainCommodity = {
           id: commodityIds[index],
           farmer: value.farmer,
           status: statusFromIndex(Number(value.status)),
@@ -297,7 +297,8 @@ export function useMyCommodities() {
           quantity: value.quantity,
           harvestDate: Number(value.harvestDate),
           storageEndDate: Number(value.storageEndDate),
-        } satisfies OnChainCommodity;
+        };
+        return commodity;
       })
       .filter((c): c is OnChainCommodity => c !== null);
   }, [records, commodityIds]);
@@ -402,7 +403,7 @@ export function useMyLoans() {
         const health = data[index * 2 + 1]?.result as bigint | undefined;
         if (!details) return null;
 
-        return {
+        const loan: Loan = {
           id,
           farmer: details[0],
           principal: details[1],
@@ -410,7 +411,8 @@ export function useMyLoans() {
           status: Number(details[3]),
           totalDebt: details[4],
           healthFactor: health,
-        } satisfies Loan;
+        };
+        return loan;
       })
       .filter((l): l is Loan => l !== null);
   }, [data, loanIds]);
