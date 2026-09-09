@@ -272,4 +272,120 @@ contract CommodityPriceOracleTest is Test {
         (uint256 price,) = oracle.getPrice(ICommodityPriceOracle.CommodityType.Cocoa);
         assertEq(price, VALID_PRICE);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    COMMODITY-ID KEYED COLLATERAL VIEWS
+    //////////////////////////////////////////////////////////////*/
+
+    uint256 private constant COCOA_ID = 1;
+    uint128 private constant COCOA_PRICE = 650 * 10 ** 6; // $6.50/kg, 8 decimals
+
+    /// @dev Wires a registry stub that reports commodity `COCOA_ID` as Cocoa, and prices Cocoa.
+    function _setUpCollateralValuation() private returns (MockRegistry registry) {
+        registry = new MockRegistry(uint8(ICommodityPriceOracle.CommodityType.Cocoa));
+
+        vm.prank(admin);
+        oracle.setCommodityRegistry(address(registry));
+
+        vm.prank(priceUpdater);
+        oracle.setPrice(ICommodityPriceOracle.CommodityType.Cocoa, COCOA_PRICE);
+    }
+
+    /**
+     * @notice The decimal contract LendingPool depends on: an 8-decimal price and an 18-decimal
+     *         quantity must produce a 6-decimal USD value.
+     * @dev 1,000 kg of cocoa at $6.50/kg is $6,500.00, which in USDC's 6 decimals is 6_500_000_000.
+     *      Getting this wrong by any power of ten silently mis-prices every loan.
+     */
+    function test_GetCollateralValue_ReturnsSixDecimalUsd() public {
+        _setUpCollateralValuation();
+
+        uint256 quantity = 1000e18; // 1,000 kg, 18 decimals
+        uint256 value = oracle.getCollateralValue(COCOA_ID, quantity);
+
+        assertEq(value, 6_500_000_000, "1000kg cocoa at $6.50/kg should be $6,500 in 6-decimal USD");
+    }
+
+    function test_GetCollateralValue_ScalesLinearlyWithQuantity() public {
+        _setUpCollateralValuation();
+
+        uint256 single = oracle.getCollateralValue(COCOA_ID, 1e18);
+        uint256 double = oracle.getCollateralValue(COCOA_ID, 2e18);
+
+        assertEq(single, 6_500_000, "1kg cocoa at $6.50/kg should be $6.50");
+        assertEq(double, single * 2);
+    }
+
+    function test_GetCommodityPrice_ReturnsFeedPriceForResolvedType() public {
+        _setUpCollateralValuation();
+
+        assertEq(oracle.getCommodityPrice(COCOA_ID), COCOA_PRICE);
+    }
+
+    /**
+     * @notice A stale feed must not be borrowable against.
+     */
+    function test_GetCollateralValue_RevertsOnStalePrice() public {
+        _setUpCollateralValuation();
+
+        vm.warp(block.timestamp + HEARTBEAT + 1);
+
+        vm.expectRevert(CommodityPriceOracle.CommodityPriceOracle__PriceStale.selector);
+        oracle.getCollateralValue(COCOA_ID, 1000e18);
+    }
+
+    function test_GetCollateralValue_RevertsWhenFeedInactive() public {
+        MockRegistry registry = new MockRegistry(uint8(ICommodityPriceOracle.CommodityType.Yam));
+
+        vm.prank(admin);
+        oracle.setCommodityRegistry(address(registry));
+
+        // Yam has never been priced, so its feed is inactive.
+        vm.expectRevert(CommodityPriceOracle.CommodityPriceOracle__PriceFeedInactive.selector);
+        oracle.getCollateralValue(COCOA_ID, 1000e18);
+    }
+
+    function test_GetCollateralValue_RevertsWhenRegistryNotSet() public {
+        vm.prank(priceUpdater);
+        oracle.setPrice(ICommodityPriceOracle.CommodityType.Cocoa, COCOA_PRICE);
+
+        vm.expectRevert(CommodityPriceOracle.CommodityPriceOracle__RegistryNotSet.selector);
+        oracle.getCollateralValue(COCOA_ID, 1000e18);
+    }
+
+    function test_SetCommodityRegistry_AccessControlAndValidation() public {
+        MockRegistry registry = new MockRegistry(uint8(ICommodityPriceOracle.CommodityType.Cocoa));
+
+        vm.prank(stranger);
+        vm.expectRevert();
+        oracle.setCommodityRegistry(address(registry));
+
+        vm.prank(admin);
+        vm.expectRevert(CommodityPriceOracle.CommodityPriceOracle__InvalidAddress.selector);
+        oracle.setCommodityRegistry(address(0));
+
+        vm.prank(admin);
+        oracle.setCommodityRegistry(address(registry));
+        assertEq(address(oracle.commodityRegistry()), address(registry));
+    }
+}
+
+/**
+ * @notice Minimal CommodityRegistry stand-in returning a fixed commodity type.
+ * @dev Matches the tuple layout of `CommodityRegistry.getCommodity`.
+ */
+contract MockRegistry {
+    uint8 private immutable i_commodityType;
+
+    constructor(uint8 _commodityType) {
+        i_commodityType = _commodityType;
+    }
+
+    function getCommodity(uint256)
+        external
+        view
+        returns (address, uint8, uint8, uint8, address, uint96, uint64, uint64, uint64, uint64, bytes32)
+    {
+        return (address(0xFA), 1, i_commodityType, 0, address(0), 1000e18, 0, 0, 0, 0, bytes32(0));
+    }
 }

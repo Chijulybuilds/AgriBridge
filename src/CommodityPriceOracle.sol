@@ -7,6 +7,30 @@ import {DataTypes} from "./interfaces/ICommodityRegistry.sol";
 import {ICommodityPriceOracle} from "./interfaces/ICommodityPriceOracle.sol";
 
 /**
+ * @notice Minimal view of CommodityRegistry, used to resolve a commodity id to its type.
+ * @dev Mirrors the tuple layout that `CommodityRegistry.getCommodity` ABI-encodes, matching the
+ *      declaration already used by LendingPool.
+ */
+interface ICommodityRegistryView {
+    function getCommodity(uint256 _commodityId)
+        external
+        view
+        returns (
+            address farmer,
+            uint8 status,
+            uint8 commodityType,
+            uint8 grade,
+            address verifier,
+            uint96 quantity,
+            uint64 harvestDate,
+            uint64 registeredAt,
+            uint64 storageEndDate,
+            uint64 verificationTimestamp,
+            bytes32 rejectionReason
+        );
+}
+
+/**
  * @title CommodityPriceOracle
  * @author ChijulyBuilds (AgriDeFi Protocol Team)
  * @notice Maintains robust, low-gas asset valuations across the decentralized system ecosystem.
@@ -43,6 +67,9 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     uint128 private constant MIN_PRICE_PER_UNIT_COMMODITY = 1 * 10 ** 6; // $0.01
     uint128 private constant MAX_PRICE_PER_UNIT_COMMODITY = 1_000_000 * 10 ** 8; // $1,000,000.00
 
+    /// @dev Converts an 8-decimal price times an 18-decimal quantity into a 6-decimal USD value.
+    uint256 private constant PRICE_TO_USDC_SCALING = 1e20;
+
     /*//////////////////////////////////////////////////////////////
                             IMMUTABLES
     //////////////////////////////////////////////////////////////*/
@@ -55,6 +82,9 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
 
     /// @dev Private storage mapping to prevent unchecked outside state changes. Wrapped in clean getters.
     mapping(CommodityType => PackedPriceData) private s_priceData;
+
+    /// @notice Registry used to resolve a commodity id to its commodity type. Set post-deploy by admin.
+    ICommodityRegistryView public commodityRegistry;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
@@ -74,6 +104,8 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     error CommodityPriceOracle__InvalidTimestamp();
     error CommodityPriceOracle__PriceFeedInactive();
     error CommodityPriceOracle__ArrayLengthMismatch();
+    error CommodityPriceOracle__RegistryNotSet();
+    error CommodityPriceOracle__InvalidAddress();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -138,6 +170,16 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     }
 
     /**
+     * @notice Wires the registry used to resolve commodity ids to commodity types.
+     * @dev Required before the id-keyed collateral valuation views can be used. Kept as a setter
+     *      rather than a constructor argument so the oracle can be deployed ahead of the registry.
+     */
+    function setCommodityRegistry(address _registry) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_registry == address(0)) revert CommodityPriceOracle__InvalidAddress();
+        commodityRegistry = ICommodityRegistryView(_registry);
+    }
+
+    /**
      * @notice Toggles active status configurations on specific tracking paths.
      */
     function setFeedStatus(CommodityType _commodity, bool _active) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -181,6 +223,38 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     }
 
     /*//////////////////////////////////////////////////////////////
+                    COMMODITY-ID KEYED COLLATERAL VIEWS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Fresh unit price for the commodity behind `_commodityId`, in 8 decimals.
+     * @dev LendingPool prices collateral by commodity id, while prices are stored per commodity
+     *      *type*. This resolves the id to its type through the registry, then reads the feed.
+     *      Reverts on a stale or inactive feed so a dead price can never back a loan.
+     * @param _commodityId Registry identifier of the commodity.
+     * @return pricePerUnit Price per kilogram, 8 decimals.
+     */
+    function getCommodityPrice(uint256 _commodityId) external view returns (uint256 pricePerUnit) {
+        return _freshPriceFor(_commodityId);
+    }
+
+    /**
+     * @notice USD value of `_quantity` units of the commodity behind `_commodityId`.
+     * @dev Decimal contract, which LendingPool depends on: prices carry 8 decimals and quantities
+     *      carry 18, while LendingPool compares the result directly against a USDC borrow amount.
+     *      The result is therefore scaled to USDC's 6 decimals:
+     *          value = price(1e8) * quantity(1e18) * 1e6 / (1e8 * 1e18) = price * quantity / 1e20
+     *      Worked example: 1,000 kg of cocoa at $6.50/kg returns 6_500_000_000 == $6,500.00.
+     * @param _commodityId Registry identifier of the commodity.
+     * @param _quantity Quantity in 18-decimal kilograms, matching the ERC-1155 collateral amount.
+     * @return usdValue Collateral value in 6-decimal USD.
+     */
+    function getCollateralValue(uint256 _commodityId, uint256 _quantity) external view returns (uint256 usdValue) {
+        uint256 pricePerUnit = _freshPriceFor(_commodityId);
+        return (pricePerUnit * _quantity) / PRICE_TO_USDC_SCALING;
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             ADMIN MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
@@ -195,6 +269,26 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     /*//////////////////////////////////////////////////////////////
                             INTERNAL HELPERS
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Resolves a commodity id to its type via the registry and returns its price, reverting
+     *      if the registry is unwired, or the feed is inactive or stale.
+     */
+    function _freshPriceFor(uint256 _commodityId) internal view returns (uint256) {
+        if (address(commodityRegistry) == address(0)) {
+            revert CommodityPriceOracle__RegistryNotSet();
+        }
+
+        (,, uint8 commodityType,,,,,,,,) = commodityRegistry.getCommodity(_commodityId);
+
+        PackedPriceData memory data = s_priceData[CommodityType(commodityType)];
+        if (!data.active) revert CommodityPriceOracle__PriceFeedInactive();
+        if (block.timestamp - data.updatedAt > i_heartbeat) {
+            revert CommodityPriceOracle__PriceStale();
+        }
+
+        return data.answer;
+    }
 
     /**
      * @dev Core processing node writing mutations directly to storage. Employs structural storage pointer assignments.

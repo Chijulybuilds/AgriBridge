@@ -6,6 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import {AgriShareToken} from "src/AgriShareToken.sol";
 
 /*//////////////////////////////////////////////////////////////
@@ -84,7 +85,10 @@ interface ICommodityPriceOracle {
  *      - Admin can pause/unpause and manage reserve factor
  *      - Liquidators (open) can trigger liquidations when health factor < 1.0
  */
-contract LendingPool is AccessControl, Pausable, ReentrancyGuard {
+/// @dev ERC1155Holder supplies the receiver hooks without which the pool cannot take custody of
+///      commodity collateral: `safeTransferFrom` would hit the reverting fallback and borrowing
+///      would be impossible.
+contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder {
     using SafeERC20 for IERC20;
 
     /*//////////////////////////////////////////////////////////////
@@ -578,7 +582,23 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard {
      * @dev Calculates current debt including accrued interest.
      */
     function _calculateCurrentDebt(Loan memory _loan) internal view returns (uint256) {
-        return (_loan.principal * globalBorrowIndex) / _loan.interestIndex;
+        return (_loan.principal * _projectedBorrowIndex()) / _loan.interestIndex;
+    }
+
+    /**
+     * @dev Borrow index including interest accrued since the last on-chain accrual.
+     *      `globalBorrowIndex` only advances when a state-changing call runs `_accrueGlobalInterest`.
+     *      Reading it raw in a view under-reports debt between interactions, which made
+     *      `getHealthFactor` report an underwater loan as healthy until someone happened to poke the
+     *      pool, delaying liquidations. Projecting the index keeps views honest, and matches the
+     *      stored value exactly once accrual has run in the same transaction.
+     */
+    function _projectedBorrowIndex() internal view returns (uint256) {
+        uint256 timeElapsed = block.timestamp - lastGlobalAccrualTimestamp;
+        if (timeElapsed == 0 || totalBorrowed == 0) return globalBorrowIndex;
+
+        uint256 interestFactor = (getBorrowRate() * timeElapsed) / SECONDS_PER_YEAR;
+        return globalBorrowIndex + (globalBorrowIndex * interestFactor) / INTEREST_RATE_PRECISION;
     }
 
     /**
@@ -698,6 +718,15 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard {
      */
     function unpause() external onlyAdmin {
         _unpause();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          INTERFACE SUPPORT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Both AccessControl and ERC1155Holder declare this, so the override must be explicit.
+    function supportsInterface(bytes4 interfaceId) public view override(AccessControl, ERC1155Holder) returns (bool) {
+        return AccessControl.supportsInterface(interfaceId) || ERC1155Holder.supportsInterface(interfaceId);
     }
 
     /*//////////////////////////////////////////////////////////////

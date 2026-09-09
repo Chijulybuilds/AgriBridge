@@ -31,6 +31,9 @@ contract AgriShareToken is ERC20, ERC20Permit {
     address public lendingPool;
     uint8 private immutable i_decimals;
 
+    /// @dev Deployer, and the only address permitted to perform the one-time lending pool wiring.
+    address public immutable i_owner;
+
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -65,7 +68,6 @@ contract AgriShareToken is ERC20, ERC20Permit {
         _;
     }
 
-
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
@@ -77,18 +79,30 @@ contract AgriShareToken is ERC20, ERC20Permit {
 
         // Dynamically matches underlying asset decimals configuration to prevent mathematical mismatch
         i_decimals = IERC20Metadata(_usdc).decimals();
+        i_owner = msg.sender;
     }
 
     /*//////////////////////////////////////////////////////////////
                         EXTERNAL MUTATIVE FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    // --- Setter function for the Lending pool ---
-    function setLendingPool(address _lendingPool) external  {
+    /**
+     * @notice One-time wiring of the LendingPool that is allowed to mint and burn shares.
+     * @dev Restricted to the deployer and callable exactly once. Without both guards any address
+     *      could repoint `lendingPool` at itself and mint unlimited shares against pool liquidity.
+     * @param _lendingPool Address of the deployed LendingPool.
+     */
+    function setLendingPool(address _lendingPool) external {
+        if (msg.sender != i_owner) {
+            revert AgriShareToken__MustBeTheOwner();
+        }
         if (_lendingPool == address(0)) {
             revert AgriShareToken__InvalidLendingPoolAddress();
         }
-    
+        if (lendingPool != address(0)) {
+            revert AgriShareToken__LendingPoolAlreadySet();
+        }
+
         lendingPool = _lendingPool;
     }
 

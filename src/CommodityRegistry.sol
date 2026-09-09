@@ -5,6 +5,15 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
+ * @notice Minting surface of CommodityToken, as the registry uses it.
+ * @dev Declared as a typed interface rather than an ABI-encoded low-level call so the compiler
+ *      enforces the signature and Solidity checks the target actually has code.
+ */
+interface ICommodityTokenMinter {
+    function mint(address _to, uint256 _commodityId, uint256 _amount) external;
+}
+
+/**
  * @title CommodityRegistry
  * @author ChijulyBuilds (AgriBridge Protocol Team)
  * @notice Core system database tracking tokenized agricultural commodity records and lifecycles.
@@ -445,12 +454,22 @@ contract CommodityRegistry is AccessControl, Pausable {
             revert CommodityRegistry__TokenAddressNotSet();
         }
 
-        // Call the CommodityToken contract to mint tokens
-        // The tokens are minted to the farmer, representing their collateral
-        (bool success, bytes memory data) = commodityTokenAddress.call(
-            abi.encodeWithSignature("mint(address,uint256,uint256,bytes)", _farmer, _commodityId, _quantity, "")
-        );
+        // A typed call to an address with no code reverts without data, before `try` can catch it.
+        // Check explicitly so a misconfigured token address surfaces as a clear protocol error.
+        if (commodityTokenAddress.code.length == 0) {
+            revert CommodityRegistry__ApprovalCallFailed();
+        }
 
-        if (!success) revert CommodityRegistry__ApprovalCallFailed();
+        // Mint the ERC-1155 collateral to the farmer through a typed call.
+        //
+        // This was previously a low-level `.call` encoding `mint(address,uint256,uint256,bytes)`,
+        // but CommodityToken declares `mint(address,uint256,uint256)`. The selectors did not match,
+        // so approval reverted against any real token contract, and silently "succeeded" against an
+        // address with no code. A typed call fixes both: the compiler checks the signature, and
+        // Solidity reverts if the target has no code.
+        try ICommodityTokenMinter(commodityTokenAddress).mint(_farmer, _commodityId, _quantity) {}
+        catch {
+            revert CommodityRegistry__ApprovalCallFailed();
+        }
     }
 }

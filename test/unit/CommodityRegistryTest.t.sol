@@ -22,7 +22,9 @@ contract CommodityRegistryTest is Test {
     address public pool = makeAddr("pool");
     address public farmer = makeAddr("farmer");
 
-    address public mockToken = makeAddr("mockToken");
+    /// @dev A real contract, not an EOA: the registry now performs a typed mint call, which requires
+    ///      the target to have code.
+    MockCommodityMinter public mockToken;
 
     // Constants matching typical system constraints derived from debug report branches
     uint256 public constant MIN_QUANTITY = 10e18; // Inferred system limits
@@ -37,12 +39,13 @@ contract CommodityRegistryTest is Test {
         vm.prank(admin);
         registry = new CommodityRegistry(admin);
 
+        mockToken = new MockCommodityMinter();
+
         vm.startPrank(admin);
         registry.grantRole(registry.VERIFIER_ROLE(), verifier);
         registry.grantRole(registry.POOL_ROLE(), pool);
 
-        // ADD THIS LINE: Give it a mock contract address so it isn't address(0)
-        registry.setCommodityTokenAddress(mockToken);
+        registry.setCommodityTokenAddress(address(mockToken));
 
         vm.stopPrank();
     }
@@ -55,8 +58,8 @@ contract CommodityRegistryTest is Test {
         vm.expectRevert(CommodityRegistry.CommodityRegistry__InvalidAddress.selector);
         registry.setCommodityTokenAddress(address(0));
 
-        registry.setCommodityTokenAddress(mockToken);
-        assertEq(registry.commodityTokenAddress(), mockToken);
+        registry.setCommodityTokenAddress(address(mockToken));
+        assertEq(registry.commodityTokenAddress(), address(mockToken));
         vm.stopPrank();
     }
 
@@ -118,19 +121,44 @@ contract CommodityRegistryTest is Test {
         vm.stopPrank();
     }
 
-    function test_ApproveCommodity_Success_DueToZeroAddressNoCode() public {
+    /**
+     * @notice Approval mints through the token contract and marks the commodity Verified.
+     */
+    function test_ApproveCommodity_MintsAndMarksVerified() public {
         vm.startPrank(farmer);
         uint256 id = registry.registerCommodity(
             CommodityRegistry.CommodityType.Cocoa, 100e18, CommodityRegistry.Grade.A, uint64(block.timestamp), 30
         );
         vm.stopPrank();
 
-        // Due to inverted logic check, commodityTokenAddress must be address(0) to pass check.
-        // EVM low-level calls to address(0) return success automatically.
         vm.prank(verifier);
         registry.approveCommodity(id);
 
         assertEq(uint256(registry.getCommodityStatus(id)), uint256(CommodityRegistry.CommodityStatus.Verified));
+        assertEq(mockToken.mintedTo(id), farmer, "collateral should be minted to the farmer");
+        assertEq(mockToken.mintedAmount(id), 100e18);
+    }
+
+    /**
+     * @notice Regression: approval must fail loudly if the token address holds no code.
+     * @dev Approval used to be a raw `.call`, which returns success against a codeless address. A
+     *      misconfigured token address therefore marked commodities Verified while minting nothing,
+     *      producing collateral records with no backing tokens. The typed call now reverts instead.
+     */
+    function test_ApproveCommodity_RevertsWhenTokenAddressHasNoCode() public {
+        vm.prank(admin);
+        registry.setCommodityTokenAddress(makeAddr("eoaNotAContract"));
+
+        vm.prank(farmer);
+        uint256 id = registry.registerCommodity(
+            CommodityRegistry.CommodityType.Cocoa, 100e18, CommodityRegistry.Grade.A, uint64(block.timestamp), 30
+        );
+
+        vm.prank(verifier);
+        vm.expectRevert(CommodityRegistry.CommodityRegistry__ApprovalCallFailed.selector);
+        registry.approveCommodity(id);
+
+        assertEq(uint256(registry.getCommodityStatus(id)), uint256(CommodityRegistry.CommodityStatus.Pending));
     }
 
     function test_ApproveCommodity_InvalidStatusTransition() public {
@@ -300,5 +328,19 @@ contract CommodityRegistryTest is Test {
 contract ExecutionReverter {
     fallback() external payable {
         revert("Forced Mock Failure");
+    }
+}
+
+/**
+ * @notice Minimal CommodityToken stand-in recording what the registry asked it to mint.
+ * @dev Must expose the exact `mint(address,uint256,uint256)` signature the registry calls.
+ */
+contract MockCommodityMinter {
+    mapping(uint256 => address) public mintedTo;
+    mapping(uint256 => uint256) public mintedAmount;
+
+    function mint(address _to, uint256 _commodityId, uint256 _amount) external {
+        mintedTo[_commodityId] = _to;
+        mintedAmount[_commodityId] = _amount;
     }
 }

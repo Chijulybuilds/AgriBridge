@@ -61,8 +61,13 @@ contract AgriShareTokenTest is Test {
         // Deploy dynamic underlying metadata asset instance
         mockUsdc = new MockUSDC("Mock USDC", "USDC", TOKEN_DECIMALS);
 
-        // Deploy the main target contract under investigation
+        // Deploy the main target contract under investigation. This test contract is therefore the
+        // owner, and is the only address permitted to perform the one-time lending pool wiring.
         shareToken = new AgriShareToken(address(mockUsdc), "AgriDeFi LP Receipt Token", "agLP");
+
+        // Wire the pool that is allowed to mint and burn shares. Without this every mint and burn
+        // reverts with NotLendingPool, since `lendingPool` defaults to address(0).
+        shareToken.setLendingPool(lendingPool);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -78,17 +83,65 @@ contract AgriShareTokenTest is Test {
     }
 
     /**
-     * @notice Validates that deploying with a zero address for either LendingPool or USDC triggers standard safety reverts.
-     * @dev Targets Branch (branch: 3, path: 0) (location: lines 73..76, bytes: 3021..3085)
+     * @notice Deploying against a zero-address underlying asset must revert.
+     * @dev The constructor only validates `_usdc`; the lending pool is wired separately afterwards,
+     *      so a valid-USDC deployment is expected to succeed rather than revert.
      */
     function test_ConstructorRejectsZeroAddresses() public {
-        // Case A: _lendingPool is address(0)
-        vm.expectRevert(AgriShareToken.AgriShareToken__InvalidAddress.selector);
-        new AgriShareToken(address(mockUsdc), "Test", "TST");
-
-        // Case B: _usdc is address(0)
         vm.expectRevert(AgriShareToken.AgriShareToken__InvalidAddress.selector);
         new AgriShareToken(address(0), "Test", "TST");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                     LENDING POOL WIRING ACCESS CONTROL
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice The owner can wire the pool exactly once, and the address sticks.
+     */
+    function test_SetLendingPool_SetsAddressForOwner() public {
+        AgriShareToken fresh = new AgriShareToken(address(mockUsdc), "Test", "TST");
+        assertEq(fresh.lendingPool(), address(0));
+
+        fresh.setLendingPool(lendingPool);
+
+        assertEq(fresh.lendingPool(), lendingPool);
+        assertEq(fresh.i_owner(), address(this));
+    }
+
+    /**
+     * @notice Regression: a non-owner must not be able to wire the pool.
+     * @dev Previously `setLendingPool` had no access control, so any address could repoint it at a
+     *      contract it controlled and mint unlimited shares against pool liquidity.
+     */
+    function test_SetLendingPool_RevertsForNonOwner() public {
+        AgriShareToken fresh = new AgriShareToken(address(mockUsdc), "Test", "TST");
+
+        vm.prank(maliciousUser);
+        vm.expectRevert(AgriShareToken.AgriShareToken__MustBeTheOwner.selector);
+        fresh.setLendingPool(maliciousUser);
+
+        assertEq(fresh.lendingPool(), address(0));
+    }
+
+    /**
+     * @notice Regression: wiring is one-shot, so even the owner cannot repoint it after deployment.
+     */
+    function test_SetLendingPool_RevertsWhenAlreadySet() public {
+        vm.expectRevert(AgriShareToken.AgriShareToken__LendingPoolAlreadySet.selector);
+        shareToken.setLendingPool(maliciousUser);
+
+        assertEq(shareToken.lendingPool(), lendingPool);
+    }
+
+    /**
+     * @notice The pool address itself must be non-zero.
+     */
+    function test_SetLendingPool_RevertsOnZeroAddress() public {
+        AgriShareToken fresh = new AgriShareToken(address(mockUsdc), "Test", "TST");
+
+        vm.expectRevert(AgriShareToken.AgriShareToken__InvalidLendingPoolAddress.selector);
+        fresh.setLendingPool(address(0));
     }
 
     /*//////////////////////////////////////////////////////////////
