@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../lib/supabase.js';
-import type { Profile } from '../types/index.js';
+import type { Profile, SignupRole } from '../types/index.js';
 
 /** Profiles are keyed by wallet address — the identity users sign in with. */
 export const profileService = {
@@ -14,11 +14,14 @@ export const profileService = {
   },
 
   /**
-   * On first sign-in, creates the profile with the default 'farmer' role.
+   * On first sign-in, creates the profile with the role the user picked on the
+   * landing page, defaulting to 'farmer'. Only 'farmer' and 'investor' can be
+   * requested; 'admin' is granted in the database out of band.
+   *
    * On return visits, only bumps last_login_at — it never overwrites an
-   * existing role (so a wallet promoted to 'admin'/'investor' stays that way).
+   * existing role, so a requested role cannot be used to escalate an account.
    */
-  async upsertOnLogin(wallet: string): Promise<Profile> {
+  async upsertOnLogin(wallet: string, requestedRole?: SignupRole): Promise<Profile> {
     const address = wallet.toLowerCase();
     const existing = await this.getByWallet(address);
 
@@ -35,7 +38,11 @@ export const profileService = {
 
     const { data, error } = await supabaseAdmin
       .from('profiles')
-      .insert({ wallet_address: address, role: 'farmer', last_login_at: new Date().toISOString() })
+      .insert({
+        wallet_address: address,
+        role: requestedRole ?? 'farmer',
+        last_login_at: new Date().toISOString(),
+      })
       .select()
       .single();
     if (error) throw error;

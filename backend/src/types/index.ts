@@ -42,6 +42,15 @@ export const GRADE_ORDER: Grade[] = [Grade.A, Grade.B, Grade.C];
 export type UserRole = 'farmer' | 'investor' | 'admin';
 
 /**
+ * Roles a user may choose for themselves at first sign-in.
+ * 'admin' is deliberately excluded: it is granted out of band in the database,
+ * never self-selected, since it gates the on-chain verifier queue.
+ */
+export type SignupRole = Extract<UserRole, 'farmer' | 'investor'>;
+
+export const SIGNUP_ROLES: SignupRole[] = ['farmer', 'investor'];
+
+/**
  * A user profile, keyed by the wallet address they signed in with.
  * id/email are optional for backward-compatibility with frontend expectations.
  */

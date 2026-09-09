@@ -189,9 +189,15 @@ const mockCommodities = new Map<string, any>([
   ]
 ]);
 
-const isMock =
-  env.SUPABASE_URL.includes('YOUR_PROJECT_REF') ||
-  env.SUPABASE_SERVICE_ROLE_KEY.includes('your-service-role-secret-key');
+/**
+ * Mock mode is opt-in via USE_MOCK_DB, never inferred.
+ *
+ * This used to switch on whenever the Supabase URL or key looked like a
+ * placeholder, which meant a misconfigured deployment quietly served in-memory
+ * fixtures instead of failing. Requiring an explicit flag keeps real
+ * misconfiguration loud, and env validation refuses the flag in production.
+ */
+const isMock = env.USE_MOCK_DB;
 
 class SupabaseQueryBuilderMock {
   private table: string;
@@ -373,18 +379,18 @@ const mockClient = {
 } as unknown as SupabaseClient;
 
 if (isMock) {
-  console.log('\n🔌 Supabase placeholders detected in .env. Using in-memory database mock mode.\n');
+  console.log('\n🔌 USE_MOCK_DB=true — serving an in-memory database. Not for production.\n');
 }
 
-export const supabaseAdmin: SupabaseClient = isMock ? mockClient : createClient(
-  env.SUPABASE_URL,
-  env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } },
-);
+export const supabaseAdmin: SupabaseClient = isMock
+  ? mockClient
+  : createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
 export function supabaseForUser(accessToken: string): SupabaseClient {
   if (isMock) return mockClient;
-  return createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+  return createClient(env.SUPABASE_URL!, env.SUPABASE_ANON_KEY!, {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
     auth: { autoRefreshToken: false, persistSession: false },
   });

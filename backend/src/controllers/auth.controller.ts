@@ -21,10 +21,15 @@ export const authController = {
   /** POST /api/account/wallet/auth — { wallet, signature } → { session: { access_token }, profile }. */
   async verify(req: Request, res: Response, next: NextFunction) {
     try {
-      const { wallet, signature } = z
-        .object({ wallet: walletSchema, signature: z.string().min(1) })
+      const { wallet, signature, role } = z
+        .object({
+          wallet: walletSchema,
+          signature: z.string().min(1),
+          // Applied only when creating a brand-new profile; ignored otherwise.
+          role: z.enum(['farmer', 'investor']).optional(),
+        })
         .parse(req.body);
-      const { token, profile } = await authService.verify(wallet, signature);
+      const { token, profile } = await authService.verify(wallet, signature, role);
       
       res.json({
         session: { access_token: token },

@@ -6,16 +6,13 @@ import { COMMODITY_TYPE_ORDER, type CommodityType } from '../types/index.js';
  * On-chain half of the flow. This is where the backend acts as the authorized
  * VERIFIER: it calls CommodityRegistry.approveCommodity(...) to verify and mint
  * the ERC-1155 collateral token.
+ *
+ * ABIs are generated from Foundry artifacts by scripts/generate-abis.mjs rather
+ * than hand-written. Hand-written fragments are how this service ended up
+ * calling a CommodityVerifier contract that was never deployed.
  */
-const registryAbi = [
-  'function approveCommodity(uint256 _commodityId) external',
-  'function rejectCommodity(uint256 _commodityId, bytes32 _rejectionReason) external',
-];
-
-const oracleAbi = [
-  'function setPrice(uint8 commodity, uint128 newPrice) external',
-  'function getPrice(uint8 commodity) external view returns (uint256 answer, uint256 updatedAt)',
-];
+import registryAbi from '../abis/CommodityRegistry.json' with { type: 'json' };
+import oracleAbi from '../abis/CommodityPriceOracle.json' with { type: 'json' };
 
 function toChainType(t: CommodityType): number {
   return COMMODITY_TYPE_ORDER.indexOf(t);
