@@ -257,7 +257,9 @@ export function useMyCommodities() {
     query: { enabled: Boolean(address && registry) },
   });
 
-  const commodityIds = (ids as bigint[] | undefined) ?? [];
+  // Memoised so the fallback empty array keeps a stable identity across renders;
+  // otherwise every render produces a new array and defeats the memo below.
+  const commodityIds = useMemo(() => (ids as bigint[] | undefined) ?? [], [ids]);
 
   const { data: records, isLoading: recordsLoading, refetch: refetchRecords } = useReadContracts({
     contracts: registry
@@ -381,7 +383,8 @@ export function useMyLoans() {
     query: { enabled: Boolean(address && pool) },
   });
 
-  const loanIds = (ids as bigint[] | undefined) ?? [];
+  // Memoised for the same reason as commodityIds above.
+  const loanIds = useMemo(() => (ids as bigint[] | undefined) ?? [], [ids]);
 
   const { data, isLoading, refetch: refetchDetails } = useReadContracts({
     contracts: pool

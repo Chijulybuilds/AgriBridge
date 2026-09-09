@@ -332,7 +332,7 @@ function BorrowFunds() {
             <li>Your commodity is priced by the oracle at its current market rate.</li>
             <li>You may borrow up to 70% of that value.</li>
             <li>Your commodity tokens are held by the pool until you repay.</li>
-            <li>Interest accrues continuously at the pool's borrow rate.</li>
+            <li>Interest accrues continuously at the pool&apos;s borrow rate.</li>
             <li>If your health factor falls below 1.0, the loan can be liquidated.</li>
           </ol>
 
