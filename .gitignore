@@ -14,8 +14,6 @@ broadcast/
 node_modules/
 .next/
 
-
-
 # Docs
 docs/
 
@@ -23,3 +21,20 @@ docs/
 .env
 .env.*
 !.env.example
+
+# Secrets / local session state — never commit
+.session-store.json
+backend/.session-store.json
+
+# Build artifacts
+*.tsbuildinfo
+backend/dist/
+
+# Generated contract ABIs (produced by `npm run abis`)
+lib/contracts/abis/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

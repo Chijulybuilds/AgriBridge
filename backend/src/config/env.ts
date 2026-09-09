@@ -16,6 +16,10 @@ const schema = z.object({
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
+  // Custom JWT for Wallet Authentication (SIWE)
+  JWT_SECRET: z.string().default('agribridge_jwt_secret_dev_only_12345'),
+  JWT_EXPIRES_IN: z.string().default('24h'),
+
   // Chain
   RPC_URL: z.string().url(),
   CHAIN_ID: z.coerce.number(),
