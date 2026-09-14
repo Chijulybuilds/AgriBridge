@@ -14,6 +14,7 @@ export default [
       "node_modules/**",
       ".next/**",
       "out/**",
+      "forge-out/**",
       "cache/**",
       "broadcast/**",
       "backend/**",

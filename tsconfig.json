@@ -19,5 +19,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.mts", "**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "backend", "lib/openzeppelin-contracts", "lib/chainlink-evm", "e2e", "out", "cache", "broadcast"]
+  "exclude": ["node_modules", "backend", "lib/openzeppelin-contracts", "lib/chainlink-evm", "e2e", "out", "forge-out", "cache", "broadcast"]
 }

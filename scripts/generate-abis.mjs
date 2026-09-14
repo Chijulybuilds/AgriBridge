@@ -15,7 +15,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const outDir = join(root, 'out');
+const outDir = join(root, 'forge-out');
 
 /** Contracts the application talks to. */
 const CONTRACTS = [
@@ -72,7 +72,7 @@ const ERC20_ABI = [
 ];
 
 if (!existsSync(outDir)) {
-  console.error('❌ out/ not found. Run `forge build` first.');
+  console.error('❌ forge-out/ not found. Run `forge build` first.');
   process.exit(1);
 }
 

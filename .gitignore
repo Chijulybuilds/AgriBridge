@@ -1,5 +1,7 @@
 # Compiler files
 cache/
+forge-out/
+# Next.js static export target (see npm run build:static)
 out/
 broadcast/
 

@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 import { env } from '../config/env.js';
 
 // Simple in-memory tables for development fallback
@@ -325,7 +326,7 @@ class SupabaseQueryBuilderMock {
     if (this.dataToUpdate) {
       let updatedItem: any = null;
       let results = Array.from(store.values());
-      
+
       for (const filter of this.filters) {
         results = results.filter(item => {
           const itemVal = item[filter.col];
@@ -339,14 +340,14 @@ class SupabaseQueryBuilderMock {
       if (results.length > 0) {
         const matched = results[0];
         updatedItem = { ...matched, ...this.dataToUpdate, updated_at: new Date().toISOString() };
-        
+
         if (this.table === 'profiles' || this.table === 'wallet_link_nonces' || this.table === 'auth_nonces') {
           store.set(updatedItem.wallet_address.toLowerCase(), updatedItem);
         } else {
           store.set(updatedItem.id, updatedItem);
         }
       }
-      
+
       return { data: updatedItem, error: null };
     }
 
@@ -385,13 +386,15 @@ if (isMock) {
 export const supabaseAdmin: SupabaseClient = isMock
   ? mockClient
   : createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    auth: { autoRefreshToken: false, persistSession: false },
+    realtime: { transport: WebSocket },
+  });
 
 export function supabaseForUser(accessToken: string): SupabaseClient {
   if (isMock) return mockClient;
   return createClient(env.SUPABASE_URL!, env.SUPABASE_ANON_KEY!, {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
     auth: { autoRefreshToken: false, persistSession: false },
+    realtime: { transport: WebSocket },
   });
 }
