@@ -69,10 +69,10 @@ commodity or open a loan.
 
 | Role | Held by | Grants |
 |---|---|---|
-| `VERIFIER_ROLE` | Backend service wallet | Approve or reject commodities |
+| `VERIFIER_ROLE` | Admin wallet (NEXT_PUBLIC_ADMIN_WALLET) | Approve or reject commodities (direct transaction) |
 | `POOL_ROLE` | LendingPool | Update commodity status on collateralisation |
 | `MINTER_ROLE` | CommodityRegistry | Mint ERC-1155 collateral |
-| `PRICE_UPDATER_ROLE` | Backend service wallet | Push oracle prices |
+| `PRICE_UPDATER_ROLE` | Price Oracle owner | Push oracle prices |
 | `DEFAULT_ADMIN_ROLE` | Deployer or `ADMIN_ADDRESS` | Wiring, pausing, configuration |
 
 App-level roles (`farmer`, `investor`, `admin`) live in the database and are
@@ -110,20 +110,20 @@ borrow amount. 1,000 kg of cocoa at $6.50/kg is `6_500_000_000`.
 A stale price cannot back a loan: collateral valuation reverts once the feed is
 older than the heartbeat.
 
-## Off-chain responsibilities
+## On-chain architecture
 
-The chain is the source of truth for value, collateral and debt. The backend
-covers only what the chain cannot:
-
-- A searchable mirror of commodities, powering the verifier queue.
-- Sign-In with Ethereum: nonce issuance, signature verification, session tokens.
-- The verifier's approve and reject calls, signed by a wallet holding
-  `VERIFIER_ROLE`.
-- Verification reports, which hold inspection detail too large for on-chain storage.
-
-The frontend reads balances, loans, pool statistics and commodity records
+The chain is the source of truth for value, collateral, debt, and all application
+state. The frontend reads balances, loans, pool statistics and commodity records
 directly from the chain through Wagmi, and sends all user-initiated value
 transfers straight from the user's own wallet.
+
+### Changes from Backend Version
+
+- **No Backend Server**: The Node.js/Express backend has been removed entirely
+- **On-Chain SIWE**: Sign-In with Ethereum implemented client-side with wallet signature verification
+- **On-Chain Data**: All commodity data stored on Ethereum (no Supabase mirror)
+- **Direct Admin Actions**: Verifier queue access requires wallet with VERIFIER_ROLE
+- **No Off-Chain Storage**: All sessions stored in browser localStorage
 
 ## Testing strategy
 

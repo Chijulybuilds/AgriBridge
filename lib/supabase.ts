@@ -1,13 +1,17 @@
-import { createClient } from "@supabase/supabase-js";
+/**
+ * Supabase client - removed in no-backend version.
+ * 
+ * After removing the backend, we no longer need Supabase for:
+ * - Session storage (now using localStorage with signed SIWE)
+ * - Commodity mirroring (all on-chain)
+ * - User profiles (stored in localStorage)
+ */
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+// This file is kept for potential future use with a different backendless approach
+// All data is now stored on-chain and in browser localStorage
 
-export const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+export const supabase = null;
 
 export function getSupabaseClient() {
-  return supabase;
+  return null;
 }

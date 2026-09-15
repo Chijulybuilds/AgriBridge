@@ -7,7 +7,6 @@ import withAuth from "../../components/withAuth";
 import { NetworkGuard } from "../../components/NetworkGuard";
 import { TxStatus } from "../../components/TxStatus";
 import { useRegisterCommodity } from "../../hooks/useProtocol";
-import { mirrorCommodity } from "../../lib/api";
 import {
   COMMODITY_TYPES,
   GRADES,
@@ -85,7 +84,7 @@ function TokenizeCommodity() {
 
     try {
       // The farmer registers directly on-chain: the registry is the source of
-      // truth. The backend copy is a searchable mirror for the verifier queue.
+      // truth. No backend mirror is needed - all data is on-chain.
       await tx.register({
         commodityType,
         quantityKg: quantity,
@@ -93,20 +92,6 @@ function TokenizeCommodity() {
         harvestDate: harvest,
         storageDurationDays: days,
       });
-
-      // A failed mirror must not read as a failed registration, since the
-      // on-chain write has already succeeded by this point.
-      try {
-        await mirrorCommodity({
-          commodity_type: commodityType,
-          grade,
-          quantity_kg: quantity,
-          harvest_date: harvestDate,
-          storage_duration_days: days,
-        });
-      } catch (mirrorError) {
-        console.warn("Commodity registered on-chain but the backend mirror failed:", mirrorError);
-      }
 
       setDone(true);
       setTimeout(() => router.push("/farmer/commodities"), 1800);

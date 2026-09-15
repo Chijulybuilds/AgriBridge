@@ -2,6 +2,8 @@
 
 Complete setup guide for local development and deployment.
 
+**Note:** As of this update, the backend has been removed and the app is now a pure dApp with on-chain data storage. All commodity data, SIWE authentication, and verifier actions are handled on-chain.
+
 ---
 
 ## 🚀 Quick Start (Local Development)
@@ -21,7 +23,6 @@ This option requires minimal external dependencies and is perfect for UI develop
 # 1. Install dependencies
 cd /home/chijuly/STEM
 npm install
-npm ci --prefix backend
 
 # 2. In Terminal 1: Start local blockchain (Anvil)
 # This starts a local EVM chain on http://127.0.0.1:8545
@@ -40,19 +41,9 @@ make deploy-local
 # 4. Copy addresses to frontend .env
 cp .env.example .env.local
 # Edit .env.local and paste the addresses as NEXT_PUBLIC_* variables
-# Also set: NEXT_PUBLIC_API_URL=http://localhost:4000
+# Also set: NEXT_PUBLIC_ADMIN_WALLET=<your_admin_wallet_address>
 
-# 5. In Terminal 3: Start backend
-cd backend
-cp .env.example .env
-# Edit backend/.env with the same contract addresses
-# Use mock database for local development:
-# USE_MOCK_DB=true
-# VERIFIER_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 (Anvil key 1)
-npm run dev
-# Backend runs at http://localhost:4000
-
-# 6. In Terminal 4: Start frontend
+# 5. In Terminal 3: Start frontend
 cd ..
 npm run abis  # Generate ABIs from contract artifacts
 npm run dev
@@ -63,6 +54,8 @@ npm run dev
 - Open http://localhost:3000 in your browser
 - Use MetaMask to connect (switch to Localhost 8545 in MetaMask)
 - Use Anvil's test accounts (see output from `anvil` command)
+
+**Note:** Admin functionality requires signing transactions directly from a wallet that has `VERIFIER_ROLE` on the `CommodityRegistry` contract.
 
 ---
 
@@ -113,40 +106,18 @@ NEXT_PUBLIC_COMMODITY_PRICE_ORACLE_ADDRESS=0x...
 NEXT_PUBLIC_AGRI_SHARE_TOKEN_ADDRESS=0x...
 NEXT_PUBLIC_LENDING_POOL_ADDRESS=0x...
 NEXT_PUBLIC_USDC_ADDRESS=0x6d4bb60203535853ffd8352956dff549c4ba052f
-NEXT_PUBLIC_API_URL=http://localhost:4000
+
+# Wallet with admin privileges (for verifier queue access)
+NEXT_PUBLIC_ADMIN_WALLET=your_admin_wallet_address
+
 NEXT_PUBLIC_CHAIN_ID=11155111
 NEXT_PUBLIC_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_id  # Get from cloud.walletconnect.com
 ```
 
-#### Setup Backend for Sepolia
+#### Run Frontend
 
 ```bash
-cd backend
-cp .env.example .env
-
-# Edit .env:
-NODE_ENV=production
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-JWT_SECRET=$(openssl rand -hex 32)  # Generate a random secret
-APP_DOMAIN=localhost:3000  # Or your production domain
-APP_URI=http://localhost:3000
-RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
-CHAIN_ID=11155111
-VERIFIER_PRIVATE_KEY=your_verifier_wallet_private_key
-# Paste contract addresses from deployment
-```
-
-#### Run Services
-
-```bash
-# Terminal 1: Backend
-cd backend
-npm run dev
-
-# Terminal 2: Frontend
 cd ..
 npm run dev
 ```
@@ -189,32 +160,6 @@ npm run test:e2e:ui
 # Static export (for IPFS)
 NEXT_OUTPUT=export npm run build:static
 # Output in: ./out/
-```
-
-### Backend Only
-
-```bash
-# Navigate to backend
-cd backend
-
-# Install dependencies
-npm ci
-
-# Development server (auto-reload on changes)
-npm run dev
-# Runs at http://localhost:4000
-
-# Build
-npm run build
-
-# Run production build
-npm start
-
-# Type checking
-npm run typecheck
-
-# Linting
-npm run lint
 ```
 
 ### Smart Contracts
@@ -305,8 +250,8 @@ NEXT_PUBLIC_AGRI_SHARE_TOKEN_ADDRESS=0x...
 NEXT_PUBLIC_LENDING_POOL_ADDRESS=0x...
 NEXT_PUBLIC_USDC_ADDRESS=0x...
 
-# Backend API
-NEXT_PUBLIC_API_URL=http://localhost:4000
+# Wallet with admin privileges (for verifier queue access)
+NEXT_PUBLIC_ADMIN_WALLET=your_admin_wallet_address
 
 # Chain
 NEXT_PUBLIC_CHAIN_ID=31337  # or 11155111 for Sepolia
@@ -314,40 +259,6 @@ NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545  # or Alchemy URL
 
 # WalletConnect (get from cloud.walletconnect.com)
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=...
-```
-
-### Backend Environment Variables
-
-**File:** `backend/.env`
-
-```env
-# Server
-PORT=4000
-NODE_ENV=development
-
-# Database
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your_key
-SUPABASE_SERVICE_ROLE_KEY=your_key
-USE_MOCK_DB=true  # For development, false for production
-
-# Auth
-JWT_SECRET=$(openssl rand -hex 32)  # Min 32 chars
-JWT_EXPIRES_IN=24h
-APP_DOMAIN=localhost:3000
-APP_URI=http://localhost:3000
-
-# Chain
-RPC_URL=http://127.0.0.1:8545
-CHAIN_ID=31337
-VERIFIER_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-
-# Contract Addresses
-COMMODITY_REGISTRY_ADDRESS=0x...
-COMMODITY_TOKEN_ADDRESS=0x...
-COMMODITY_PRICE_ORACLE_ADDRESS=0x...
-LENDING_POOL_ADDRESS=0x...
-LIQUIDITY_SHARE_TOKEN_ADDRESS=0x...
 ```
 
 ### Contracts Environment Variables
@@ -417,15 +328,11 @@ make deploy-local  # For Anvil
 make deploy-all    # For Sepolia
 ```
 
-### Backend Connection Issues
+### Wallet with Admin Privileges Not Working
 
-```bash
-# Check backend is running
-curl http://localhost:4000/health
-
-# Check CORS headers
-curl -H "Origin: http://localhost:3000" http://localhost:4000/health -v
-```
+1. Make sure the wallet has `VERIFIER_ROLE` on the `CommodityRegistry` contract
+2. Set `NEXT_PUBLIC_ADMIN_WALLET` to the wallet address
+3. When signing in with that wallet, it will be automatically recognized as admin
 
 ### Transaction Failures
 
@@ -437,16 +344,11 @@ curl -H "Origin: http://localhost:3000" http://localhost:4000/health -v
 
 ## 📊 Monitoring & Logs
 
-### Backend Logs
+### Frontend Errors
 
-```bash
-# Enable debug logging
-DEBUG=* npm run dev
-
-# Stream logs to file
-npm run dev > backend.log 2>&1 &
-tail -f backend.log
-```
+- Open browser DevTools (F12)
+- Check Console tab for errors
+- Check Network tab for API requests
 
 ### Contract Events
 
@@ -456,12 +358,6 @@ cast logs --address 0xLENDING_POOL_ADDRESS \
   --from-block 0 \
   --rpc-url http://127.0.0.1:8545
 ```
-
-### Frontend Errors
-
-- Open browser DevTools (F12)
-- Check Console tab for errors
-- Check Network tab for API requests
 
 ---
 
@@ -473,7 +369,7 @@ cast logs --address 0xLENDING_POOL_ADDRESS \
 2. ✅ Run full test suite: `make test coverage`
 3. ✅ Deploy to Sepolia testnet first
 4. ✅ Get external security audit
-5. ✅ Load test the backend
+5. ✅ Load test the frontend
 6. ✅ Setup monitoring and alerting
 
 ### Deployment Steps
@@ -489,11 +385,8 @@ make deploy-all verify
 npm run build
 # Deploy ./out/ to IPFS, Vercel, or your host
 
-# 4. Deploy backend
-cd backend
-npm run build
-# Deploy to Cloud Run, Heroku, AWS, etc.
-npm start
+# 4. Set admin wallet
+# Update .env.local with NEXT_PUBLIC_ADMIN_WALLET set to your admin wallet
 ```
 
 ---
@@ -502,7 +395,6 @@ npm start
 
 - **Contracts:** See `README.md` and `ARCHITECTURE.md`
 - **Frontend:** See `README.md`
-- **Backend:** See `backend/README.md`
 - **Security:** See `SECURITY_REVIEW.md` (CRITICAL)
 - **Deployment:** See `script/DeployAll.s.sol`
 

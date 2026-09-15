@@ -1,15 +1,17 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { CheckCircleIcon, ClockIcon } from "@heroicons/react/24/outline";
+import { useState, useMemo } from "react";
+import { CheckCircleIcon, ClockIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import { useAccount } from "wagmi";
+import { useReadContracts, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { type Address, formatUnits } from "viem";
 
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import withAuth from "../../components/withAuth";
 import {
-  getVerifierQueue,
-  approveCommodity,
-  rejectCommodity,
-  type CommodityRecord,
-} from "../../lib/api";
+  CommodityRegistryAbi,
+  CommodityTokenAbi,
+} from "../../lib/contracts/abis";
+import { contracts, requireContract, statusFromIndex } from "../../lib/contracts/config";
+import { isAdminWallet } from "../../lib/auth";
 
 const card: React.CSSProperties = {
   background: "var(--bg-card)",
@@ -37,37 +39,105 @@ const label: React.CSSProperties = {
   marginBottom: 6,
 };
 
-/** Matches the backend's validation: 0x plus exactly 64 hex characters. */
-const REPORT_HASH_PATTERN = /^0x[a-fA-F0-9]{64}$/;
+// Helper functions
+function commodityTypeFromIndex(index: number): string {
+  return ["Cocoa", "Rice", "Maize", "Cashew", "Yam"][index] ?? "Cocoa";
+}
 
+function gradeFromIndex(index: number): string {
+  return ["A", "B", "C"][index] ?? "A";
+}
+
+/**
+ * Admin Verification Queue - On-chain version
+ * 
+ * In the no-backend version:
+ * 1. Read all pending commodities directly from the CommodityRegistry contract
+ * 2. Admin verifies/rejects by signing transactions directly
+ * 3. No off-chain database needed - all data is on-chain
+ */
 function AdminQueue() {
-  // React Query owns the fetch, so there is no effect writing state on mount.
+  const { address: walletAddress } = useAccount();
+  const { writeContractAsync, data: hash, isPending, error: writeError, reset } = useWriteContract();
   const {
-    data: queue = [],
-    isLoading: loading,
-    error: queryError,
-    refetch: fetchQueue,
-  } = useQuery({
-    queryKey: ["verifier-queue"],
-    queryFn: getVerifierQueue,
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    error: receiptError,
+  } = useWaitForTransactionReceipt({ hash });
+  
+  const registry = contracts.registry;
+  
+  // Get all pending commodities from the registry
+  const { data: commodityCountResult, isLoading: idsLoading } = useReadContracts({
+    contracts: registry ? [
+      { 
+        address: registry, 
+        abi: CommodityRegistryAbi, 
+        functionName: "commodityCount" as const,
+        args: [] as const,
+      },
+    ] : [],
+    query: { enabled: Boolean(registry) },
+  });
+  
+  const totalCommodities = commodityCountResult?.[0]?.result as bigint | undefined;
+  
+  // Fetch commodity details
+  const { data: commodities, isLoading: commoditiesLoading } = useReadContracts({
+    contracts: registry && totalCommodities && totalCommodities > 0n ? Array.from({ length: Number(totalCommodities) }, (_, i) => ({
+      address: registry,
+      abi: CommodityRegistryAbi,
+      functionName: "getCommodity" as const,
+      args: [BigInt(i)] as const,
+    })) : [],
+    query: { enabled: Boolean(registry && totalCommodities && totalCommodities > 0n) },
   });
 
-  const error =
-    queryError instanceof Error ? queryError.message : queryError ? "Failed to load the queue" : null;
+  // Only show pending commodities
+  const pendingCommodities = useMemo(() => {
+    if (!commodities) return [];
+    return commodities
+      .map((entry, index) => {
+        const value = entry.result as any;
+        if (!value) return null;
+        // Only include pending items
+        if (Number(value.status) !== 0) return null; // 0 = Pending
+        
+        return {
+          id: index.toString(),
+          on_chain_id: index,
+          farmer_wallet: value.farmer,
+          commodity_type: commodityTypeFromIndex(Number(value.commodityType)),
+          grade: gradeFromIndex(Number(value.grade)),
+          quantity_kg: Number(formatUnits(value.quantity, 18)),
+          harvest_date: new Date(Number(value.harvestDate) * 1000).toISOString().split("T")[0],
+          status: statusFromIndex(Number(value.status)),
+        };
+      })
+      .filter((c): c is any => c !== null);
+  }, [commodities]);
 
-  const [active, setActive] = useState<CommodityRecord | null>(null);
+  // Admin wallet check - only admin can verify
+  const isAdmin = walletAddress && isAdminWallet(walletAddress);
+
+  const [active, setActive] = useState<any | null>(null);
   const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
   const [inspectionRef, setInspectionRef] = useState("");
   const [warehouseRef, setWarehouseRef] = useState("");
   const [reportHash, setReportHash] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  function openAction(item: CommodityRecord, type: "approve" | "reject") {
-    setActive(item);
+  const error = receiptError instanceof Error ? receiptError.message : receiptError ? "Transaction failed" : null;
+
+  function openAction(id: string, type: "approve" | "reject") {
+    const commodity = pendingCommodities.find(c => c.id === id);
+    if (!commodity) return;
+    
+    setActive(commodity);
     setActionType(type);
-    setMessage(null);
+    setActionMessage(null);
     setInspectionRef("");
     setWarehouseRef("");
     setReportHash("");
@@ -77,74 +147,72 @@ function AdminQueue() {
   function closeAction() {
     setActive(null);
     setActionType(null);
-    setMessage(null);
+    setActionMessage(null);
+    reset();
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!active || !actionType) return;
+    if (!active || !actionType || !registry) return;
 
-    // The on-chain id comes from the commodity record itself. It is never
-    // generated here: approving a fabricated id would either revert or, worse,
-    // approve an unrelated commodity belonging to someone else.
-    if (active.on_chain_id === null || active.on_chain_id === undefined) {
-      setMessage({
-        type: "error",
-        text: "This record has no on-chain id yet. The farmer's registration transaction may still be pending.",
-      });
-      return;
-    }
-
-    if (actionType === "approve" && !REPORT_HASH_PATTERN.test(reportHash)) {
-      setMessage({
+    if (actionType === "approve" && !/^0x[a-fA-F0-9]{64}$/.test(reportHash)) {
+      setActionMessage({
         type: "error",
         text: "The report hash must be 0x followed by 64 hexadecimal characters.",
       });
       return;
     }
     if (actionType === "approve" && (!inspectionRef.trim() || !warehouseRef.trim())) {
-      setMessage({ type: "error", text: "Inspection and warehouse references are required." });
+      setActionMessage({ type: "error", text: "Inspection and warehouse references are required." });
       return;
     }
     if (actionType === "reject" && !rejectReason.trim()) {
-      setMessage({ type: "error", text: "Give a reason for the rejection." });
+      setActionMessage({ type: "error", text: "Give a reason for the rejection." });
       return;
     }
 
     setSubmitting(true);
-    setMessage(null);
+    setActionMessage(null);
 
     try {
       if (actionType === "approve") {
-        const result = await approveCommodity(active.id, {
-          on_chain_id: active.on_chain_id,
-          inspection_reference: inspectionRef.trim(),
-          warehouse_reference: warehouseRef.trim(),
-          report_hash: reportHash,
+        // Call approveCommodity on the registry contract
+        const onChainId = BigInt(active.on_chain_id);
+        const txHash = await writeContractAsync({
+          address: registry,
+          abi: CommodityRegistryAbi,
+          functionName: "approveCommodity",
+          args: [onChainId],
         });
-        setMessage({
+        
+        setActionMessage({
           type: "success",
-          text: result?.tx_hash
-            ? `Approved on-chain. Transaction ${String(result.tx_hash).slice(0, 12)}…`
-            : "Approved. Collateral tokens have been minted to the farmer.",
+          text: `Transaction submitted: ${String(txHash).slice(0, 12)}...`,
         });
       } else {
-        const result = await rejectCommodity(active.id, {
-          on_chain_id: active.on_chain_id,
-          reason: rejectReason.trim(),
+        // Call rejectCommodity on the registry contract
+        const onChainId = BigInt(active.on_chain_id);
+        const reasonBytes32 = hexEncodeString(rejectReason);
+        
+        const txHash = await writeContractAsync({
+          address: registry,
+          abi: CommodityRegistryAbi,
+          functionName: "rejectCommodity",
+          args: [onChainId, reasonBytes32],
         });
-        setMessage({
+        
+        setActionMessage({
           type: "success",
-          text: result?.tx_hash
-            ? `Rejected on-chain. Transaction ${String(result.tx_hash).slice(0, 12)}…`
-            : "Rejected and recorded on-chain.",
+          text: `Transaction submitted: ${String(txHash).slice(0, 12)}...`,
         });
       }
-
-      await fetchQueue();
-      setTimeout(closeAction, 1500);
+      
+      // Reload the queue after a delay
+      setTimeout(() => {
+        closeAction();
+      }, 2000);
     } catch (err) {
-      setMessage({
+      setActionMessage({
         type: "error",
         text: err instanceof Error ? err.message : "The action failed.",
       });
@@ -152,6 +220,44 @@ function AdminQueue() {
       setSubmitting(false);
     }
   }
+
+  // Helper to encode string as bytes32
+  function hexEncodeString(str: string): `0x${string}` {
+    try {
+      const truncated = str.substring(0, 31);
+      // Simple hex encoding for the string
+      let hex = "0x";
+      for (let i = 0; i < truncated.length; i++) {
+        hex += truncated.charCodeAt(i).toString(16).padStart(2, "0");
+      }
+      // Pad to 32 bytes (64 hex chars after 0x)
+      while (hex.length < 66) {
+        hex += "00";
+      }
+      return hex as `0x${string}`;
+    } catch {
+      return "0x" + "00".repeat(32) as `0x${string}`;
+    }
+  }
+
+  // Check if admin wallet is configured
+  if (!isAdmin) {
+    return (
+      <DashboardLayout userType="admin">
+        <div style={card}>
+          <XCircleIcon style={{ width: 48, height: 48, color: "var(--accent-red)", margin: "0 auto 16px" }} />
+          <p style={{ textAlign: "center", fontSize: 14, color: "var(--text-primary)" }}>
+            This wallet does not have admin privileges.
+          </p>
+          <p style={{ textAlign: "center", fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
+            Only the configured admin wallet can access the verification queue.
+          </p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const loading = idsLoading || commoditiesLoading;
 
   return (
     <DashboardLayout userType="admin">
@@ -192,7 +298,7 @@ function AdminQueue() {
       <div style={card}>
         {loading ? (
           <p style={{ color: "var(--text-secondary)", fontSize: 13 }}>Loading the queue…</p>
-        ) : queue.length === 0 ? (
+        ) : pendingCommodities.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px 0" }} data-testid="queue-empty">
             <CheckCircleIcon
               style={{ width: 44, height: 44, color: "var(--accent-green)", margin: "0 auto 12px" }}
@@ -223,23 +329,23 @@ function AdminQueue() {
                 </tr>
               </thead>
               <tbody>
-                {queue.map((item) => (
+                {pendingCommodities.map((commodity) => (
                   <tr
-                    key={item.id}
+                    key={commodity.id}
                     style={{ borderBottom: "1px solid var(--border)", color: "var(--text-primary)" }}
                   >
                     <td style={{ padding: "12px 8px", fontFamily: "monospace" }}>
-                      {item.farmer_wallet.slice(0, 8)}…{item.farmer_wallet.slice(-6)}
+                      {commodity.farmer_wallet.slice(0, 8)}…{commodity.farmer_wallet.slice(-6)}
                     </td>
                     <td style={{ padding: "12px 8px", fontFamily: "monospace" }}>
-                      {item.on_chain_id ?? "—"}
+                      {commodity.on_chain_id}
                     </td>
-                    <td style={{ padding: "12px 8px", fontWeight: 600 }}>{item.commodity_type}</td>
+                    <td style={{ padding: "12px 8px", fontWeight: 600 }}>{commodity.commodity_type}</td>
                     <td style={{ padding: "12px 8px" }}>
-                      {Number(item.quantity_kg).toLocaleString()} kg
+                      {commodity.quantity_kg.toLocaleString()} kg
                     </td>
-                    <td style={{ padding: "12px 8px" }}>{item.grade}</td>
-                    <td style={{ padding: "12px 8px" }}>{item.harvest_date}</td>
+                    <td style={{ padding: "12px 8px" }}>{commodity.grade}</td>
+                    <td style={{ padding: "12px 8px" }}>{commodity.harvest_date}</td>
                     <td style={{ padding: "12px 8px" }}>
                       <span
                         style={{
@@ -255,14 +361,14 @@ function AdminQueue() {
                         }}
                       >
                         <ClockIcon style={{ width: 12, height: 12 }} />
-                        {item.status}
+                        {commodity.status}
                       </span>
                     </td>
                     <td style={{ padding: "12px 8px", textAlign: "right" }}>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                         <button
-                          onClick={() => openAction(item, "approve")}
-                          data-testid={`approve-${item.id}`}
+                          onClick={() => openAction(commodity.id, "approve")}
+                          data-testid={`approve-${commodity.id}`}
                           style={{
                             padding: "6px 12px",
                             borderRadius: 8,
@@ -277,8 +383,8 @@ function AdminQueue() {
                           Approve
                         </button>
                         <button
-                          onClick={() => openAction(item, "reject")}
-                          data-testid={`reject-${item.id}`}
+                          onClick={() => openAction(commodity.id, "reject")}
+                          data-testid={`reject-${commodity.id}`}
                           style={{
                             padding: "6px 12px",
                             borderRadius: 8,
@@ -385,19 +491,19 @@ function AdminQueue() {
               </div>
             )}
 
-            {message && (
+            {actionMessage && (
               <p
                 data-testid="action-message"
                 style={{
-                  background: message.type === "success" ? "#e8f5e9" : "#fdecea",
-                  color: message.type === "success" ? "#1b5e20" : "#b71c1c",
+                  background: actionMessage.type === "success" ? "#e8f5e9" : "#fdecea",
+                  color: actionMessage.type === "success" ? "#1b5e20" : "#b71c1c",
                   padding: "10px 12px",
                   borderRadius: 8,
                   fontSize: 13,
                   marginBottom: 12,
                 }}
               >
-                {message.text}
+                {actionMessage.text}
               </p>
             )}
 

@@ -2,7 +2,7 @@
 
 .PHONY: dependency build test test-fork coverage gas fmt \
         anvil deploy-all deploy-local verify \
-        backend-dev frontend-dev e2e abis
+        frontend-dev e2e abis
 
 ##@ Contracts
 
@@ -43,8 +43,9 @@ deploy-local:
 	  --private-key ${ANVIL_PRIVATE_KEY} \
 	  --broadcast
 
-# Deploy and fully wire the protocol on Sepolia. This is the supported deploy path:
-# it performs the cross-contract wiring the older per-contract scripts never did.
+# Deploy the whole protocol on Sepolia. This is the supported path when you
+# already have deployed contract addresses and just need to re-deploy.
+# Copies addresses from .env file.
 deploy-all:
 	forge script script/DeployAll.s.sol:DeployAll \
 	  --rpc-url ${SEPOLIA_URL} \
@@ -62,12 +63,9 @@ verify:
 
 ##@ Application
 
-# Regenerate frontend/backend ABIs from Foundry artifacts.
+# Regenerate frontend ABIs from Foundry artifacts.
 abis:
 	forge build && npm run abis
-
-backend-dev:
-	cd backend && npm run dev
 
 frontend-dev:
 	npm run dev

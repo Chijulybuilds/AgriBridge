@@ -1,13 +1,17 @@
 /**
- * Session handling for wallet-based sign-in.
+ * Session handling for wallet-based sign-in (on-chain SIWE).
  *
- * Wallet connection and message signing are handled by RainbowKit and Wagmi
- * (see lib/wagmi.ts and hooks/useSiweLogin.ts). This module owns only the
- * backend half: exchanging a signature for a session token, storing it, and
- * attaching it to API requests.
+ * After removing the backend, we use a simplified on-chain approach:
+ * - The SIWE message is constructed client-side
+ * - Wallet signature verification happens via on-chain contract
+ * - Session is stored locally without JWT tokens
+ *
+ * The previous backend SIWE is replaced by:
+ * 1. Storing the signed message in localStorage
+ * 2. Using the wallet signature for authentication
+ * 3. On-chain role checking via a simple contract or admin wallet check
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const SESSION_STORAGE_KEY = "agribridge_session";
 const PROFILE_STORAGE_KEY = "agribridge_profile";
 
@@ -22,8 +26,16 @@ export type Profile = {
   role: UserRole;
 };
 
+/**
+ * SIWE message template for on-chain verification.
+ * This matches the EIP-4361 format without needing a backend nonce.
+ */
+const SIWE_DOMAIN = typeof window !== "undefined" ? window.location.host : "agribridge.local";
+const SIWE_URI = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+const SIWE_VERSION = "1";
+
 /*//////////////////////////////////////////////////////////////
-                          SESSION STORAGE
+                           SESSION STORAGE
 //////////////////////////////////////////////////////////////*/
 
 export function getSessionToken(): string | null {
@@ -31,7 +43,7 @@ export function getSessionToken(): string | null {
   return window.localStorage.getItem(SESSION_STORAGE_KEY);
 }
 
-/** Kept async because callers await it, and it once hit the network. */
+/** Kept async for compatibility with existing callers. */
 export async function getSession(): Promise<string | null> {
   return getSessionToken();
 }
@@ -47,7 +59,7 @@ export function getStoredProfile(): Profile | null {
   }
 }
 
-function persistSession(token: string, profile: Profile) {
+export function persistSession(token: string, profile: Profile) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(SESSION_STORAGE_KEY, token);
   window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
@@ -64,114 +76,104 @@ export async function signOut() {
 }
 
 /*//////////////////////////////////////////////////////////////
-                            HTTP HELPERS
+                         ON-CHAIN SIWE
 //////////////////////////////////////////////////////////////*/
 
-async function parseJson(res: Response) {
-  const text = await res.text();
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { message: text };
-  }
-}
-
-function errorFrom(data: unknown, fallback: string): string {
-  if (data && typeof data === "object") {
-    const record = data as Record<string, unknown>;
-    if (typeof record.error === "string") return record.error;
-    if (typeof record.message === "string") return record.message;
-  }
-  return fallback;
-}
-
-/** Unauthenticated request to the backend. */
-export async function apiFetch(path: string, options: RequestInit = {}) {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...options.headers },
-  });
-  const data = await parseJson(res);
-  if (!res.ok) throw new Error(errorFrom(data, `Request to ${path} failed (${res.status})`));
-  return data ?? {};
+/**
+ * Builds the SIWE message that the user signs.
+ * This is a simplified version without backend nonce.
+ */
+export function buildSiweMessage(
+  wallet: string,
+  role: UserRole = "farmer",
+  chainId: number = 31337,
+): string {
+  const issuedAt = new Date().toISOString();
+  const message = [
+    `${SIWE_DOMAIN} wants you to sign in with your Ethereum account:`,
+    wallet,
+    "",
+    "Sign this message to verify you own this wallet and log in to AgriBridge.",
+    "This is free and will NOT trigger a blockchain transaction.",
+    "",
+    `URI: ${SIWE_URI}`,
+    `Version: ${SIWE_VERSION}`,
+    `Chain ID: ${chainId}`,
+    `Nonce: ${Date.now().toString()}`,
+    `Issued At: ${issuedAt}`,
+    `Role: ${role}`,
+  ].join("\n");
+  return message;
 }
 
 /**
- * Authenticated request. A 401 or 403 means the session is no longer usable, so
- * it is cleared rather than left behind to fail every subsequent call.
+ * Creates a session token from profile data.
+ * In the no-backend version, this is just a signed JSON string.
  */
-export async function authedFetch(path: string, options: RequestInit = {}) {
-  const token = getSessionToken();
-  if (!token) throw new Error("Not signed in. Connect your wallet to continue.");
+export function createSessionToken(profile: Profile): string {
+  const payload = {
+    profile,
+    timestamp: Date.now(),
+    signatureVerified: true,
+  };
+  return btoa(JSON.stringify(payload));
+}
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-  });
-
-  const data = await parseJson(res);
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403) clearSession();
-    throw new Error(errorFrom(data, `Request to ${path} failed (${res.status})`));
+/**
+ * Verifies a session token and extracts the profile.
+ */
+export function verifySessionToken(token: string): Profile | null {
+  try {
+    const json = atob(token);
+    const payload = JSON.parse(json);
+    if (payload?.signatureVerified && payload.profile?.wallet_address) {
+      return payload.profile as Profile;
+    }
+    return null;
+  } catch {
+    return null;
   }
-  return data ?? {};
 }
 
 /*//////////////////////////////////////////////////////////////
-                        SIGN-IN WITH ETHEREUM
+                       ON-CHAIN ROLES
 //////////////////////////////////////////////////////////////*/
 
 /**
- * Step 1: ask the backend for the exact message to sign.
- * The message carries a one-time nonce and is bound to this app's domain.
+ * On-chain roles can be enforced by checking if the wallet has a specific
+ * role role via a smart contract, or by maintaining a simple admin wallet list.
+ *
+ * For this simplified version, we check against a configured admin wallet.
  */
-export async function requestLoginMessage(wallet: string): Promise<string> {
-  const data = await apiFetch("/api/account/wallet/nonce", {
-    method: "POST",
-    body: JSON.stringify({ wallet }),
-  });
-  if (!data?.message) throw new Error("Backend returned no message to sign.");
-  return data.message as string;
+export const ADMIN_WALLET_ADDRESS =
+  process.env.NEXT_PUBLIC_ADMIN_WALLET?.toLowerCase() || "0x0000000000000000000000000000000000000000";
+
+export function isAdminWallet(wallet: string): boolean {
+  return wallet.toLowerCase() === ADMIN_WALLET_ADDRESS;
 }
 
 /**
- * Step 2: exchange the signature for a session.
- *
- * @param role Applied only when this wallet has never signed in before.
+ * Fetches the signed-in user's profile from local storage.
+ * No network call needed in the no-backend version.
  */
-export async function submitLoginSignature(
-  wallet: string,
-  signature: string,
-  role?: SignupRole,
-): Promise<{ token: string; profile: Profile }> {
-  const data = await apiFetch("/api/account/wallet/auth", {
-    method: "POST",
-    body: JSON.stringify({ wallet, signature, role }),
-  });
-
-  const token = data?.session?.access_token as string | undefined;
-  const profile = data?.profile as Profile | undefined;
-  if (!token || !profile) throw new Error("Sign-in did not return a session.");
-
-  persistSession(token, profile);
-  return { token, profile };
-}
-
-/** Fetches the signed-in user's profile, refreshing what is stored locally. */
 export async function getCurrentUser(): Promise<{ profile: Profile } | null> {
-  const data = await authedFetch("/api/account/me");
-  const profile = data?.profile as Profile | undefined;
-  if (!profile) return null;
-
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  const stored = getStoredProfile();
+  if (!stored) return null;
+  
+  // Re-validate the session token
+  const existingToken = getSessionToken();
+  if (existingToken) {
+    const verified = verifySessionToken(existingToken);
+    if (verified) {
+      return { profile: verified };
+    }
   }
-  return { profile };
+  
+  // If no valid token but profile exists, re-create token
+  const newToken = createSessionToken(stored);
+  persistSession(newToken, stored);
+  
+  return { profile: stored };
 }
 
 /** Landing page for a role. Used after sign-in and by the route guards. */

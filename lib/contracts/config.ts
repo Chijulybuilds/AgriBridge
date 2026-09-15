@@ -78,8 +78,16 @@ export function commodityTypeToIndex(type: CommodityType): number {
   return COMMODITY_TYPES.indexOf(type);
 }
 
+export function commodityTypeFromIndex(index: number): string {
+  return COMMODITY_TYPES[index] ?? "Cocoa";
+}
+
 export function gradeToIndex(grade: Grade): number {
   return GRADES.indexOf(grade);
+}
+
+export function gradeFromIndex(index: number): string {
+  return GRADES[index] ?? "A";
 }
 
 export function statusFromIndex(index: number): CommodityStatus {
