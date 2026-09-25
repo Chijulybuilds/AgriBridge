@@ -9,6 +9,7 @@ import {
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { useState } from "react";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 export default function Home() {
   const router = useRouter();
@@ -114,6 +115,7 @@ export default function Home() {
               flexShrink: 0,
             }}
           >
+            <ThemeToggle />
             <button
               onClick={handleWalletConnect}
               disabled={loading}

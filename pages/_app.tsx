@@ -8,6 +8,7 @@ import "@rainbow-me/rainbowkit/styles.css";
 import "../styles/globals.css";
 
 import { wagmiConfig } from "../lib/wagmi";
+import { ThemeProvider } from "../lib/theme";
 import {
   clearSession,
   getCurrentUser,
@@ -109,9 +110,11 @@ export default function App({ Component, pageProps }: AppProps) {
             borderRadius: "medium",
           })}
         >
-          <AuthProvider>
-            <Component {...pageProps} />
-          </AuthProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <Component {...pageProps} />
+            </AuthProvider>
+          </ThemeProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

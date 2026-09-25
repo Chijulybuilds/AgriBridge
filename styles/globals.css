@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-:root {
+:root,
+[data-theme="light"] {
   --bg-primary: #ffffff;
   --bg-secondary: #f6f8f5;
   --bg-card: #ffffff;
@@ -21,6 +22,27 @@
   --accent-blue-bg: #eaf4fd;
 }
 
+[data-theme="dark"] {
+  --bg-primary: #0d1a0d;
+  --bg-secondary: #132113;
+  --bg-card: #1a2e1a;
+  --bg-card-hover: #1f351f;
+  --border: #2a452a;
+  --border-light: #3a553a;
+  --text-primary: #e8f0e8;
+  --text-secondary: #a0c0a0;
+  --text-muted: #6a8a6a;
+  --accent-green: #4caf50;
+  --accent-green-light: #66bb6a;
+  --accent-green-bg: #1a3a1a;
+  --accent-gold: #f0c040;
+  --accent-gold-bg: #2a2510;
+  --accent-red: #ef5350;
+  --accent-red-bg: #2a1515;
+  --accent-blue: #42a5f5;
+  --accent-blue-bg: #0d2137;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
@@ -31,6 +53,22 @@ body {
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
   line-height: 1.6;
+  transition: background 0.35s ease, color 0.35s ease;
+}
+
+/* Smooth theme transitions for themed elements */
+[data-theme] *,
+[data-theme] *::before,
+[data-theme] *::after {
+  transition-property: background, background-color, border-color, color, box-shadow;
+  transition-duration: 0.25s;
+  transition-timing-function: ease;
+}
+
+/* Disable transitions for interactive elements on hover/focus to keep things snappy */
+[data-theme] button:hover,
+[data-theme] a:hover {
+  transition-duration: 0.1s;
 }
 
 ::-webkit-scrollbar { width: 4px; }

@@ -17,6 +17,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAuth } from "../../pages/_app";
+import { ThemeToggle } from "../ThemeToggle";
 
 interface Props {
   children: ReactNode;
@@ -414,6 +415,7 @@ export default function DashboardLayout({ children, userType }: Props) {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <ThemeToggle variant="minimal" />
               <ConnectButton
                 showBalance={false}
                 accountStatus="address"
