@@ -14,6 +14,38 @@ import { ThemeToggle } from "../components/ThemeToggle";
 export default function Home() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const features = [
+    {
+      icon: CubeIcon,
+      title: "Real Assets. Real Value.",
+      desc: "Every lending pool is backed by verified agricultural commodities stored with trusted warehouse partners, giving investors confidence and farmers credibility.",
+    },
+    {
+      icon: BanknotesIcon,
+      title: "Instant Liquidity",
+      desc: "Farmers can unlock financing within minutes by using tokenized commodities as collateral instead of waiting months after harvest.",
+    },
+    {
+      icon: ChartBarIcon,
+      title: "Consistent Investor Returns",
+      desc: "Invest in carefully managed lending pools, monitor performance live, and earn transparent returns backed by productive agricultural assets.",
+    },
+    {
+      icon: ShieldCheckIcon,
+      title: "Smart Risk Protection",
+      desc: "Oracle price feeds continuously monitor collateral health, helping reduce risk while maintaining healthy lending positions.",
+    },
+    {
+      icon: GlobeAltIcon,
+      title: "Global Agricultural Marketplace",
+      desc: "Farmers, cooperatives, exporters, and investors participate together on one secure blockchain-powered platform.",
+    },
+    {
+      icon: BoltIcon,
+      title: "Powered by Smart Contracts",
+      desc: "Every loan, repayment, collateral update, and investor reward is automated, transparent, and permanently recorded on-chain.",
+    },
+  ];
 
   // Kept from File 1: dashboards need an authenticated wallet, so nav/hero/CTA
   // buttons all route through /login instead of linking straight to a dashboard.
@@ -43,7 +75,7 @@ export default function Home() {
             right: 0,
             zIndex: 50,
             borderBottom: "1px solid var(--border)",
-            background: "rgba(255,255,255,0.92)",
+            background: "var(--nav-bg)",
             backdropFilter: "blur(12px)",
             padding: "0 24px",
             height: "56px",
@@ -406,118 +438,83 @@ export default function Home() {
             </p>
           </div>
 
-          <div
-            className="features-inner-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              border: "1px solid var(--border)",
-              borderRadius: "12px",
-              overflow: "hidden",
-            }}
-          >
-            {[
-              {
-                icon: CubeIcon,
-                title: "Real Assets. Real Value.",
-                desc: "Every lending pool is backed by verified agricultural commodities stored with trusted warehouse partners, giving investors confidence and farmers credibility.",
-              },
-              {
-                icon: BanknotesIcon,
-                title: "Instant Liquidity",
-                desc: "Farmers can unlock financing within minutes by using tokenized commodities as collateral instead of waiting months after harvest.",
-              },
-              {
-                icon: ChartBarIcon,
-                title: "Consistent Investor Returns",
-                desc: "Invest in carefully managed lending pools, monitor performance live, and earn transparent returns backed by productive agricultural assets.",
-              },
-              {
-                icon: ShieldCheckIcon,
-                title: "Smart Risk Protection",
-                desc: "Oracle price feeds continuously monitor collateral health, helping reduce risk while maintaining healthy lending positions.",
-              },
-              {
-                icon: GlobeAltIcon,
-                title: "Global Agricultural Marketplace",
-                desc: "Farmers, cooperatives, exporters, and investors participate together on one secure blockchain-powered platform.",
-              },
-              {
-                icon: BoltIcon,
-                title: "Powered by Smart Contracts",
-                desc: "Every loan, repayment, collateral update, and investor reward is automated, transparent, and permanently recorded on-chain.",
-              },
-            ].map((f, i) => {
-              const Icon = f.icon;
-              return (
-                <div
-                  key={f.title}
-                  style={{
-                    padding: "32px 28px",
-                    borderRight:
-                      (i + 1) % 3 !== 0 ? "1px solid var(--border)" : "none",
-                    borderBottom: i < 3 ? "1px solid var(--border)" : "none",
-                    background:
-                      "linear-gradient(180deg,#ffffff 0%,#f8fbf9 100%)",
-                    transition: "all .35s ease",
-                    cursor: "pointer",
-                    boxShadow: "0 10px 30px rgba(34,197,94,.06)",
-                  }}
-                >
+          <div className="features-marquee-viewport">
+            <div
+              className="features-inner-grid features-marquee-track"
+              style={{
+                display: "flex",
+              }}
+            >
+              {[...features, ...features].map((f, i) => {
+                const Icon = f.icon;
+                return (
                   <div
+                    key={`${f.title}-${i}`}
+                    className="feature-nugget"
                     style={{
-                      width: "60px",
-                      height: "60px",
-                      borderRadius: "16px",
-                      background: "var(--accent-green-bg)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginBottom: "22px",
+                      padding: "32px 28px",
+                      borderRight: "1px solid var(--border)",
+                      background: "var(--feature-card-bg)",
+                      transition: "all .35s ease",
+                      cursor: "pointer",
+                      boxShadow: "0 10px 30px rgba(34,197,94,.06)",
                     }}
                   >
-                    <Icon
-                      style={{
-                        width: "30px",
-                        height: "30px",
-                        color: "var(--accent-green)",
-                      }}
-                    />
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "18px",
-                      fontWeight: 700,
-                      color: "var(--text-primary)",
-                      marginBottom: "14px",
-                    }}
-                  >
-                    {f.title}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "15px",
-                      color: "var(--text-secondary)",
-                      lineHeight: 1.8,
-                    }}
-                  >
-                    {f.desc}
                     <div
                       style={{
-                        marginTop: "22px",
+                        width: "60px",
+                        height: "60px",
+                        borderRadius: "16px",
+                        background: "var(--accent-green-bg)",
                         display: "flex",
                         alignItems: "center",
-                        color: "var(--accent-green)",
-                        fontWeight: 700,
-                        fontSize: "14px",
+                        justifyContent: "center",
+                        marginBottom: "22px",
                       }}
                     >
-                      Learn More <span style={{ marginLeft: "8px" }}>→</span>
+                      <Icon
+                        style={{
+                          width: "30px",
+                          height: "30px",
+                          color: "var(--accent-green)",
+                        }}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: 700,
+                        color: "var(--text-primary)",
+                        marginBottom: "14px",
+                      }}
+                    >
+                      {f.title}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "15px",
+                        color: "var(--text-secondary)",
+                        lineHeight: 1.8,
+                      }}
+                    >
+                      {f.desc}
+                      <div
+                        style={{
+                          marginTop: "22px",
+                          display: "flex",
+                          alignItems: "center",
+                          color: "var(--accent-green)",
+                          fontWeight: 700,
+                          fontSize: "14px",
+                        }}
+                      >
+                        Learn More <span style={{ marginLeft: "8px" }}>→</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           {/* Investor CTA banner from File 2 — button now goes through the wallet-connect flow */}
