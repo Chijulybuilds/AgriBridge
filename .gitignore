@@ -33,7 +33,8 @@ backend/.session-store.json
 backend/dist/
 
 # Generated contract ABIs (produced by `npm run abis`)
-lib/contracts/abis/
+# Committed to repo so Vercel builds without Foundry
+# lib/contracts/abis/
 
 # Playwright
 test-results/
