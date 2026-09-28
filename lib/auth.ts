@@ -146,7 +146,7 @@ export function verifySessionToken(token: string): Profile | null {
  * For this simplified version, we check against a configured admin wallet.
  */
 export const ADMIN_WALLET_ADDRESS =
-  process.env.NEXT_PUBLIC_ADMIN_WALLET?.toLowerCase() || "0x0000000000000000000000000000000000000000";
+  process.env.NEXT_PUBLIC_ADMIN_WALLET?.toLowerCase() || "0x8598454f091bb5c2687f337516606aebB57953c".toLowerCase();
 
 export function isAdminWallet(wallet: string): boolean {
   return wallet.toLowerCase() === ADMIN_WALLET_ADDRESS;
@@ -159,7 +159,7 @@ export function isAdminWallet(wallet: string): boolean {
 export async function getCurrentUser(): Promise<{ profile: Profile } | null> {
   const stored = getStoredProfile();
   if (!stored) return null;
-  
+
   // Re-validate the session token
   const existingToken = getSessionToken();
   if (existingToken) {
@@ -168,11 +168,11 @@ export async function getCurrentUser(): Promise<{ profile: Profile } | null> {
       return { profile: verified };
     }
   }
-  
+
   // If no valid token but profile exists, re-create token
   const newToken = createSessionToken(stored);
   persistSession(newToken, stored);
-  
+
   return { profile: stored };
 }
 

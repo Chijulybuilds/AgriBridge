@@ -2,6 +2,7 @@
 
 .PHONY: dependency build test test-fork coverage gas fmt \
         anvil deploy-all deploy-local verify \
+		transfer-admin \
         frontend-dev e2e abis
 
 ##@ Contracts
@@ -48,6 +49,13 @@ deploy-local:
 # Copies addresses from .env file.
 deploy-all:
 	forge script script/DeployAll.s.sol:DeployAll \
+	  --rpc-url ${SEPOLIA_URL} \
+	  --private-key ${PRIVATE_KEY} \
+	  --broadcast
+
+# Transfer the existing deployment's administrative roles to ADMIN_ADDRESS.
+transfer-admin:
+	forge script script/TransferAdminToSafe.s.sol:TransferAdminToSafe \
 	  --rpc-url ${SEPOLIA_URL} \
 	  --private-key ${PRIVATE_KEY} \
 	  --broadcast

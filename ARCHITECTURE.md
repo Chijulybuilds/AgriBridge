@@ -13,7 +13,7 @@ Registers a commodity on-chain  ─────────────►  Comm
                 ▼                                       │
            Supabase                                     │
                                                         ▼
-Verifier (backend wallet, VERIFIER_ROLE) reviews the queue
+AgriBridge Safe (VERIFIER_ROLE) reviews the live on-chain queue
                 │
       ┌─────────┴─────────┐
       ▼                   ▼
@@ -63,21 +63,24 @@ reference to the registry so it can resolve a commodity id to its type.
 Deployment order and wiring are handled by `script/DeployAll.s.sol`. The wiring
 matters: without `setCommodityTokenAddress`, `setLendingPoolAddress`, and the
 `POOL_ROLE` and `VERIFIER_ROLE` grants, the contracts deploy but cannot approve a
-commodity or open a loan.
+commodity or open a loan. The configured Safe receives verifier and admin roles
+on a fresh deployment. For an existing deployment, `make transfer-admin` grants
+the Safe those roles and revokes the previous admin/verifier accounts.
 
 ## Roles
 
 | Role | Held by | Grants |
 |---|---|---|
-| `VERIFIER_ROLE` | Admin wallet (NEXT_PUBLIC_ADMIN_WALLET) | Approve or reject commodities (direct transaction) |
+| `VERIFIER_ROLE` | AgriBridge Safe (`NEXT_PUBLIC_ADMIN_WALLET`) | Approve or reject commodities through Safe transactions |
 | `POOL_ROLE` | LendingPool | Update commodity status on collateralisation |
 | `MINTER_ROLE` | CommodityRegistry | Mint ERC-1155 collateral |
 | `PRICE_UPDATER_ROLE` | Price Oracle owner | Push oracle prices |
-| `DEFAULT_ADMIN_ROLE` | Deployer or `ADMIN_ADDRESS` | Wiring, pausing, configuration |
+| `DEFAULT_ADMIN_ROLE` | AgriBridge Safe (`ADMIN_ADDRESS`) | Wiring, pausing, configuration |
 
 App-level roles (`farmer`, `investor`, `admin`) live in the database and are
 separate from on-chain roles. `admin` gates the verifier queue in the UI; the
-on-chain approval is signed by the backend's verifier wallet.
+Safe executes approval or rejection after its configured owners approve the
+transaction.
 
 ## Decimals
 
@@ -123,6 +126,9 @@ transfers straight from the user's own wallet.
 - **On-Chain SIWE**: Sign-In with Ethereum implemented client-side with wallet signature verification
 - **On-Chain Data**: All commodity data stored on Ethereum (no Supabase mirror)
 - **Direct Admin Actions**: Verifier queue access requires wallet with VERIFIER_ROLE
+- **USDC Pool**: Investors use `/investor/deposit` to approve USDC, deposit it into
+    `LendingPool`, and receive agUSDC shares; the investor dashboard reads pool
+    liquidity and utilization from the same deployed pool.
 - **No Off-Chain Storage**: All sessions stored in browser localStorage
 
 ## Testing strategy

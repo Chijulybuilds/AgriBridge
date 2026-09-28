@@ -88,6 +88,11 @@ function InvestorDashboard() {
       </div>
 
       <NetworkGuard />
+      {pool.error && (
+        <p role="alert" style={{ color: "var(--accent-red)", fontSize: 13, marginBottom: 16 }}>
+          Pool data could not be read: {pool.error instanceof Error ? pool.error.message : "check the selected network and deployed pool address."}
+        </p>
+      )}
 
       <div
         style={{

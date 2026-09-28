@@ -1,32 +1,11 @@
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import withAuth from "../../components/withAuth";
-import { useEffect, useState } from "react";
-import { getVerifierQueue } from "../../lib/api";
+import { usePendingCommodities } from "../../hooks/useProtocol";
 import { ArchiveBoxIcon, ClockIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 
 function AdminDashboard() {
-  const [queue, setQueue] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    getVerifierQueue()
-      .then((data) => {
-        if (!mounted) return;
-        setQueue(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (!mounted) return;
-        setError(err.message || "Failed to load queue");
-        setLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { commodities: queue, isLoading: loading, error } = usePendingCommodities();
 
   const stats = [
     { label: "Pending Verification", value: queue.length, icon: ClockIcon, color: "var(--accent-gold)" },
@@ -97,7 +76,9 @@ function AdminDashboard() {
         {loading ? (
           <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>Loading pending list...</p>
         ) : error ? (
-          <p style={{ color: "var(--accent-red)", fontSize: "14px" }}>{error}</p>
+          <p style={{ color: "var(--accent-red)", fontSize: "14px" }}>
+            {error instanceof Error ? error.message : "Failed to load the on-chain queue."}
+          </p>
         ) : queue.length === 0 ? (
           <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>No pending items in queue. All caught up!</p>
         ) : (

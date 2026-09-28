@@ -295,12 +295,16 @@ Soulbound receipt token for pool deposits.
 
 ### Admin Wallet Security
 
-The admin wallet must hold `VERIFIER_ROLE` on the `CommodityRegistry` contract. This is a **hot wallet** — it signs transactions directly from the browser. For production:
+The AgriBridge Safe must hold `VERIFIER_ROLE` on `CommodityRegistry` to approve
+or reject commodities. Safe owners review and execute these transactions through
+the Safe; no individual owner key is configured as the verifier. The Safe also
+receives admin roles for protocol configuration on a fresh deployment.
 
-1. Use a dedicated hardware wallet or multisig for admin actions
-2. Never share the admin wallet's private key
-3. Monitor the admin wallet for suspicious activity
-4. Consider time-locks on role management functions
+For an existing deployment, set `ADMIN_ADDRESS`, `PREVIOUS_ADMIN_ADDRESS`,
+`PREVIOUS_VERIFIER_ADDRESS`, and the deployed contract addresses in `.env`, then
+run `make transfer-admin` using an account that currently holds
+`DEFAULT_ADMIN_ROLE`. The script transfers the roles to the Safe and removes
+the previous admin/verifier access.
 
 ---
 
@@ -420,7 +424,7 @@ The project uses two environment files:
 | `ANVIL_PRIVATE_KEY` | For Anvil | Default Anvil account key (pre-filled) |
 | `USDC_CONTRACT_ADDRESS` | ✅ | Address of USDC on the target network |
 | `VERIFIER_ADDRESS` | ✅ | Wallet granted `VERIFIER_ROLE` |
-| `ADMIN_ADDRESS` | Optional | Receives admin rights (defaults to deployer) |
+| `ADMIN_ADDRESS` | Optional | Safe receiving admin rights (defaults to `VERIFIER_ADDRESS`) |
 
 ---
 

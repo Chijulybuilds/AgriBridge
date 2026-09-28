@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
-import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useWalletClient } from "wagmi";
 import { formatUnits, parseUnits, maxUint256, type Address } from "viem";
+import { waitForTransactionReceipt } from "viem/actions";
 
 import {
   CommodityRegistryAbi,
@@ -58,9 +59,16 @@ export const toQuantity = (kg: string | number) => parseUnits(String(kg), QUANTI
 /**
  * Wraps a contract write with its receipt, so callers get one object covering
  * the whole lifecycle: submitting, waiting for confirmation, confirmed, failed.
+ *
+ * TWO write functions are returned:
+ * - `write` — raw wagmi write (resolves after wallet signs, before tx mined)
+ * - `writeAndWait` — enhanced version that AWAITS the on-chain receipt before resolving
+ *
+ * Use `writeAndWait` in pages where you want to show data AFTER the tx confirms.
  */
 export function useTx() {
   const { writeContractAsync, data: hash, isPending, error, reset } = useWriteContract();
+  const publicClient = usePublicClient();
   const {
     isLoading: isConfirming,
     isSuccess: isConfirmed,
@@ -77,8 +85,26 @@ export function useTx() {
           ? "failed"
           : "idle";
 
+  /**
+   * Submits a contract write and waits for the on-chain receipt.
+   * The caller's `await` resolves only when the transaction is MINED.
+   */
+  const writeAndWait = useCallback(
+    async (
+      args: Parameters<typeof writeContractAsync>[0],
+    ): Promise<`0x${string}`> => {
+      const txHash = await writeContractAsync(args);
+      if (publicClient) {
+        await waitForTransactionReceipt(publicClient, { hash: txHash });
+      }
+      return txHash;
+    },
+    [writeContractAsync, publicClient],
+  );
+
   return {
     write: writeContractAsync,
+    writeAndWait,
     hash,
     status,
     isBusy: isPending || isConfirming,
@@ -96,16 +122,16 @@ export function useTx() {
 export function usePoolStats() {
   const pool = contracts.lendingPool;
 
-  const { data, isLoading, refetch } = useReadContracts({
+  const { data, isLoading, error, refetch } = useReadContracts({
     contracts: pool
       ? [
-          { address: pool, abi: LendingPoolAbi, functionName: "totalAssets" },
-          { address: pool, abi: LendingPoolAbi, functionName: "totalBorrowed" },
-          { address: pool, abi: LendingPoolAbi, functionName: "getBorrowRate" },
-          { address: pool, abi: LendingPoolAbi, functionName: "reserveFactor" },
-        ]
+        { address: pool, abi: LendingPoolAbi, functionName: "totalAssets" },
+        { address: pool, abi: LendingPoolAbi, functionName: "totalBorrowed" },
+        { address: pool, abi: LendingPoolAbi, functionName: "getBorrowRate" },
+        { address: pool, abi: LendingPoolAbi, functionName: "reserveFactor" },
+      ]
       : [],
-    query: { enabled: Boolean(pool) },
+    query: { enabled: Boolean(pool), refetchInterval: 10_000 },
   });
 
   const totalAssets = data?.[0]?.result as bigint | undefined;
@@ -137,6 +163,99 @@ export function usePoolStats() {
     borrowApr,
     supplyApr,
     isLoading,
+    error,
+    refetch,
+  };
+}
+
+export type PendingCommodity = {
+  id: string;
+  on_chain_id: number;
+  farmer_wallet: Address;
+  commodity_type: string;
+  grade: string;
+  quantity_kg: number;
+  harvest_date: string;
+  status: string;
+};
+
+/** Pending submissions read directly from the registry's one-based IDs. */
+export function usePendingCommodities() {
+  const registry = contracts.registry;
+  const {
+    data: count,
+    isLoading: isCountLoading,
+    error: countError,
+    refetch: refetchCount,
+  } = useReadContract({
+    address: registry,
+    abi: CommodityRegistryAbi,
+    functionName: "commodityCount",
+    query: { enabled: Boolean(registry), refetchInterval: 10_000 },
+  });
+
+  const commodityIds = useMemo(
+    () => Array.from({ length: Number((count as bigint | undefined) ?? 0n) }, (_, index) => BigInt(index + 1)),
+    [count],
+  );
+
+  const {
+    data: records,
+    isLoading: areRecordsLoading,
+    error: recordsError,
+    refetch: refetchRecords,
+  } = useReadContracts({
+    contracts: registry
+      ? commodityIds.map((id) => ({
+        address: registry,
+        abi: CommodityRegistryAbi,
+        functionName: "getCommodity" as const,
+        args: [id] as const,
+      }))
+      : [],
+    query: {
+      enabled: Boolean(registry && commodityIds.length > 0),
+      refetchInterval: 10_000,
+    },
+  });
+
+  const commodities = useMemo(() => {
+    if (!records) return [];
+    return records.flatMap((entry, index) => {
+      const value = entry.result as
+        | {
+          farmer: Address;
+          status: number;
+          commodityType: number;
+          grade: number;
+          quantity: bigint;
+          harvestDate: bigint;
+        }
+        | undefined;
+      if (!value || Number(value.status) !== 0) return [];
+      const id = commodityIds[index];
+      return [{
+        id: id.toString(),
+        on_chain_id: Number(id),
+        farmer_wallet: value.farmer,
+        commodity_type: ["Cocoa", "Rice", "Maize", "Cashew", "Yam"][Number(value.commodityType)] ?? "Cocoa",
+        grade: ["A", "B", "C"][Number(value.grade)] ?? "A",
+        quantity_kg: Number(formatUnits(value.quantity, QUANTITY_DECIMALS)),
+        harvest_date: new Date(Number(value.harvestDate) * 1000).toISOString().slice(0, 10),
+        status: statusFromIndex(Number(value.status)),
+      } satisfies PendingCommodity];
+    });
+  }, [records, commodityIds]);
+
+  const refetch = useCallback(async () => {
+    await refetchCount();
+    await refetchRecords();
+  }, [refetchCount, refetchRecords]);
+
+  return {
+    commodities,
+    isLoading: isCountLoading || areRecordsLoading,
+    error: countError ?? recordsError,
     refetch,
   };
 }
@@ -152,14 +271,14 @@ export function useInvestorPosition() {
     contracts:
       address && pool && shareToken && usdc
         ? [
-            { address: shareToken, abi: AgriShareTokenAbi, functionName: "balanceOf", args: [address] },
-            { address: shareToken, abi: AgriShareTokenAbi, functionName: "totalSupply" },
-            { address: pool, abi: LendingPoolAbi, functionName: "totalAssets" },
-            { address: usdc, abi: ERC20Abi, functionName: "balanceOf", args: [address] },
-            { address: usdc, abi: ERC20Abi, functionName: "allowance", args: [address, pool] },
-          ]
+          { address: shareToken, abi: AgriShareTokenAbi, functionName: "balanceOf", args: [address] },
+          { address: shareToken, abi: AgriShareTokenAbi, functionName: "totalSupply" },
+          { address: pool, abi: LendingPoolAbi, functionName: "totalAssets" },
+          { address: usdc, abi: ERC20Abi, functionName: "balanceOf", args: [address] },
+          { address: usdc, abi: ERC20Abi, functionName: "allowance", args: [address, pool] },
+        ]
         : [],
-    query: { enabled: Boolean(address && pool && shareToken && usdc) },
+    query: { enabled: Boolean(address && pool && shareToken && usdc), refetchInterval: 10_000 },
   });
 
   const shares = data?.[0]?.result as bigint | undefined;
@@ -192,7 +311,7 @@ export function useDeposit() {
 
   const approve = useCallback(
     (amount: bigint) =>
-      tx.write({
+      tx.writeAndWait({
         address: requireContract("usdc"),
         abi: ERC20Abi,
         functionName: "approve",
@@ -205,7 +324,7 @@ export function useDeposit() {
 
   const deposit = useCallback(
     (amount: bigint) =>
-      tx.write({
+      tx.writeAndWait({
         address: requireContract("lendingPool"),
         abi: LendingPoolAbi,
         functionName: "deposit",
@@ -216,7 +335,7 @@ export function useDeposit() {
 
   const withdraw = useCallback(
     (shares: bigint) =>
-      tx.write({
+      tx.writeAndWait({
         address: requireContract("lendingPool"),
         abi: LendingPoolAbi,
         functionName: "withdraw",
@@ -254,7 +373,7 @@ export function useMyCommodities() {
     abi: CommodityRegistryAbi,
     functionName: "getFarmerCommodityIds",
     args: address ? [address] : undefined,
-    query: { enabled: Boolean(address && registry) },
+    query: { enabled: Boolean(address && registry), refetchInterval: 10_000 },
   });
 
   // Memoised so the fallback empty array keeps a stable identity across renders;
@@ -264,13 +383,13 @@ export function useMyCommodities() {
   const { data: records, isLoading: recordsLoading, refetch: refetchRecords } = useReadContracts({
     contracts: registry
       ? commodityIds.map((id) => ({
-          address: registry,
-          abi: CommodityRegistryAbi,
-          functionName: "getCommodity" as const,
-          args: [id] as const,
-        }))
+        address: registry,
+        abi: CommodityRegistryAbi,
+        functionName: "getCommodity" as const,
+        args: [id] as const,
+      }))
       : [],
-    query: { enabled: commodityIds.length > 0 },
+    query: { enabled: commodityIds.length > 0, refetchInterval: 10_000 },
   });
 
   const commodities: OnChainCommodity[] = useMemo(() => {
@@ -279,14 +398,14 @@ export function useMyCommodities() {
       .map((entry, index) => {
         const value = entry.result as
           | {
-              farmer: Address;
-              status: number;
-              commodityType: number;
-              grade: number;
-              quantity: bigint;
-              harvestDate: bigint;
-              storageEndDate: bigint;
-            }
+            farmer: Address;
+            status: number;
+            commodityType: number;
+            grade: number;
+            quantity: bigint;
+            harvestDate: bigint;
+            storageEndDate: bigint;
+          }
           | undefined;
         if (!value) return null;
 
@@ -325,7 +444,7 @@ export function useRegisterCommodity() {
       harvestDate: Date;
       storageDurationDays: number;
     }) =>
-      tx.write({
+      tx.writeAndWait({
         address: requireContract("registry"),
         abi: CommodityRegistryAbi,
         functionName: "registerCommodity",
@@ -354,7 +473,7 @@ export function useCollateralValue(commodityId: bigint | undefined, quantity: bi
     abi: CommodityPriceOracleAbi,
     functionName: "getCollateralValue",
     args: commodityId !== undefined && quantity !== undefined ? [commodityId, quantity] : undefined,
-    query: { enabled: Boolean(contracts.priceOracle && commodityId !== undefined && quantity !== undefined) },
+    query: { enabled: Boolean(contracts.priceOracle && commodityId !== undefined && quantity !== undefined), refetchInterval: 10_000 },
   });
 
   return { value: data as bigint | undefined, isLoading, error };
@@ -380,7 +499,7 @@ export function useMyLoans() {
     abi: LendingPoolAbi,
     functionName: "getFarmerLoans",
     args: address ? [address] : undefined,
-    query: { enabled: Boolean(address && pool) },
+    query: { enabled: Boolean(address && pool), refetchInterval: 10_000 },
   });
 
   // Memoised for the same reason as commodityIds above.
@@ -389,11 +508,11 @@ export function useMyLoans() {
   const { data, isLoading, refetch: refetchDetails } = useReadContracts({
     contracts: pool
       ? loanIds.flatMap((id) => [
-          { address: pool, abi: LendingPoolAbi, functionName: "getLoanDetails" as const, args: [id] as const },
-          { address: pool, abi: LendingPoolAbi, functionName: "getHealthFactor" as const, args: [id] as const },
-        ])
+        { address: pool, abi: LendingPoolAbi, functionName: "getLoanDetails" as const, args: [id] as const },
+        { address: pool, abi: LendingPoolAbi, functionName: "getHealthFactor" as const, args: [id] as const },
+      ])
       : [],
-    query: { enabled: loanIds.length > 0 },
+    query: { enabled: loanIds.length > 0, refetchInterval: 10_000 },
   });
 
   const loans: Loan[] = useMemo(() => {
@@ -434,7 +553,7 @@ export function useBorrow() {
   /** The pool takes custody of the ERC-1155, so it needs operator approval first. */
   const approveCollateral = useCallback(
     () =>
-      tx.write({
+      tx.writeAndWait({
         address: requireContract("commodityToken"),
         abi: CommodityTokenAbi,
         functionName: "setApprovalForAll",
@@ -445,7 +564,7 @@ export function useBorrow() {
 
   const borrow = useCallback(
     (commodityId: bigint, collateralAmount: bigint, borrowAmount: bigint) =>
-      tx.write({
+      tx.writeAndWait({
         address: requireContract("lendingPool"),
         abi: LendingPoolAbi,
         functionName: "borrow",
@@ -456,7 +575,7 @@ export function useBorrow() {
 
   const repay = useCallback(
     (loanId: bigint, amount: bigint) =>
-      tx.write({
+      tx.writeAndWait({
         address: requireContract("lendingPool"),
         abi: LendingPoolAbi,
         functionName: "repay",
@@ -467,7 +586,7 @@ export function useBorrow() {
 
   const approveUsdc = useCallback(
     (amount: bigint) =>
-      tx.write({
+      tx.writeAndWait({
         address: requireContract("usdc"),
         abi: ERC20Abi,
         functionName: "approve",

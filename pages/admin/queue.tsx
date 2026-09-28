@@ -1,17 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { CheckCircleIcon, ClockIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { useAccount } from "wagmi";
-import { useReadContracts, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { type Address, formatUnits } from "viem";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import withAuth from "../../components/withAuth";
-import {
-  CommodityRegistryAbi,
-  CommodityTokenAbi,
-} from "../../lib/contracts/abis";
-import { contracts, requireContract, statusFromIndex } from "../../lib/contracts/config";
+import { CommodityRegistryAbi } from "../../lib/contracts/abis";
+import { contracts } from "../../lib/contracts/config";
 import { isAdminWallet } from "../../lib/auth";
+import { usePendingCommodities, type PendingCommodity } from "../../hooks/useProtocol";
 
 const card: React.CSSProperties = {
   background: "var(--bg-card)",
@@ -39,15 +36,6 @@ const label: React.CSSProperties = {
   marginBottom: 6,
 };
 
-// Helper functions
-function commodityTypeFromIndex(index: number): string {
-  return ["Cocoa", "Rice", "Maize", "Cashew", "Yam"][index] ?? "Cocoa";
-}
-
-function gradeFromIndex(index: number): string {
-  return ["A", "B", "C"][index] ?? "A";
-}
-
 /**
  * Admin Verification Queue - On-chain version
  * 
@@ -58,69 +46,22 @@ function gradeFromIndex(index: number): string {
  */
 function AdminQueue() {
   const { address: walletAddress } = useAccount();
-  const { writeContractAsync, data: hash, isPending, error: writeError, reset } = useWriteContract();
+  const { writeContractAsync, data: hash, reset } = useWriteContract();
   const {
-    isLoading: isConfirming,
-    isSuccess: isConfirmed,
     error: receiptError,
   } = useWaitForTransactionReceipt({ hash });
-  
-  const registry = contracts.registry;
-  
-  // Get all pending commodities from the registry
-  const { data: commodityCountResult, isLoading: idsLoading } = useReadContracts({
-    contracts: registry ? [
-      { 
-        address: registry, 
-        abi: CommodityRegistryAbi, 
-        functionName: "commodityCount" as const,
-        args: [] as const,
-      },
-    ] : [],
-    query: { enabled: Boolean(registry) },
-  });
-  
-  const totalCommodities = commodityCountResult?.[0]?.result as bigint | undefined;
-  
-  // Fetch commodity details
-  const { data: commodities, isLoading: commoditiesLoading } = useReadContracts({
-    contracts: registry && totalCommodities && totalCommodities > 0n ? Array.from({ length: Number(totalCommodities) }, (_, i) => ({
-      address: registry,
-      abi: CommodityRegistryAbi,
-      functionName: "getCommodity" as const,
-      args: [BigInt(i)] as const,
-    })) : [],
-    query: { enabled: Boolean(registry && totalCommodities && totalCommodities > 0n) },
-  });
 
-  // Only show pending commodities
-  const pendingCommodities = useMemo(() => {
-    if (!commodities) return [];
-    return commodities
-      .map((entry, index) => {
-        const value = entry.result as any;
-        if (!value) return null;
-        // Only include pending items
-        if (Number(value.status) !== 0) return null; // 0 = Pending
-        
-        return {
-          id: index.toString(),
-          on_chain_id: index,
-          farmer_wallet: value.farmer,
-          commodity_type: commodityTypeFromIndex(Number(value.commodityType)),
-          grade: gradeFromIndex(Number(value.grade)),
-          quantity_kg: Number(formatUnits(value.quantity, 18)),
-          harvest_date: new Date(Number(value.harvestDate) * 1000).toISOString().split("T")[0],
-          status: statusFromIndex(Number(value.status)),
-        };
-      })
-      .filter((c): c is any => c !== null);
-  }, [commodities]);
+  const registry = contracts.registry;
+  const {
+    commodities: pendingCommodities,
+    isLoading: loading,
+    error: registryError,
+  } = usePendingCommodities();
 
   // Admin wallet check - only admin can verify
   const isAdmin = walletAddress && isAdminWallet(walletAddress);
 
-  const [active, setActive] = useState<any | null>(null);
+  const [active, setActive] = useState<PendingCommodity | null>(null);
   const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
   const [inspectionRef, setInspectionRef] = useState("");
   const [warehouseRef, setWarehouseRef] = useState("");
@@ -129,12 +70,18 @@ function AdminQueue() {
   const [submitting, setSubmitting] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const error = receiptError instanceof Error ? receiptError.message : receiptError ? "Transaction failed" : null;
+  const error = registryError instanceof Error
+    ? registryError.message
+    : receiptError instanceof Error
+      ? receiptError.message
+      : registryError || receiptError
+        ? "Unable to read the queue or confirm the transaction."
+        : null;
 
   function openAction(id: string, type: "approve" | "reject") {
     const commodity = pendingCommodities.find(c => c.id === id);
     if (!commodity) return;
-    
+
     setActive(commodity);
     setActionType(type);
     setActionMessage(null);
@@ -184,7 +131,7 @@ function AdminQueue() {
           functionName: "approveCommodity",
           args: [onChainId],
         });
-        
+
         setActionMessage({
           type: "success",
           text: `Transaction submitted: ${String(txHash).slice(0, 12)}...`,
@@ -193,20 +140,20 @@ function AdminQueue() {
         // Call rejectCommodity on the registry contract
         const onChainId = BigInt(active.on_chain_id);
         const reasonBytes32 = hexEncodeString(rejectReason);
-        
+
         const txHash = await writeContractAsync({
           address: registry,
           abi: CommodityRegistryAbi,
           functionName: "rejectCommodity",
           args: [onChainId, reasonBytes32],
         });
-        
+
         setActionMessage({
           type: "success",
           text: `Transaction submitted: ${String(txHash).slice(0, 12)}...`,
         });
       }
-      
+
       // Reload the queue after a delay
       setTimeout(() => {
         closeAction();
@@ -256,8 +203,6 @@ function AdminQueue() {
       </DashboardLayout>
     );
   }
-
-  const loading = idsLoading || commoditiesLoading;
 
   return (
     <DashboardLayout userType="admin">

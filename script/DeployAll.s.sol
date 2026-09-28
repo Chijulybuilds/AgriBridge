@@ -47,7 +47,7 @@ contract DeployAll is Script {
         address usdc = vm.envAddress("USDC_CONTRACT_ADDRESS");
         address verifier = vm.envAddress("VERIFIER_ADDRESS");
         string memory baseUri = vm.envString("TOKEN_METADATA_BASE_URI");
-        address finalAdmin = vm.envOr("ADMIN_ADDRESS", address(0));
+        address finalAdmin = vm.envOr("ADMIN_ADDRESS", verifier);
 
         vm.startBroadcast();
 
@@ -57,7 +57,11 @@ contract DeployAll is Script {
         registry = new CommodityRegistry(deployer);
 
         // 2. Token grants MINTER_ROLE to the registry in its constructor.
-        commodityToken = new CommodityToken(deployer, address(registry), baseUri);
+        commodityToken = new CommodityToken(
+            deployer,
+            address(registry),
+            baseUri
+        );
 
         // 3. Oracle, which resolves commodity ids through the registry.
         oracle = new CommodityPriceOracle(deployer, HEARTBEAT);
@@ -65,7 +69,12 @@ contract DeployAll is Script {
         // 4. Share token, then the pool that is allowed to mint and burn its shares.
         shareToken = new AgriShareToken(usdc, "agUSDC", "aU");
         pool = new LendingPool(
-            deployer, usdc, address(registry), address(commodityToken), address(shareToken), address(oracle)
+            deployer,
+            usdc,
+            address(registry),
+            address(commodityToken),
+            address(shareToken),
+            address(oracle)
         );
 
         // 5. Wiring. Without these the protocol deploys but cannot function.
@@ -80,17 +89,32 @@ contract DeployAll is Script {
         oracle.setPrice(ICommodityPriceOracle.CommodityType.Cocoa, COCOA_PRICE);
         oracle.setPrice(ICommodityPriceOracle.CommodityType.Rice, RICE_PRICE);
         oracle.setPrice(ICommodityPriceOracle.CommodityType.Maize, MAIZE_PRICE);
-        oracle.setPrice(ICommodityPriceOracle.CommodityType.Cashew, CASHEW_PRICE);
+        oracle.setPrice(
+            ICommodityPriceOracle.CommodityType.Cashew,
+            CASHEW_PRICE
+        );
         oracle.setPrice(ICommodityPriceOracle.CommodityType.Yam, YAM_PRICE);
 
-        // 7. Hand admin rights to the intended admin, if it is not the deployer.
+        // 7. Hand admin rights to the intended Safe and remove deployer admin access.
         if (finalAdmin != address(0) && finalAdmin != deployer) {
             registry.grantRole(registry.DEFAULT_ADMIN_ROLE(), finalAdmin);
-            commodityToken.grantRole(commodityToken.DEFAULT_ADMIN_ROLE(), finalAdmin);
+            registry.revokeRole(registry.DEFAULT_ADMIN_ROLE(), deployer);
+            commodityToken.grantRole(
+                commodityToken.DEFAULT_ADMIN_ROLE(),
+                finalAdmin
+            );
+            commodityToken.revokeRole(
+                commodityToken.DEFAULT_ADMIN_ROLE(),
+                deployer
+            );
             oracle.grantRole(oracle.DEFAULT_ADMIN_ROLE(), finalAdmin);
             oracle.grantRole(oracle.PRICE_UPDATER_ROLE(), finalAdmin);
+            oracle.revokeRole(oracle.DEFAULT_ADMIN_ROLE(), deployer);
+            oracle.revokeRole(oracle.PRICE_UPDATER_ROLE(), deployer);
             pool.grantRole(pool.DEFAULT_ADMIN_ROLE(), finalAdmin);
             pool.grantRole(pool.ADMIN_ROLE(), finalAdmin);
+            pool.revokeRole(pool.DEFAULT_ADMIN_ROLE(), deployer);
+            pool.revokeRole(pool.ADMIN_ROLE(), deployer);
         }
 
         vm.stopBroadcast();
@@ -102,6 +126,8 @@ contract DeployAll is Script {
         console.log("AgriShareToken       :", address(shareToken));
         console.log("LendingPool          :", address(pool));
         console.log("");
-        console.log("Copy these into .env and .env.local as NEXT_PUBLIC_* addresses.");
+        console.log(
+            "Copy these into .env and .env.local as NEXT_PUBLIC_* addresses."
+        );
     }
 }
