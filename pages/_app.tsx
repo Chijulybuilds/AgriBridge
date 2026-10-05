@@ -1,6 +1,8 @@
 import type { AppProps } from "next/app";
+import { useRouter } from "next/router";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { WagmiProvider } from "wagmi";
+import { WagmiProvider, useConfig } from "wagmi";
+import { watchAccount } from "wagmi/actions";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 
@@ -14,6 +16,7 @@ import {
   getCurrentUser,
   getSessionToken,
   getStoredProfile,
+  isProtectedPath,
   type Profile,
 } from "../lib/auth";
 
@@ -89,6 +92,33 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
     window.location.href = "/";
   }, []);
+
+  const router = useRouter();
+  const config = useConfig();
+
+  // A session belongs to the wallet that signed it. End it when the wallet
+  // switches to another account or disconnects, so one wallet's dashboard is
+  // never shown while a different one signs the transactions.
+  useEffect(
+    () =>
+      watchAccount(config, {
+        onChange(account, previous) {
+          const signedIn = getStoredProfile();
+          if (!signedIn) return;
+
+          const switched =
+            account.status === "connected" &&
+            account.address.toLowerCase() !== signedIn.wallet_address.toLowerCase();
+          const disconnected = previous.status === "connected" && account.status === "disconnected";
+          if (!switched && !disconnected) return;
+
+          clearSession();
+          setProfile(null);
+          if (isProtectedPath(router.pathname)) void router.replace("/login");
+        },
+      }),
+    [config, router],
+  );
 
   return (
     <AuthContext.Provider

@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from "react";
-import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useWalletClient } from "wagmi";
+import { useCallback, useMemo, useState } from "react";
+import { useAccount, useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, usePublicClient, useSwitchChain } from "wagmi";
 import { formatUnits, parseUnits, maxUint256, type Address } from "viem";
 import { waitForTransactionReceipt } from "viem/actions";
 
+import { activeChain } from "../lib/wagmi";
 import {
   CommodityRegistryAbi,
   CommodityTokenAbi,
@@ -20,6 +21,7 @@ import {
   USDC_DECIMALS,
   QUANTITY_DECIMALS,
   PRICE_DECIMALS,
+  VERIFIER_ROLE,
   type CommodityType,
   type Grade,
 } from "../lib/contracts/config";
@@ -57,23 +59,55 @@ export const toQuantity = (kg: string | number) => parseUnits(String(kg), QUANTI
 //////////////////////////////////////////////////////////////*/
 
 /**
+ * Returns a function that puts the wallet on the app's chain before a write.
+ *
+ * Without it, a wallet left on another network (say mainnet) is asked to send
+ * the transaction there, to an address that only holds our contract on Sepolia.
+ */
+export function useEnsureAppChain() {
+  const { chainId } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
+
+  return useCallback(async () => {
+    if (chainId !== activeChain.id) await switchChainAsync({ chainId: activeChain.id });
+  }, [chainId, switchChainAsync]);
+}
+
+/**
+ * Keeps only what the UI shows from a wallet or contract error.
+ *
+ * viem errors carry the call's arguments, which are usually bigints. React
+ * 19's development-only performance tracks JSON.stringify changed props, so
+ * handing such an error to a component crashes dev builds with "Do not know
+ * how to serialize a BigInt".
+ */
+export function toDisplayError(error: Error | null | undefined): Error | null {
+  if (!error) return null;
+  const display = new Error(error.message);
+  display.name = error.name;
+  return display;
+}
+
+/**
  * Wraps a contract write with its receipt, so callers get one object covering
  * the whole lifecycle: submitting, waiting for confirmation, confirmed, failed.
  *
- * TWO write functions are returned:
- * - `write` — raw wagmi write (resolves after wallet signs, before tx mined)
- * - `writeAndWait` — enhanced version that AWAITS the on-chain receipt before resolving
- *
- * Use `writeAndWait` in pages where you want to show data AFTER the tx confirms.
+ * `writeAndWait` switches the wallet to the app's chain if needed, submits the
+ * write, and resolves only once the transaction is mined.
  */
 export function useTx() {
   const { writeContractAsync, data: hash, isPending, error, reset } = useWriteContract();
   const publicClient = usePublicClient();
+  const ensureAppChain = useEnsureAppChain();
   const {
     isLoading: isConfirming,
     isSuccess: isConfirmed,
     error: receiptError,
   } = useWaitForTransactionReceipt({ hash });
+
+  // A failed network switch happens before wagmi's write starts, so wagmi never
+  // sees it; track it here or the user gets no feedback at all.
+  const [switchError, setSwitchError] = useState<Error | null>(null);
 
   const status = isPending
     ? "signing"
@@ -81,7 +115,7 @@ export function useTx() {
       ? "confirming"
       : isConfirmed
         ? "confirmed"
-        : error || receiptError
+        : switchError || error || receiptError
           ? "failed"
           : "idle";
 
@@ -93,24 +127,47 @@ export function useTx() {
     async (
       args: Parameters<typeof writeContractAsync>[0],
     ): Promise<`0x${string}`> => {
-      const txHash = await writeContractAsync(args);
+      setSwitchError(null);
+      try {
+        await ensureAppChain();
+      } catch {
+        const failure = new Error(`Switch your wallet to ${activeChain.name} to continue.`);
+        setSwitchError(failure);
+        throw failure;
+      }
+      // Passing chainId makes viem refuse to send if the wallet is still elsewhere.
+      const txHash = await writeContractAsync({ ...args, chainId: activeChain.id });
       if (publicClient) {
-        await waitForTransactionReceipt(publicClient, { hash: txHash });
+        // viem returns the receipt of a reverted transaction rather than
+        // throwing, so check it; otherwise a failed tx reads as success.
+        const receipt = await waitForTransactionReceipt(publicClient, { hash: txHash });
+        if (receipt.status === "reverted") {
+          throw new Error(`Transaction ${txHash} reverted on-chain.`);
+        }
       }
       return txHash;
     },
-    [writeContractAsync, publicClient],
+    [ensureAppChain, writeContractAsync, publicClient],
   );
 
+  const displayError = useMemo(
+    () => toDisplayError(switchError ?? error ?? receiptError),
+    [switchError, error, receiptError],
+  );
+
+  const resetAll = useCallback(() => {
+    setSwitchError(null);
+    reset();
+  }, [reset]);
+
   return {
-    write: writeContractAsync,
     writeAndWait,
     hash,
     status,
     isBusy: isPending || isConfirming,
     isConfirmed,
-    error: error ?? receiptError ?? null,
-    reset,
+    error: displayError,
+    reset: resetAll,
   };
 }
 
@@ -166,6 +223,24 @@ export function usePoolStats() {
     error,
     refetch,
   };
+}
+
+/**
+ * Whether a wallet holds VERIFIER_ROLE on the registry. This is the permission
+ * approveCommodity and rejectCommodity actually check, so the verifier queue
+ * gates on it rather than on the client-side session.
+ */
+export function useIsVerifier(wallet: Address | undefined) {
+  const registry = contracts.registry;
+  const { data, isLoading } = useReadContract({
+    address: registry,
+    abi: CommodityRegistryAbi,
+    functionName: "hasRole",
+    args: wallet ? [VERIFIER_ROLE, wallet] : undefined,
+    query: { enabled: Boolean(registry && wallet) },
+  });
+
+  return { isVerifier: data === true, isLoading };
 }
 
 export type PendingCommodity = {

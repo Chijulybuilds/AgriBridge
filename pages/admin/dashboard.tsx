@@ -1,5 +1,6 @@
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import withAuth from "../../components/withAuth";
+import { NetworkGuard } from "../../components/NetworkGuard";
 import { usePendingCommodities } from "../../hooks/useProtocol";
 import { ArchiveBoxIcon, ClockIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
@@ -22,6 +23,8 @@ function AdminDashboard() {
           Review pending commodity submissions and process warehouse receipts.
         </p>
       </div>
+
+      <NetworkGuard />
 
       {/* STAT CARDS */}
       <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px", marginBottom: "32px" }}>

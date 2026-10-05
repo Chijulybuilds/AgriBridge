@@ -17,6 +17,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAuth } from "../../pages/_app";
+import { dashboardPathFor, switchRole, type SignupRole } from "../../lib/auth";
 import { ThemeToggle } from "../ThemeToggle";
 
 interface Props {
@@ -64,6 +65,8 @@ function SidebarContent({
   onLogout: () => void;
 }) {
   const router = useRouter();
+  const { setProfile } = useAuth();
+  const otherRole: SignupRole = userType === "farmer" ? "investor" : "farmer";
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Logo */}
@@ -135,7 +138,7 @@ function SidebarContent({
             display: "inline-block",
           }}
         >
-          {userType === "farmer" ? "Farmer" : "Investor"}
+          {userType === "farmer" ? "Farmer" : userType === "investor" ? "Investor" : "Verifier"}
         </div>
       </div>
 
@@ -184,28 +187,35 @@ function SidebarContent({
           flexShrink: 0,
         }}
       >
-        <Link
-          href={
-            userType === "farmer" ? "/investor/dashboard" : "/farmer/dashboard"
-          }
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              fontSize: "12px",
-              color: "var(--text-muted)",
-              padding: "8px 10px",
-              borderRadius: "6px",
-              cursor: "pointer",
-              textDecoration: "none",
+        {/* Admin is derived from the wallet, so only farmer and investor can switch. */}
+        {userType !== "admin" && (
+          <Link
+            href={dashboardPathFor(otherRole)}
+            onClick={() => {
+              // Update the session before navigating, or the route guard
+              // bounces straight back to the current role's dashboard.
+              const profile = switchRole(otherRole);
+              if (profile) setProfile(profile);
             }}
           >
-            <ArrowsRightLeftIcon style={{ width: "14px", height: "14px" }} />
-            Switch to {userType === "farmer" ? "Investor" : "Farmer"}
-          </div>
-        </Link>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "12px",
+                color: "var(--text-muted)",
+                padding: "8px 10px",
+                borderRadius: "6px",
+                cursor: "pointer",
+                textDecoration: "none",
+              }}
+            >
+              <ArrowsRightLeftIcon style={{ width: "14px", height: "14px" }} />
+              Switch to {otherRole === "investor" ? "Investor" : "Farmer"}
+            </div>
+          </Link>
+        )}
         <Link href="/">
           <div
             style={{

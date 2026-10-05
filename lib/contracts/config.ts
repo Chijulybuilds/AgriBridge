@@ -1,4 +1,4 @@
-import type { Address } from "viem";
+import { keccak256, toHex, type Address } from "viem";
 
 /**
  * Deployed contract addresses, read from the environment so a redeploy is a
@@ -48,6 +48,13 @@ export function contractsConfigured(): boolean {
 export function missingContracts(): ContractName[] {
   return (Object.keys(contracts) as ContractName[]).filter((k) => !contracts[k]);
 }
+
+/*//////////////////////////////////////////////////////////////
+                              ROLES
+//////////////////////////////////////////////////////////////*/
+
+/** Matches `keccak256("VERIFIER_ROLE")` in CommodityRegistry.sol: who may approve or reject commodities. */
+export const VERIFIER_ROLE = keccak256(toHex("VERIFIER_ROLE"));
 
 /*//////////////////////////////////////////////////////////////
                     ON-CHAIN ENUM MAPPINGS

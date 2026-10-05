@@ -1,19 +1,26 @@
 /**
- * Session handling for wallet-based sign-in (on-chain SIWE).
+ * Session handling for wallet sign-in (Sign-In with Ethereum, EIP-4361).
  *
- * After removing the backend, we use a simplified on-chain approach:
- * - The SIWE message is constructed client-side
- * - Wallet signature verification happens via on-chain contract
- * - Session is stored locally without JWT tokens
- *
- * The previous backend SIWE is replaced by:
- * 1. Storing the signed message in localStorage
- * 2. Using the wallet signature for authentication
- * 3. On-chain role checking via a simple contract or admin wallet check
+ * There is no backend, so the session lives in localStorage. It decides routing
+ * and what the UI shows, but it is not an access-control boundary: every state
+ * change is a transaction the wallet signs, and the contracts enforce roles
+ * on-chain. Anything off-chain that needs protecting must verify the stored
+ * SIWE signature on a server, not trust this session.
  */
+import { verifyMessage, type Address, type Client, type Hex } from "viem";
+import { verifyMessage as verifyMessageOnChain } from "viem/actions";
+import {
+  createSiweMessage,
+  generateSiweNonce,
+  parseSiweMessage,
+  validateSiweMessage,
+} from "viem/siwe";
 
 const SESSION_STORAGE_KEY = "agribridge_session";
 const PROFILE_STORAGE_KEY = "agribridge_profile";
+
+/** How long a sign-in lasts before the wallet has to sign again. */
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type UserRole = "farmer" | "investor" | "admin";
 export type SignupRole = Extract<UserRole, "farmer" | "investor">;
@@ -26,13 +33,13 @@ export type Profile = {
   role: UserRole;
 };
 
-/**
- * SIWE message template for on-chain verification.
- * This matches the EIP-4361 format without needing a backend nonce.
- */
-const SIWE_DOMAIN = typeof window !== "undefined" ? window.location.host : "agribridge.local";
-const SIWE_URI = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-const SIWE_VERSION = "1";
+type Session = {
+  profile: Profile;
+  /** The signed SIWE message and its signature, kept so a server can re-verify them later. */
+  message: string;
+  signature: Hex;
+  expiresAt: number;
+};
 
 /*//////////////////////////////////////////////////////////////
                            SESSION STORAGE
@@ -75,105 +82,148 @@ export async function signOut() {
   clearSession();
 }
 
-/*//////////////////////////////////////////////////////////////
-                         ON-CHAIN SIWE
-//////////////////////////////////////////////////////////////*/
-
-/**
- * Builds the SIWE message that the user signs.
- * This is a simplified version without backend nonce.
- */
-export function buildSiweMessage(
-  wallet: string,
-  role: UserRole = "farmer",
-  chainId: number = 31337,
-): string {
-  const issuedAt = new Date().toISOString();
-  const message = [
-    `${SIWE_DOMAIN} wants you to sign in with your Ethereum account:`,
-    wallet,
-    "",
-    "Sign this message to verify you own this wallet and log in to AgriBridge.",
-    "This is free and will NOT trigger a blockchain transaction.",
-    "",
-    `URI: ${SIWE_URI}`,
-    `Version: ${SIWE_VERSION}`,
-    `Chain ID: ${chainId}`,
-    `Nonce: ${Date.now().toString()}`,
-    `Issued At: ${issuedAt}`,
-    `Role: ${role}`,
-  ].join("\n");
-  return message;
-}
-
-/**
- * Creates a session token from profile data.
- * In the no-backend version, this is just a signed JSON string.
- */
-export function createSessionToken(profile: Profile): string {
-  const payload = {
-    profile,
-    timestamp: Date.now(),
-    signatureVerified: true,
-  };
-  return btoa(JSON.stringify(payload));
-}
-
-/**
- * Verifies a session token and extracts the profile.
- */
-export function verifySessionToken(token: string): Profile | null {
+/** Decodes the stored session, or returns null when it is missing, malformed or expired. */
+function readSession(): Session | null {
+  const token = getSessionToken();
+  if (!token) return null;
   try {
-    const json = atob(token);
-    const payload = JSON.parse(json);
-    if (payload?.signatureVerified && payload.profile?.wallet_address) {
-      return payload.profile as Profile;
+    const session = JSON.parse(atob(token)) as Partial<Session>;
+    if (
+      !session.profile?.wallet_address ||
+      !session.message ||
+      !session.signature ||
+      typeof session.expiresAt !== "number" ||
+      Date.now() >= session.expiresAt
+    ) {
+      return null;
     }
-    return null;
+    return session as Session;
   } catch {
     return null;
   }
 }
 
 /*//////////////////////////////////////////////////////////////
-                       ON-CHAIN ROLES
+                    SIGN-IN WITH ETHEREUM (EIP-4361)
 //////////////////////////////////////////////////////////////*/
 
 /**
- * On-chain roles can be enforced by checking if the wallet has a specific
- * role role via a smart contract, or by maintaining a simple admin wallet list.
+ * Builds the sign-in message the wallet signs.
  *
- * For this simplified version, we check against a configured admin wallet.
+ * It must follow EIP-4361 exactly. Wallets such as MetaMask only treat a
+ * message as a sign-in request (and check that the domain matches the site
+ * asking) when it parses as SIWE; anything else is shown as an opaque text
+ * signature. The statement must be a single line and no custom fields are
+ * allowed, so the role is not part of the message.
  */
-export const ADMIN_WALLET_ADDRESS =
-  process.env.NEXT_PUBLIC_ADMIN_WALLET?.toLowerCase() || "0x8598454f091bb5c2687f337516606aebB57953c".toLowerCase();
-
-export function isAdminWallet(wallet: string): boolean {
-  return wallet.toLowerCase() === ADMIN_WALLET_ADDRESS;
+export function buildSiweMessage({ address, chainId }: { address: Address; chainId: number }): string {
+  const issuedAt = new Date();
+  return createSiweMessage({
+    domain: window.location.host,
+    address,
+    statement: "Sign in to AgriBridge to prove you own this wallet. This is free and does not send a transaction.",
+    uri: window.location.origin,
+    version: "1",
+    chainId,
+    nonce: generateSiweNonce(),
+    issuedAt,
+    expirationTime: new Date(issuedAt.getTime() + SESSION_TTL_MS),
+  });
 }
 
 /**
- * Fetches the signed-in user's profile from local storage.
- * No network call needed in the no-backend version.
+ * Confirms that `address` signed this sign-in message for this site.
+ *
+ * Ordinary wallets are checked locally by recovering the signer. Smart-contract
+ * wallets, such as a Safe holding the verifier role, cannot be recovered that
+ * way, so those fall back to an on-chain EIP-1271 check through `client`.
  */
-export async function getCurrentUser(): Promise<{ profile: Profile } | null> {
-  const stored = getStoredProfile();
-  if (!stored) return null;
-
-  // Re-validate the session token
-  const existingToken = getSessionToken();
-  if (existingToken) {
-    const verified = verifySessionToken(existingToken);
-    if (verified) {
-      return { profile: verified };
-    }
+export async function verifySiweSignature({
+  message,
+  signature,
+  address,
+  client,
+}: {
+  message: string;
+  signature: Hex;
+  address: Address;
+  client?: Client;
+}): Promise<boolean> {
+  const fields = parseSiweMessage(message);
+  if (!validateSiweMessage({ message: fields, address, domain: window.location.host })) {
+    return false;
   }
 
-  // If no valid token but profile exists, re-create token
-  const newToken = createSessionToken(stored);
-  persistSession(newToken, stored);
+  try {
+    if (await verifyMessage({ address, message, signature })) return true;
+  } catch {
+    // Not a plain ECDSA signature; try the contract-wallet path below.
+  }
 
-  return { profile: stored };
+  if (!client) return false;
+  try {
+    return await verifyMessageOnChain(client, { address, message, signature });
+  } catch {
+    return false;
+  }
+}
+
+/** Packs a verified sign-in into the stored session token. Expiry comes from the signed message. */
+export function createSessionToken({
+  profile,
+  message,
+  signature,
+}: {
+  profile: Profile;
+  message: string;
+  signature: Hex;
+}): string {
+  const expiresAt =
+    parseSiweMessage(message).expirationTime?.getTime() ?? Date.now() + SESSION_TTL_MS;
+  const session: Session = { profile, message, signature, expiresAt };
+  return btoa(JSON.stringify(session));
+}
+
+/*//////////////////////////////////////////////////////////////
+                                ROLES
+//////////////////////////////////////////////////////////////*/
+
+/**
+ * Optional override for the admin wallet. Without it, admin access comes from
+ * holding VERIFIER_ROLE on the CommodityRegistry, which is what the contract
+ * itself enforces.
+ */
+const ADMIN_WALLET = process.env.NEXT_PUBLIC_ADMIN_WALLET?.toLowerCase();
+
+export function isAdminWallet(wallet: string): boolean {
+  return Boolean(ADMIN_WALLET) && wallet.toLowerCase() === ADMIN_WALLET;
+}
+
+/**
+ * Switches between the farmer and investor views of the same wallet.
+ *
+ * Neither role is enforced on-chain (any wallet can deposit or borrow), so no
+ * new signature is needed. Admin is derived from the wallet, so it cannot be
+ * switched to or from.
+ */
+export function switchRole(role: SignupRole): Profile | null {
+  const session = readSession();
+  if (!session || session.profile.role === "admin") return null;
+
+  const profile: Profile = { ...session.profile, role };
+  persistSession(btoa(JSON.stringify({ ...session, profile })), profile);
+  return profile;
+}
+
+/** Returns the signed-in user's profile, or null once the session is missing or expired. */
+export async function getCurrentUser(): Promise<{ profile: Profile } | null> {
+  const session = readSession();
+  if (!session) {
+    // Never revive an expired or malformed session from the stored profile.
+    clearSession();
+    return null;
+  }
+  return { profile: session.profile };
 }
 
 /** Landing page for a role. Used after sign-in and by the route guards. */
@@ -188,4 +238,9 @@ export function dashboardPathFor(role: UserRole | string | null | undefined): st
     default:
       return "/login";
   }
+}
+
+/** Pages that need a signed-in session; see components/withAuth.tsx. */
+export function isProtectedPath(pathname: string): boolean {
+  return /^\/(farmer|investor|admin)(\/|$)/.test(pathname);
 }

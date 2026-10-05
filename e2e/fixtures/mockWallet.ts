@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 /**
  * A deterministic test account. This is Anvil's well-known account #1, whose
@@ -124,11 +124,21 @@ export async function installMockWallet(page: Page) {
 export async function connectAndSignIn(page: Page, role: "farmer" | "investor" = "farmer") {
   await page.goto(`/login?role=${role}`);
 
-  await page.getByRole("button", { name: /connect wallet/i }).first().click();
-  await page.getByText("Mock Wallet").first().click();
+  // The mock answers eth_accounts at once, so wagmi can reconnect it on its
+  // own; only go through the modal when the button is still there.
+  const connect = page.getByRole("button", { name: /connect wallet/i }).first();
+  if (await connect.isVisible().catch(() => false)) {
+    await connect.click();
+    await page.getByText("Mock Wallet").first().click({ timeout: 5_000 }).catch(() => {});
+  }
 
   // The SIWE button only enables once the connection is established.
   const signIn = page.getByTestId("siwe-sign-in");
-  await signIn.waitFor({ state: "visible" });
+  await expect(signIn).toBeEnabled();
   await signIn.click();
+
+  // Signing in is asynchronous (signature, verification, on-chain role check).
+  // Wait for the redirect; a test that navigates straight away races it and
+  // lands on /login with no session.
+  await page.waitForURL(/\/(farmer|investor|admin)\/dashboard/);
 }

@@ -1,28 +1,32 @@
 import { useCallback, useState } from "react";
-import { useAccount, useSignMessage } from "wagmi";
+import { useAccount, usePublicClient, useSignMessage } from "wagmi";
 import { type Address } from "viem";
 
+import { CommodityRegistryAbi } from "../lib/contracts/abis";
+import { contracts, VERIFIER_ROLE } from "../lib/contracts/config";
+import { activeChain } from "../lib/wagmi";
 import {
   buildSiweMessage,
   createSessionToken,
-  getStoredProfile,
+  isAdminWallet,
   persistSession,
+  verifySiweSignature,
   type Profile,
   type SignupRole,
-  ADMIN_WALLET_ADDRESS,
 } from "../lib/auth";
 
 /**
  * Drives Sign-In with Ethereum against the connected wallet.
  *
- * In the no-backend version:
- * 1. Build the SIWE message client-side
- * 2. Sign it with the wallet
- * 3. Store the session token locally
- * 4. Determine role based on admin wallet check or default to user role
+ * 1. Build a standard EIP-4361 message for this site and the app's chain
+ * 2. Have the wallet sign it, then verify the signature
+ * 3. Work out the role: admin for the configured admin wallet or any wallet
+ *    holding VERIFIER_ROLE on-chain, otherwise the role the user picked
+ * 4. Store the session locally (see lib/auth.ts for what that does and does not protect)
  */
 export function useSiweLogin() {
   const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
   const { signMessageAsync } = useSignMessage();
 
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -39,23 +43,24 @@ export function useSiweLogin() {
       setError(null);
 
       try {
-        // Determine the role - admin if it's the admin wallet, otherwise user role
-        const wallet = address as Address;
-        const determinedRole = isAdminWallet(wallet) ? ("admin" as const) : ((role as SignupRole) ?? "farmer");
-
-        // Build and sign the SIWE message
-        const message = buildSiweMessage(wallet, determinedRole);
+        // The app's chain, not whatever network the wallet is on: it is where
+        // contract wallets are checked and where the session's roles live.
+        const message = buildSiweMessage({ address, chainId: activeChain.id });
         const signature = await signMessageAsync({ message });
 
-        // Create profile and session
+        const valid = await verifySiweSignature({ message, signature, address, client: publicClient });
+        if (!valid) {
+          setError("The signature could not be verified for this wallet. Try again.");
+          return null;
+        }
+
+        const admin = isAdminWallet(address) || (await holdsVerifierRole(publicClient, address));
         const profile: Profile = {
-          wallet_address: wallet,
-          role: determinedRole,
+          wallet_address: address,
+          role: admin ? "admin" : (role ?? "farmer"),
         };
 
-        const token = createSessionToken(profile);
-        persistSession(token, profile);
-
+        persistSession(createSessionToken({ profile, message, signature }), profile);
         return profile;
       } catch (err) {
         // A user declining the signature prompt is a normal outcome, not a fault.
@@ -69,16 +74,27 @@ export function useSiweLogin() {
         setIsSigningIn(false);
       }
     },
-    [address, isConnected, signMessageAsync],
+    [address, isConnected, publicClient, signMessageAsync],
   );
 
   return { signIn, isSigningIn, error, address, isConnected };
 }
 
-/**
- * Checks if the given wallet address is the admin wallet.
- */
-function isAdminWallet(wallet: string): boolean {
-  const admin = process.env.NEXT_PUBLIC_ADMIN_WALLET?.toLowerCase() || ADMIN_WALLET_ADDRESS;
-  return wallet.toLowerCase() === admin;
+/** Whether the wallet may verify commodities, read from the registry the contract checks. */
+async function holdsVerifierRole(
+  client: ReturnType<typeof usePublicClient>,
+  wallet: Address,
+): Promise<boolean> {
+  if (!client || !contracts.registry) return false;
+  try {
+    return await client.readContract({
+      address: contracts.registry,
+      abi: CommodityRegistryAbi,
+      functionName: "hasRole",
+      args: [VERIFIER_ROLE, wallet],
+    });
+  } catch {
+    // An unreachable RPC should not block sign-in; the queue re-checks the role.
+    return false;
+  }
 }

@@ -39,12 +39,13 @@ test.describe("Farmer journey", () => {
 
     const future = new Date();
     future.setFullYear(future.getFullYear() + 1);
-    // The input caps at today, so set the value directly to test the guard.
-    await page.getByTestId("harvest-date").evaluate((el, value) => {
-      (el as HTMLInputElement).value = value;
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-    }, future.toISOString().split("T")[0]);
+    // fill() goes through React's onChange (assigning .value directly does not).
+    await page.getByTestId("harvest-date").fill(future.toISOString().split("T")[0]);
+    // The input's max= caps it at today, and the browser's own validation would
+    // block the submit before the app's guard runs; turn that off to test the guard.
+    await page.locator("form").evaluate((form) => {
+      (form as HTMLFormElement).noValidate = true;
+    });
 
     await page.getByTestId("submit-tokenize").click();
     await expect(page.getByTestId("form-error")).toContainText(/future/i);
@@ -93,9 +94,9 @@ test.describe("Investor journey", () => {
     await page.goto("/investor/deposit");
 
     await page.getByTestId("amount-input").fill("0");
-    await page.getByTestId("submit-tx").click();
 
     // A zero amount leaves the button disabled, so no wallet prompt is possible.
+    // (Clicking it would just wait for it to enable until the test times out.)
     await expect(page.getByTestId("submit-tx")).toBeDisabled();
   });
 

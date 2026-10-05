@@ -34,6 +34,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Bootstrap theme on mount (avoids hydration mismatch)
   useEffect(() => {
+    // Deliberate: the server cannot read localStorage or matchMedia, so the
+    // stored theme can only be applied after hydration.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setThemeState(getInitialTheme());
   }, []);
 

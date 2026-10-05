@@ -5,7 +5,6 @@ import {
   dashboardPathFor,
   getCurrentUser,
   getSessionToken,
-  getStoredProfile,
   type UserRole,
 } from "../lib/auth";
 import { useAuth } from "../pages/_app";
@@ -41,13 +40,14 @@ export default function withAuth(
           const result = await getCurrentUser();
           if (cancelled) return;
 
-          const role = result?.profile?.role ?? getStoredProfile()?.role;
-          if (!role) {
+          // No fallback to the stored profile: an expired session must sign in again.
+          const role = result?.profile?.role;
+          if (!result || !role) {
             void router.replace("/login");
             return;
           }
 
-          if (result?.profile) setProfile(result.profile);
+          setProfile(result.profile);
 
           if (requiredRole && role !== requiredRole) {
             void router.replace(dashboardPathFor(role));

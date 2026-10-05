@@ -2,13 +2,21 @@ import { useState } from "react";
 import { CheckCircleIcon, ClockIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { useAccount } from "wagmi";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { stringToHex, type Hex } from "viem";
 
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import withAuth from "../../components/withAuth";
+import { NetworkGuard } from "../../components/NetworkGuard";
 import { CommodityRegistryAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
 import { isAdminWallet } from "../../lib/auth";
-import { usePendingCommodities, type PendingCommodity } from "../../hooks/useProtocol";
+import { activeChain } from "../../lib/wagmi";
+import {
+  useEnsureAppChain,
+  useIsVerifier,
+  usePendingCommodities,
+  type PendingCommodity,
+} from "../../hooks/useProtocol";
 
 const card: React.CSSProperties = {
   background: "var(--bg-card)",
@@ -37,6 +45,20 @@ const label: React.CSSProperties = {
 };
 
 /**
+ * Encodes a rejection reason as the bytes32 the registry stores: UTF-8,
+ * truncated to 32 bytes without splitting a character, then zero-padded.
+ */
+function reasonToBytes32(reason: string): Hex {
+  const encoder = new TextEncoder();
+  let fitted = "";
+  for (const char of reason.trim()) {
+    if (encoder.encode(fitted + char).length > 32) break;
+    fitted += char;
+  }
+  return stringToHex(fitted, { size: 32 });
+}
+
+/**
  * Admin Verification Queue - On-chain version
  * 
  * In the no-backend version:
@@ -47,6 +69,7 @@ const label: React.CSSProperties = {
 function AdminQueue() {
   const { address: walletAddress } = useAccount();
   const { writeContractAsync, data: hash, reset } = useWriteContract();
+  const ensureAppChain = useEnsureAppChain();
   const {
     error: receiptError,
   } = useWaitForTransactionReceipt({ hash });
@@ -58,8 +81,10 @@ function AdminQueue() {
     error: registryError,
   } = usePendingCommodities();
 
-  // Admin wallet check - only admin can verify
-  const isAdmin = walletAddress && isAdminWallet(walletAddress);
+  // approveCommodity and rejectCommodity check VERIFIER_ROLE on-chain, so gate
+  // on that; NEXT_PUBLIC_ADMIN_WALLET remains an explicit override.
+  const { isVerifier, isLoading: checkingRole } = useIsVerifier(walletAddress);
+  const isAdmin = Boolean(walletAddress && (isAdminWallet(walletAddress) || isVerifier));
 
   const [active, setActive] = useState<PendingCommodity | null>(null);
   const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
@@ -122,6 +147,8 @@ function AdminQueue() {
     setActionMessage(null);
 
     try {
+      await ensureAppChain();
+
       if (actionType === "approve") {
         // Call approveCommodity on the registry contract
         const onChainId = BigInt(active.on_chain_id);
@@ -130,6 +157,7 @@ function AdminQueue() {
           abi: CommodityRegistryAbi,
           functionName: "approveCommodity",
           args: [onChainId],
+          chainId: activeChain.id,
         });
 
         setActionMessage({
@@ -139,13 +167,14 @@ function AdminQueue() {
       } else {
         // Call rejectCommodity on the registry contract
         const onChainId = BigInt(active.on_chain_id);
-        const reasonBytes32 = hexEncodeString(rejectReason);
+        const reasonBytes32 = reasonToBytes32(rejectReason);
 
         const txHash = await writeContractAsync({
           address: registry,
           abi: CommodityRegistryAbi,
           functionName: "rejectCommodity",
           args: [onChainId, reasonBytes32],
+          chainId: activeChain.id,
         });
 
         setActionMessage({
@@ -168,37 +197,28 @@ function AdminQueue() {
     }
   }
 
-  // Helper to encode string as bytes32
-  function hexEncodeString(str: string): `0x${string}` {
-    try {
-      const truncated = str.substring(0, 31);
-      // Simple hex encoding for the string
-      let hex = "0x";
-      for (let i = 0; i < truncated.length; i++) {
-        hex += truncated.charCodeAt(i).toString(16).padStart(2, "0");
-      }
-      // Pad to 32 bytes (64 hex chars after 0x)
-      while (hex.length < 66) {
-        hex += "00";
-      }
-      return hex as `0x${string}`;
-    } catch {
-      return "0x" + "00".repeat(32) as `0x${string}`;
-    }
-  }
-
-  // Check if admin wallet is configured
   if (!isAdmin) {
     return (
       <DashboardLayout userType="admin">
+        <NetworkGuard />
         <div style={card}>
-          <XCircleIcon style={{ width: 48, height: 48, color: "var(--accent-red)", margin: "0 auto 16px" }} />
-          <p style={{ textAlign: "center", fontSize: 14, color: "var(--text-primary)" }}>
-            This wallet does not have admin privileges.
-          </p>
-          <p style={{ textAlign: "center", fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
-            Only the configured admin wallet can access the verification queue.
-          </p>
+          {checkingRole ? (
+            <p style={{ textAlign: "center", fontSize: 13, color: "var(--text-muted)" }}>
+              Checking verifier permissions…
+            </p>
+          ) : (
+            <>
+              <XCircleIcon style={{ width: 48, height: 48, color: "var(--accent-red)", margin: "0 auto 16px" }} />
+              <p style={{ textAlign: "center", fontSize: 14, color: "var(--text-primary)" }}>
+                {walletAddress
+                  ? "This wallet cannot verify commodities."
+                  : "Connect the verifier wallet to use the queue."}
+              </p>
+              <p style={{ textAlign: "center", fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
+                Approving or rejecting needs VERIFIER_ROLE on the CommodityRegistry.
+              </p>
+            </>
+          )}
         </div>
       </DashboardLayout>
     );
@@ -223,6 +243,8 @@ function AdminQueue() {
           farmer on-chain; rejecting records the reason on-chain.
         </p>
       </div>
+
+      <NetworkGuard />
 
       {error && (
         <div

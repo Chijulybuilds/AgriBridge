@@ -1,9 +1,11 @@
 import { ArrowTrendingUpIcon } from "@heroicons/react/24/outline";
+import { formatUnits } from "viem";
 
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import withAuth from "../../components/withAuth";
 import { NetworkGuard } from "../../components/NetworkGuard";
 import { useInvestorPosition, usePoolStats, formatUsdc } from "../../hooks/useProtocol";
+import { USDC_DECIMALS } from "../../lib/contracts/config";
 
 const card: React.CSSProperties = {
   background: "var(--bg-card)",
@@ -27,9 +29,11 @@ function Returns() {
 
   // Projected forward from the live supply rate, not from stored history:
   // the protocol keeps no off-chain earnings series.
+  // Converted from base units directly: parsing the display string breaks in
+  // locales that write 1.234,56, where it would come out 1000x too small.
   const projectedAnnual =
     value !== undefined && pool.supplyApr !== undefined
-      ? (Number(formatUsdc(value).replace(/,/g, "")) * pool.supplyApr) / 100
+      ? (Number(formatUnits(value, USDC_DECIMALS)) * pool.supplyApr) / 100
       : undefined;
 
   return (

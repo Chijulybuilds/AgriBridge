@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import withAuth from "../../components/withAuth";
@@ -199,9 +199,9 @@ function MyLoans() {
                           />
                           <button
                             onClick={() =>
-                              setRepayAmount(
-                                (Number(loan.totalDebt) / 10 ** USDC_DECIMALS).toString(),
-                              )
+                              // Exact base units: float division can round past the debt,
+                              // which the pool rejects as an overpayment.
+                              setRepayAmount(formatUnits(loan.totalDebt, USDC_DECIMALS))
                             }
                             style={secondaryButton}
                           >
