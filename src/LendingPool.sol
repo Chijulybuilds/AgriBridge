@@ -109,8 +109,11 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
     // Liquidation & collateral parameters
     uint256 private constant LIQUIDATION_THRESHOLD = 1e18; // 1.0 health factor
-    uint256 private constant LIQUIDATION_BONUS = 5e16; // 5% liquidator bonus
     uint256 private constant MAX_LTV = 70e16; // 70% max loan-to-value
+
+    // CommodityRegistry.CommodityStatus values the pool sets (enum order in CommodityRegistry.sol)
+    uint8 private constant COMMODITY_RELEASED = 4;
+    uint8 private constant COMMODITY_LIQUIDATED = 5;
 
     // Borrow bounds
     uint256 private constant MIN_BORROW_AMOUNT = 100e6; // $100 minimum (USDC: 6 decimals)
@@ -184,6 +187,9 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     mapping(uint256 => Loan) public loans;
     mapping(address => uint256[]) private s_farmerLoans;
 
+    /// @notice Active loans per commodity lot; its registry status changes only when the last one closes.
+    mapping(uint256 => uint256) public activeLoansByCommodity;
+
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -215,7 +221,6 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         address indexed liquidator,
         uint256 debtCovered,
         uint256 collateralSeized,
-        uint256 liquidatorBonus,
         uint64 timestamp
     );
 
@@ -240,7 +245,6 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     error LendingPool__InsufficientCollateralBalance();
     error LendingPool__ExceedsMaxLTV();
     error LendingPool__LoanNotActive();
-    error LendingPool__RepaymentExceedsDebt();
     error LendingPool__PositionHealthy();
     error LendingPool__NativeTokenNotSupported();
     error LendingPool__InvalidCall();
@@ -350,11 +354,11 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
      * @dev
      *      Workflow:
      *      1. Farmer calls CommodityToken.approve() to allow pool to transfer tokens
-     *      2. Backend calls CommodityRegistry.approveCommodity(commodityId) → mints tokens to farmer
+     *      2. Verifier calls CommodityRegistry.approveCommodity(commodityId) → mints tokens to farmer
      *      3. Farmer calls this function to borrow
-     *      4. Collateral is transferred from farmer to pool
-     *      5. USDC is transferred to farmer
-     *      6. Backend calls markCollateralized() to sync registry status
+     *      4. The first loan against a lot marks it Collateralized in the registry
+     *      5. Collateral is transferred from farmer to pool
+     *      6. USDC is transferred to farmer
      *
      * @param _commodityId The commodity to use as collateral.
      * @param _collateralAmount Amount of commodity tokens to lock as collateral.
@@ -422,6 +426,13 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         s_farmerLoans[msg.sender].push(loanId);
         totalBorrowed += _borrowAmount;
 
+        // The first loan against a lot marks it Collateralized. This used to wait for a backend to
+        // call syncCollateralizedStatus, so without one the registry kept showing it as Verified.
+        if (activeLoansByCommodity[_commodityId]++ == 0) {
+            i_registry.markCollateralized(_commodityId);
+            emit CommodityCollateralized(_commodityId, loanId, uint64(block.timestamp));
+        }
+
         // Transfer collateral from farmer to pool
         i_commodityToken.safeTransferFrom(msg.sender, address(this), _commodityId, _collateralAmount, "");
 
@@ -434,6 +445,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     /**
      * @notice Repay loan principal + accrued interest.
      * @dev Interest accrues linearly. Paying back early reduces interest.
+     *      Amounts above the current debt are capped at it, so `type(uint256).max` repays in full.
      * @param _loanId The loan to repay.
      * @param _repayAmount Amount of USDC to repay.
      */
@@ -451,8 +463,9 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         // Calculate total debt (principal + accrued interest)
         uint256 totalDebt = _calculateCurrentDebt(loan);
 
-        // Prevent overpayment
-        if (_repayAmount > totalDebt) revert LendingPool__RepaymentExceedsDebt();
+        // Never take more than is owed. Interest accrues every second, so a wallet cannot send the
+        // exact debt: rejecting overpayment made it impossible to ever close a loan in practice.
+        if (_repayAmount > totalDebt) _repayAmount = totalDebt;
 
         // Split repayment between principal and interest
         uint256 interestPortion = totalDebt - loan.principal;
@@ -472,11 +485,14 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         loan.interestIndex = globalBorrowIndex;
         loan.lastAccruedAt = uint64(block.timestamp);
 
-        totalBorrowed -= principalPaid;
+        // Interest left unpaid is now part of the loan's principal, so totalBorrowed (the sum of
+        // principals) grows by it too. Otherwise the final repayment underflowed and reverted.
+        totalBorrowed = totalBorrowed + (interestPortion - interestPaid) - principalPaid;
 
         // If fully repaid, return collateral
         if (loan.principal == 0) {
             loan.status = LoanStatus.REPAID;
+            _closeLoanOnCommodity(loan.commodityId, COMMODITY_RELEASED);
             i_commodityToken.safeTransferFrom(address(this), loan.farmer, loan.commodityId, loan.collateralAmount, "");
         }
 
@@ -492,8 +508,10 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
     /**
      * @notice Liquidate undercollateralized loan when health factor < 1.0.
-     * @dev Only LIQUIDATOR_ROLE can call (typically backend service).
-     *      Liquidator receives collateral + bonus.
+     * @dev Only LIQUIDATOR_ROLE can call. The liquidator pays the full debt and receives the
+     *      loan's collateral. A health factor below 1.0 means that collateral is already worth
+     *      less than the debt, and the pool holds exactly `collateralAmount` for the loan, so
+     *      there is nothing to pay a bonus from: the old collateral-plus-5% payout always reverted.
      * @param _loanId The loan to liquidate.
      */
     function liquidate(uint256 _loanId) external onlyRole(LIQUIDATOR_ROLE) whenNotPaused nonReentrant {
@@ -511,43 +529,32 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         // Calculate debt to cover
         uint256 debtToCover = _calculateCurrentDebt(loan);
 
-        // Calculate liquidator bonus
-        uint256 bonusAmount = (loan.collateralAmount * LIQUIDATION_BONUS) / INDEX_PRECISION;
-
         // Mark loan as liquidated
         loan.status = LoanStatus.LIQUIDATED;
         totalBorrowed -= loan.principal;
+        _closeLoanOnCommodity(loan.commodityId, COMMODITY_LIQUIDATED);
 
         // Liquidator pays debt
         i_usdc.safeTransferFrom(msg.sender, address(this), debtToCover);
 
-        // Liquidator receives collateral + bonus
-        uint256 totalCollateralToLiquidator = loan.collateralAmount + bonusAmount;
-        i_commodityToken.safeTransferFrom(address(this), msg.sender, loan.commodityId, totalCollateralToLiquidator, "");
+        // Liquidator receives the loan's collateral
+        i_commodityToken.safeTransferFrom(address(this), msg.sender, loan.commodityId, loan.collateralAmount, "");
 
         emit LoanLiquidated(
-            _loanId, loan.farmer, msg.sender, debtToCover, loan.collateralAmount, bonusAmount, uint64(block.timestamp)
+            _loanId, loan.farmer, msg.sender, debtToCover, loan.collateralAmount, uint64(block.timestamp)
         );
     }
 
     /*//////////////////////////////////////////////////////////////
-                    BACKEND SYNCHRONIZATION
+                      REGISTRY STATUS TRACKING
     //////////////////////////////////////////////////////////////*/
 
-    /**
-     * @notice Mark commodity as collateralized in registry after successful borrow.
-     * @dev Only ADMIN_ROLE (backend) can call.
-     *      Called by backend after verifying borrow transaction on-chain.
-     * @param _loanId The loan ID (maps to commodity).
-     */
-    function syncCollateralizedStatus(uint256 _loanId) external onlyAdmin {
-        Loan storage loan = loans[_loanId];
-        if (loan.status != LoanStatus.ACTIVE) revert LendingPool__LoanNotActive();
-
-        // Notify registry that this commodity is now collateralized
-        i_registry.markCollateralized(loan.commodityId);
-
-        emit CommodityCollateralized(loan.commodityId, _loanId, uint64(block.timestamp));
+    /// @dev Records that a loan against `_commodityId` closed. When it was the lot's last active
+    ///      loan, the registry moves the lot to `_finalStatus` (Released or Liquidated).
+    function _closeLoanOnCommodity(uint256 _commodityId, uint8 _finalStatus) private {
+        if (--activeLoansByCommodity[_commodityId] == 0) {
+            i_registry.updateStatus(_commodityId, _finalStatus);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////

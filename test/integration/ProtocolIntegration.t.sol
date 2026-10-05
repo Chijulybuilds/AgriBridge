@@ -210,4 +210,137 @@ contract ProtocolIntegrationTest is Test {
         // Collateral returns to the farmer once the loan is cleared.
         assertEq(commodityToken.balanceOf(farmer, commodityId), QUANTITY);
     }
+
+    /// @dev Opens a $4,000 loan against the farmer's whole cocoa lot.
+    function _openLoan() internal returns (uint256 commodityId, uint256 loanId) {
+        commodityId = _registerAndApprove();
+        _seedPool();
+
+        vm.startPrank(farmer);
+        commodityToken.setApprovalForAll(address(pool), true);
+        loanId = pool.borrow(commodityId, QUANTITY, 4_000e6);
+        vm.stopPrank();
+    }
+
+    function _status(uint256 commodityId) internal view returns (CommodityRegistry.CommodityStatus) {
+        return registry.getCommodity(commodityId).status;
+    }
+
+    /**
+     * @notice Borrowing marks the commodity Collateralized on its own; no admin call is needed.
+     */
+    function test_BorrowMarksCommodityCollateralized() public {
+        (uint256 commodityId,) = _openLoan();
+
+        assertEq(uint8(_status(commodityId)), uint8(CommodityRegistry.CommodityStatus.Collateralized));
+    }
+
+    /**
+     * @notice "Repay in full" must close the loan even though the transaction is mined after the
+     *         farmer read the debt. Interest accrues every second, so a wallet can never send the
+     *         exact amount; the pool takes the debt as it stands at mining and no more.
+     */
+    function test_RepayInFullClosesLoanWhenDebtGrewBeforeMining() public {
+        (uint256 commodityId, uint256 loanId) = _openLoan();
+
+        vm.warp(block.timestamp + 30 days);
+        usdc.mint(farmer, 1_000e6);
+
+        // The app reads the debt, then the transaction lands a block later.
+        (,,,, uint256 shownDebt) = pool.getLoanDetails(loanId);
+        vm.warp(block.timestamp + 12);
+        (,,,, uint256 debtAtMining) = pool.getLoanDetails(loanId);
+        assertGt(debtAtMining, shownDebt, "debt grows every second");
+
+        uint256 balanceBefore = usdc.balanceOf(farmer);
+        vm.startPrank(farmer);
+        usdc.approve(address(pool), type(uint256).max);
+        pool.repay(loanId, type(uint256).max);
+        vm.stopPrank();
+
+        (, uint256 principal,, LendingPool.LoanStatus status,) = pool.getLoanDetails(loanId);
+        assertEq(uint8(status), uint8(LendingPool.LoanStatus.REPAID));
+        assertEq(principal, 0);
+        assertEq(balanceBefore - usdc.balanceOf(farmer), debtAtMining, "charged exactly the debt, not the cap");
+        assertEq(commodityToken.balanceOf(farmer, commodityId), QUANTITY);
+        assertEq(uint8(_status(commodityId)), uint8(CommodityRegistry.CommodityStatus.Released));
+    }
+
+    /**
+     * @notice After a price crash leaves the loan underwater, the liquidator pays the debt and
+     *         receives the loan's collateral. It used to revert, because it tried to pay out the
+     *         collateral plus a 5% bonus that the pool never held.
+     */
+    function test_LiquidationAfterPriceCrashTransfersCollateral() public {
+        (uint256 commodityId, uint256 loanId) = _openLoan();
+
+        // Cocoa halves: $3,250 of collateral against $4,000 of debt.
+        vm.prank(admin);
+        oracle.setPrice(ICommodityPriceOracle.CommodityType.Cocoa, COCOA_PRICE / 2);
+        assertLt(pool.getHealthFactor(loanId), 1e18);
+
+        (,,,, uint256 debt) = pool.getLoanDetails(loanId);
+        usdc.mint(admin, debt);
+        uint256 poolCashBefore = usdc.balanceOf(address(pool));
+
+        // The deploying admin holds LIQUIDATOR_ROLE from the pool's constructor.
+        vm.startPrank(admin);
+        usdc.approve(address(pool), debt);
+        pool.liquidate(loanId);
+        vm.stopPrank();
+
+        assertEq(commodityToken.balanceOf(admin, commodityId), QUANTITY);
+        assertEq(commodityToken.balanceOf(address(pool), commodityId), 0);
+        assertEq(usdc.balanceOf(address(pool)) - poolCashBefore, debt, "pool recovers the full debt");
+        (,,, LendingPool.LoanStatus status,) = pool.getLoanDetails(loanId);
+        assertEq(uint8(status), uint8(LendingPool.LoanStatus.LIQUIDATED));
+        assertEq(uint8(_status(commodityId)), uint8(CommodityRegistry.CommodityStatus.Liquidated));
+    }
+
+    /**
+     * @notice Two loans against one lot: the commodity stays Collateralized until the last closes.
+     */
+    function test_CommodityReleasedOnlyWhenLastLoanCloses() public {
+        uint256 commodityId = _registerAndApprove();
+        _seedPool();
+
+        vm.startPrank(farmer);
+        commodityToken.setApprovalForAll(address(pool), true);
+        uint256 first = pool.borrow(commodityId, QUANTITY / 2, 1_000e6);
+        uint256 second = pool.borrow(commodityId, QUANTITY / 2, 1_000e6);
+        usdc.approve(address(pool), type(uint256).max);
+
+        pool.repay(first, type(uint256).max);
+        assertEq(uint8(_status(commodityId)), uint8(CommodityRegistry.CommodityStatus.Collateralized));
+
+        pool.repay(second, type(uint256).max);
+        vm.stopPrank();
+        assertEq(uint8(_status(commodityId)), uint8(CommodityRegistry.CommodityStatus.Released));
+        assertEq(commodityToken.balanceOf(farmer, commodityId), QUANTITY);
+    }
+
+    /**
+     * @notice A payment smaller than the interest owed rolls the unpaid interest into the loan.
+     *         totalBorrowed has to follow it, or the final repayment underflows and reverts.
+     */
+    function test_SmallPaymentThenFullRepayment() public {
+        (uint256 commodityId, uint256 loanId) = _openLoan();
+
+        vm.warp(block.timestamp + 365 days);
+        usdc.mint(farmer, 2_000e6);
+
+        vm.startPrank(farmer);
+        usdc.approve(address(pool), type(uint256).max);
+        pool.repay(loanId, 1e6); // $1, far less than a year's interest
+
+        // Settle the exact remaining debt (same block, so no further interest).
+        (,,,, uint256 remaining) = pool.getLoanDetails(loanId);
+        pool.repay(loanId, remaining);
+        vm.stopPrank();
+
+        (,,, LendingPool.LoanStatus status,) = pool.getLoanDetails(loanId);
+        assertEq(uint8(status), uint8(LendingPool.LoanStatus.REPAID));
+        assertEq(pool.totalBorrowed(), 0);
+        assertEq(commodityToken.balanceOf(farmer, commodityId), QUANTITY);
+    }
 }

@@ -84,6 +84,25 @@
   },
   {
     "type": "function",
+    "name": "activeLoansByCommodity",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "borrow",
     "inputs": [
       {
@@ -658,19 +677,6 @@
   },
   {
     "type": "function",
-    "name": "syncCollateralizedStatus",
-    "inputs": [
-      {
-        "name": "_loanId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "totalAccumulatedReserves",
     "inputs": [],
     "outputs": [
@@ -870,12 +876,6 @@
       },
       {
         "name": "collateralSeized",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "liquidatorBonus",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1179,11 +1179,6 @@
   {
     "type": "error",
     "name": "LendingPool__PositionHealthy",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "LendingPool__RepaymentExceedsDebt",
     "inputs": []
   },
   {

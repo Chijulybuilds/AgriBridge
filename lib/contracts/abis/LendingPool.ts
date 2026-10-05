@@ -85,6 +85,25 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
+    "name": "activeLoansByCommodity",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "borrow",
     "inputs": [
       {
@@ -659,19 +678,6 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
-    "name": "syncCollateralizedStatus",
-    "inputs": [
-      {
-        "name": "_loanId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "totalAccumulatedReserves",
     "inputs": [],
     "outputs": [
@@ -871,12 +877,6 @@ export const LendingPoolAbi = [
       },
       {
         "name": "collateralSeized",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "liquidatorBonus",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1180,11 +1180,6 @@ export const LendingPoolAbi = [
   {
     "type": "error",
     "name": "LendingPool__PositionHealthy",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "LendingPool__RepaymentExceedsDebt",
     "inputs": []
   },
   {

@@ -20,27 +20,13 @@ contract TransferAdminToSafe is Script {
     function run() external {
         address safe = vm.envAddress("ADMIN_ADDRESS");
         address previousAdmin = vm.envAddress("PREVIOUS_ADMIN_ADDRESS");
-        address previousVerifier = vm.envOr(
-            "PREVIOUS_VERIFIER_ADDRESS",
-            address(0)
-        );
-        CommodityRegistry registry = CommodityRegistry(
-            vm.envAddress("REGISTRY_ADDRESS")
-        );
-        CommodityToken commodityToken = CommodityToken(
-            vm.envAddress("TOKEN_ADDRESS")
-        );
-        CommodityPriceOracle oracle = CommodityPriceOracle(
-            vm.envAddress("PRICE_ORACLE_ADDRESS")
-        );
-        LendingPool pool = LendingPool(
-            payable(vm.envAddress("LENDING_POOL_ADDRESS"))
-        );
+        address previousVerifier = vm.envOr("PREVIOUS_VERIFIER_ADDRESS", address(0));
+        CommodityRegistry registry = CommodityRegistry(vm.envAddress("REGISTRY_ADDRESS"));
+        CommodityToken commodityToken = CommodityToken(vm.envAddress("TOKEN_ADDRESS"));
+        CommodityPriceOracle oracle = CommodityPriceOracle(vm.envAddress("PRICE_ORACLE_ADDRESS"));
+        LendingPool pool = LendingPool(payable(vm.envAddress("LENDING_POOL_ADDRESS")));
 
-        require(
-            safe != address(0) && previousAdmin != address(0),
-            "invalid admin address"
-        );
+        require(safe != address(0) && previousAdmin != address(0), "invalid admin address");
 
         vm.startBroadcast();
 
@@ -81,41 +67,25 @@ contract TransferAdminToSafe is Script {
 
     /// @notice Revoke only if the account currently holds the role (so we
     ///         never attempt a second revoke after the caller lost admin).
-    function _revokeIfHasRole(
-        CommodityRegistry c,
-        bytes32 role,
-        address account
-    ) internal {
+    function _revokeIfHasRole(CommodityRegistry c, bytes32 role, address account) internal {
         if (account != address(0) && c.hasRole(role, account)) {
             c.revokeRole(role, account);
         }
     }
 
-    function _revokeIfHasRole(
-        CommodityToken c,
-        bytes32 role,
-        address account
-    ) internal {
+    function _revokeIfHasRole(CommodityToken c, bytes32 role, address account) internal {
         if (account != address(0) && c.hasRole(role, account)) {
             c.revokeRole(role, account);
         }
     }
 
-    function _revokeIfHasRole(
-        CommodityPriceOracle c,
-        bytes32 role,
-        address account
-    ) internal {
+    function _revokeIfHasRole(CommodityPriceOracle c, bytes32 role, address account) internal {
         if (account != address(0) && c.hasRole(role, account)) {
             c.revokeRole(role, account);
         }
     }
 
-    function _revokeIfHasRole(
-        LendingPool p,
-        bytes32 role,
-        address account
-    ) internal {
+    function _revokeIfHasRole(LendingPool p, bytes32 role, address account) internal {
         if (account != address(0) && p.hasRole(role, account)) {
             p.revokeRole(role, account);
         }

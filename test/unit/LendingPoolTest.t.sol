@@ -82,7 +82,6 @@ contract LendingPoolTest is Test {
     error LendingPool__InsufficientCollateralBalance();
     error LendingPool__ExceedsMaxLTV();
     error LendingPool__LoanNotActive();
-    error LendingPool__RepaymentExceedsDebt();
     error LendingPool__PositionHealthy();
     error LendingPool__NativeTokenNotSupported();
     error LendingPool__InvalidCall();
@@ -265,16 +264,19 @@ contract LendingPoolTest is Test {
         vm.stopPrank();
     }
 
-    function test_Repay_Revert_Overpayment() public {
+    function test_Repay_Overpayment_IsCappedAtDebt() public {
         uint256 loanId = _setupActiveLoan(2_000e6, 100e18);
 
         deal(address(usdc), farmer, 5_000e6);
         vm.startPrank(farmer);
         usdc.approve(address(pool), 5_000e6);
 
-        vm.expectRevert(LendingPool__RepaymentExceedsDebt.selector);
+        // Asking to pay more than is owed takes only the debt and closes the loan.
         pool.repay(loanId, 2_001e6);
         vm.stopPrank();
+
+        assertEq(usdc.balanceOf(farmer), 3_000e6);
+        assertEq(commodityToken.balanceOf(farmer, 1), 100e18);
     }
 
     function test_Repay_Full_Success() public {
@@ -320,9 +322,8 @@ contract LendingPoolTest is Test {
     function test_Liquidate_Success() public {
         uint256 loanId = _setupActiveLoan(2_000e6, 100e18);
 
-        // Crucial fix: Ensure the LendingPool actually owns the mock collateral in the mapping
-        commodityToken.setBalance(address(pool), 1, 150e18);
-
+        // The pool holds exactly the loan's 100 units. (This test used to top the pool up to 150
+        // so a collateral-plus-bonus payout could succeed; in practice that payout always reverted.)
         vm.mockCall(priceOracle, abi.encodeWithSignature("getCollateralValue(uint256,uint256)"), abi.encode(1_000e6));
 
         deal(address(usdc), admin, 2_000e6);
@@ -330,7 +331,8 @@ contract LendingPoolTest is Test {
         usdc.approve(address(pool), 2_000e6);
 
         pool.liquidate(loanId);
-        assertEq(commodityToken.balanceOf(admin, 1), 105e18);
+        assertEq(commodityToken.balanceOf(admin, 1), 100e18);
+        assertEq(commodityToken.balanceOf(address(pool), 1), 0);
         vm.stopPrank();
     }
 
@@ -352,14 +354,10 @@ contract LendingPoolTest is Test {
         vm.stopPrank();
     }
 
-    function test_SyncCollateralizedStatus_Success() public {
-        uint256 loanId = _setupActiveLoan(2_000e6, 100e18);
-
-        vm.mockCall(registry, abi.encodeWithSignature("markCollateralized(uint256)"), "");
-
-        vm.startPrank(admin);
-        pool.syncCollateralizedStatus(loanId);
-        vm.stopPrank();
+    function test_Borrow_MarksCommodityCollateralized() public {
+        // No admin step: the pool itself tells the registry when a lot becomes collateral.
+        vm.expectCall(registry, abi.encodeWithSignature("markCollateralized(uint256)", 1));
+        _setupActiveLoan(2_000e6, 100e18);
     }
 
     function test_InterestRateModel_KinkBranches() public {
@@ -427,6 +425,10 @@ contract LendingPoolTest is Test {
             bytes32(0)
         );
         vm.mockCall(registry, abi.encodeWithSignature("getCommodity(uint256)"), structuralReturn);
+
+        // The pool keeps the registry's status in step on borrow, full repayment and liquidation.
+        vm.mockCall(registry, abi.encodeWithSignature("markCollateralized(uint256)"), "");
+        vm.mockCall(registry, abi.encodeWithSignature("updateStatus(uint256,uint8)"), "");
     }
 
     function _setupActiveLoan(uint256 borrowAmount, uint256 collateralAmount) internal returns (uint256 loanId) {

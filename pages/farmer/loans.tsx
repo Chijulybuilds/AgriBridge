@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, maxUint256, parseUnits } from "viem";
 
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import withAuth from "../../components/withAuth";
@@ -34,7 +34,7 @@ function healthLabel(health: bigint | undefined) {
 
 function MyLoans() {
   const { loans, isLoading, refetch } = useMyLoans();
-  const { allowance, refetch: refetchWallet } = useInvestorPosition();
+  const { allowance, usdcBalance, refetch: refetchWallet } = useInvestorPosition();
   const tx = useBorrow();
 
   const [repayingId, setRepayingId] = useState<bigint | null>(null);
@@ -62,20 +62,26 @@ function MyLoans() {
       setFormError("Enter an amount greater than zero.");
       return;
     }
-    // The pool rejects overpayment outright, so catch it before signing.
-    if (parsed > loan.totalDebt) {
-      setFormError(`That is more than the outstanding debt of $${formatUsdc(loan.totalDebt)}.`);
+
+    // Interest grows every second until the transaction lands, so "the full debt" is a
+    // moving target. The pool caps any repayment at the debt when it is mined, so a full
+    // repayment sends the maximum and approves a 1% margin over the debt shown here.
+    const repayAll = parsed >= loan.totalDebt;
+    const toApprove = repayAll ? (loan.totalDebt * 101n) / 100n : parsed;
+    const willPay = repayAll ? loan.totalDebt : parsed;
+
+    if (usdcBalance !== undefined && usdcBalance < willPay) {
+      setFormError(`You need $${formatUsdc(willPay)} USDC but hold $${formatUsdc(usdcBalance)}.`);
       return;
     }
 
     try {
-      if ((allowance ?? 0n) < parsed) {
-        await tx.approveUsdc(parsed);
+      if ((allowance ?? 0n) < toApprove) {
+        await tx.approveUsdc(toApprove);
         await refetchWallet();
-        return;
       }
 
-      await tx.repay(loan.id, parsed);
+      await tx.repay(loan.id, repayAll ? maxUint256 : parsed);
       setRepayAmount("");
       setRepayingId(null);
       await refetch();
