@@ -206,15 +206,17 @@ export function isAdminWallet(wallet: string): boolean {
  *
  * Farmer and investor are not enforced on-chain (any wallet can deposit or
  * borrow), so no new signature is needed. The verifier view is only offered to
- * wallets that held the verifier role at sign-in, which lets one test wallet
- * walk through the whole demo; the contracts still check the role on every action.
+ * wallets that hold the verifier role, either at sign-in or as read on-chain
+ * since (`hasVerifierRole`, e.g. after a deploy or a grant), which lets one test
+ * wallet walk through the whole demo; the contracts still check the role on every action.
  */
-export function switchRole(role: UserRole): Profile | null {
+export function switchRole(role: UserRole, hasVerifierRole = false): Profile | null {
   const session = readSession();
   if (!session) return null;
-  if (role === "admin" && !session.profile.canVerify) return null;
+  const canVerify = Boolean(session.profile.canVerify || hasVerifierRole);
+  if (role === "admin" && !canVerify) return null;
 
-  const profile: Profile = { ...session.profile, role };
+  const profile: Profile = { ...session.profile, role, canVerify };
   persistSession(btoa(JSON.stringify({ ...session, profile })), profile);
   return profile;
 }

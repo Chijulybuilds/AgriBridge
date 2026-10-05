@@ -17,8 +17,10 @@ import {
   QueueListIcon,
 } from "@heroicons/react/24/outline";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
 import { useAuth } from "../../pages/_app";
 import { dashboardPathFor, switchRole, type UserRole } from "../../lib/auth";
+import { useIsVerifier } from "../../hooks/useProtocol";
 import { ThemeToggle } from "../ThemeToggle";
 import { DemoFaucet } from "../DemoFaucet";
 
@@ -73,10 +75,14 @@ function SidebarContent({
 }) {
   const router = useRouter();
   const { profile, setProfile } = useAuth();
+  const { address } = useAccount();
+  // Re-checked on-chain, so a role granted after sign-in (a new deploy, `grant`) shows up without logging in again.
+  const { isVerifier } = useIsVerifier(address);
+  const canVerify = Boolean(profile?.canVerify || isVerifier);
   const views: { role: UserRole; label: string }[] = [
     { role: "farmer", label: "Farmer" },
     { role: "investor", label: "Investor" },
-    ...(profile?.canVerify ? [{ role: "admin" as const, label: "Verifier" }] : []),
+    ...(canVerify ? [{ role: "admin" as const, label: "Verifier" }] : []),
   ];
   const otherViews = views.filter((view) => view.role !== userType);
   return (
@@ -208,7 +214,7 @@ function SidebarContent({
             onClick={() => {
               // Update the session before navigating, or the route guard
               // bounces straight back to the current role's dashboard.
-              const updated = switchRole(view.role);
+              const updated = switchRole(view.role, isVerifier);
               if (updated) setProfile(updated);
             }}
           >
