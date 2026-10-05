@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount, useConfig, useConnect, useDisconnect, useSwitchAccount } from "wagmi";
-import { getAccount } from "wagmi/actions";
+import { useAccount } from "wagmi";
 
 import { useSiweLogin } from "../hooks/useSiweLogin";
 import { useAuth } from "./_app";
@@ -12,7 +11,6 @@ import {
   getSessionToken,
   type SignupRole,
 } from "../lib/auth";
-import { demoAccounts, demoConnectorId, demoMode, type DemoRole } from "../lib/demo";
 
 const card: React.CSSProperties = {
   width: "100%",
@@ -26,15 +24,9 @@ const card: React.CSSProperties = {
 
 export default function Login() {
   const router = useRouter();
-  const config = useConfig();
   const { isConnected } = useAccount();
-  const { connectAsync, connectors } = useConnect();
-  const { disconnectAsync } = useDisconnect();
-  const { switchAccountAsync } = useSwitchAccount();
   const { signIn, isSigningIn, error } = useSiweLogin();
   const { setProfile } = useAuth();
-  const [demoBusy, setDemoBusy] = useState<DemoRole | null>(null);
-  const [demoError, setDemoError] = useState<string | null>(null);
 
   const queryRole = router.query.role;
   const role: SignupRole = queryRole === "investor" ? "investor" : "farmer";
@@ -76,36 +68,6 @@ export default function Login() {
     if (profile) {
       setProfile(profile);
       void router.push(dashboardPathFor(profile.role));
-    }
-  }
-
-  /** One click: switch to the demo account's built-in wallet, then sign in with it. */
-  async function enterAsDemo(demoRole: DemoRole) {
-    setDemoError(null);
-    setDemoBusy(demoRole);
-    try {
-      const target = connectors.find((c) => c.id === demoConnectorId(demoRole));
-      if (!target) throw new Error("This demo account is not configured.");
-      // Read the connection state now, not from the last render.
-      const current = getAccount(config).connector;
-      if (current?.uid !== target.uid) {
-        if (config.state.connections.has(target.uid)) {
-          await switchAccountAsync({ connector: target });
-        } else {
-          if (current) await disconnectAsync({ connector: current });
-          await connectAsync({ connector: target });
-        }
-      }
-      // The verifier becomes admin through its on-chain role, whatever is passed here.
-      const profile = await signIn(demoRole === "investor" ? "investor" : "farmer");
-      if (profile) {
-        setProfile(profile);
-        void router.push(dashboardPathFor(profile.role));
-      }
-    } catch (err) {
-      setDemoError(err instanceof Error ? err.message : "Could not sign in with the demo account.");
-    } finally {
-      setDemoBusy(null);
     }
   }
 
@@ -185,44 +147,6 @@ export default function Login() {
                   ? "Sign in with Ethereum"
                   : "Connect a wallet first"}
             </button>
-
-            {demoMode && (
-              <div
-                data-testid="demo-accounts"
-                style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}
-              >
-                <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Demo accounts</p>
-                <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12, lineHeight: 1.5 }}>
-                  Play money only. One click signs you in, no wallet needed.
-                </p>
-                {demoError && (
-                  <p style={{ fontSize: 12, color: "#b71c1c", marginBottom: 8 }}>{demoError}</p>
-                )}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                  {demoAccounts.map((demo) => (
-                    <button
-                      key={demo.role}
-                      onClick={() => enterAsDemo(demo.role)}
-                      disabled={demoBusy !== null || isSigningIn}
-                      data-testid={`demo-${demo.role}`}
-                      style={{
-                        padding: "10px 6px",
-                        borderRadius: 10,
-                        border: "1px solid var(--border)",
-                        background: "var(--bg-secondary)",
-                        color: "var(--text-primary)",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: demoBusy !== null ? "not-allowed" : "pointer",
-                        opacity: demoBusy !== null && demoBusy !== demo.role ? 0.5 : 1,
-                      }}
-                    >
-                      {demoBusy === demo.role ? "Signing in…" : demo.label.replace("Demo ", "")}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </>
         )}
 

@@ -43,6 +43,7 @@ test.describe("Route guards", () => {
     "/admin/queue",
     "/admin/prices",
     "/admin/loans",
+    "/activity",
   ];
 
   for (const path of protectedPaths) {

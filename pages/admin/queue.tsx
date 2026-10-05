@@ -94,6 +94,9 @@ function AdminQueue() {
   const [rejectReason, setRejectReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  // Stays after the dialog closes, so the transaction can be opened on the explorer.
+  const [lastTx, setLastTx] = useState<{ text: string; hash: Hex } | null>(null);
+  const explorer = activeChain.blockExplorers?.default.url;
 
   const error = registryError instanceof Error
     ? registryError.message
@@ -164,6 +167,7 @@ function AdminQueue() {
           type: "success",
           text: `Transaction submitted: ${String(txHash).slice(0, 12)}...`,
         });
+        setLastTx({ text: `Lot #${active.on_chain_id} approved`, hash: txHash });
       } else {
         // Call rejectCommodity on the registry contract
         const onChainId = BigInt(active.on_chain_id);
@@ -181,6 +185,7 @@ function AdminQueue() {
           type: "success",
           text: `Transaction submitted: ${String(txHash).slice(0, 12)}...`,
         });
+        setLastTx({ text: `Lot #${active.on_chain_id} rejected`, hash: txHash });
       }
 
       // Reload the queue after a delay
@@ -260,6 +265,19 @@ function AdminQueue() {
         >
           {error}
         </div>
+      )}
+
+      {lastTx && (
+        <p data-testid="last-tx" style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>
+          {lastTx.text}.{" "}
+          {explorer ? (
+            <a href={`${explorer}/tx/${lastTx.hash}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent-blue)" }}>
+              View the transaction on {activeChain.blockExplorers?.default.name ?? "the explorer"} ↗
+            </a>
+          ) : (
+            <span style={{ fontFamily: "monospace" }}>{lastTx.hash}</span>
+          )}
+        </p>
       )}
 
       <div style={card}>

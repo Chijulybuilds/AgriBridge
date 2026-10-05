@@ -2,7 +2,6 @@ import { useAccount, useReadContract } from "wagmi";
 
 import { DemoUSDCAbi } from "../lib/contracts/abis";
 import { contracts } from "../lib/contracts/config";
-import { demoMode } from "../lib/demo";
 import { formatUsdc, useTx } from "../hooks/useProtocol";
 
 /** 10,000 dUSDC per click (6 decimals). */
@@ -10,22 +9,33 @@ const FAUCET_AMOUNT = 10_000n * 10n ** 6n;
 
 /**
  * "Get test USDC" for demo deployments, whose USDC is the play-money DemoUSDC
- * with a public faucet (see script/DeployDemo.s.sol). Hidden outside demo mode.
+ * with a public faucet (see script/DeployDemo.s.sol). It appears whenever the
+ * configured USDC has that faucet, for demo accounts and MetaMask alike, and
+ * stays hidden on deployments that use real USDC.
  */
 export function DemoFaucet() {
   const { address } = useAccount();
   const tx = useTx();
   const usdc = contracts.usdc;
 
+  // Only DemoUSDC has FAUCET_LIMIT; on real USDC the call fails and the button stays hidden.
+  const { data: faucetLimit } = useReadContract({
+    address: usdc,
+    abi: DemoUSDCAbi,
+    functionName: "FAUCET_LIMIT",
+    query: { enabled: Boolean(usdc), staleTime: Infinity, retry: false },
+  });
+  const hasFaucet = faucetLimit !== undefined;
+
   const { data: balance, refetch } = useReadContract({
     address: usdc,
     abi: DemoUSDCAbi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: Boolean(demoMode && address && usdc), refetchInterval: 10_000 },
+    query: { enabled: Boolean(hasFaucet && address && usdc), refetchInterval: 10_000 },
   });
 
-  if (!demoMode || !address || !usdc) return null;
+  if (!hasFaucet || !address || !usdc) return null;
 
   async function claim() {
     try {

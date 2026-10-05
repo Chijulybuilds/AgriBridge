@@ -14,10 +14,11 @@ import {
   XMarkIcon,
   ArrowsRightLeftIcon,
   HomeIcon,
+  QueueListIcon,
 } from "@heroicons/react/24/outline";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAuth } from "../../pages/_app";
-import { dashboardPathFor, switchRole, type SignupRole } from "../../lib/auth";
+import { dashboardPathFor, switchRole, type UserRole } from "../../lib/auth";
 import { ThemeToggle } from "../ThemeToggle";
 import { DemoFaucet } from "../DemoFaucet";
 
@@ -36,6 +37,7 @@ const farmerNav = [
   { label: "Tokenize", icon: CubeIcon, href: "/farmer/tokenize" },
   { label: "Borrow Funds", icon: BanknotesIcon, href: "/farmer/borrow" },
   { label: "My Loans", icon: DocumentTextIcon, href: "/farmer/loans" },
+  { label: "On-chain Activity", icon: QueueListIcon, href: "/activity" },
 ];
 
 const investorNav = [
@@ -43,6 +45,7 @@ const investorNav = [
   { label: "Liquidity Pools", icon: ChartBarIcon, href: "/investor/pools" },
   { label: "Deposit", icon: ArrowUpTrayIcon, href: "/investor/deposit" },
   { label: "My Returns", icon: ChartPieIcon, href: "/investor/returns" },
+  { label: "On-chain Activity", icon: QueueListIcon, href: "/activity" },
 ];
 
 const adminNav = [
@@ -50,6 +53,7 @@ const adminNav = [
   { label: "Verification Queue", icon: ArchiveBoxIcon, href: "/admin/queue" },
   { label: "Prices", icon: ChartBarIcon, href: "/admin/prices" },
   { label: "Loans & Liquidation", icon: BanknotesIcon, href: "/admin/loans" },
+  { label: "On-chain Activity", icon: QueueListIcon, href: "/activity" },
 ];
 
 function SidebarContent({
@@ -68,8 +72,13 @@ function SidebarContent({
   onLogout: () => void;
 }) {
   const router = useRouter();
-  const { setProfile } = useAuth();
-  const otherRole: SignupRole = userType === "farmer" ? "investor" : "farmer";
+  const { profile, setProfile } = useAuth();
+  const views: { role: UserRole; label: string }[] = [
+    { role: "farmer", label: "Farmer" },
+    { role: "investor", label: "Investor" },
+    ...(profile?.canVerify ? [{ role: "admin" as const, label: "Verifier" }] : []),
+  ];
+  const otherViews = views.filter((view) => view.role !== userType);
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Logo */}
@@ -190,15 +199,17 @@ function SidebarContent({
           flexShrink: 0,
         }}
       >
-        {/* Admin is derived from the wallet, so only farmer and investor can switch. */}
-        {userType !== "admin" && (
+        {/* The verifier view is only offered to wallets that hold the verifier role. */}
+        {otherViews.map((view) => (
           <Link
-            href={dashboardPathFor(otherRole)}
+            key={view.role}
+            href={dashboardPathFor(view.role)}
+            data-testid={`switch-to-${view.role}`}
             onClick={() => {
               // Update the session before navigating, or the route guard
               // bounces straight back to the current role's dashboard.
-              const profile = switchRole(otherRole);
-              if (profile) setProfile(profile);
+              const updated = switchRole(view.role);
+              if (updated) setProfile(updated);
             }}
           >
             <div
@@ -215,10 +226,10 @@ function SidebarContent({
               }}
             >
               <ArrowsRightLeftIcon style={{ width: "14px", height: "14px" }} />
-              Switch to {otherRole === "investor" ? "Investor" : "Farmer"}
+              Switch to {view.label}
             </div>
           </Link>
-        )}
+        ))}
         <Link href="/">
           <div
             style={{

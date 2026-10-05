@@ -10,7 +10,6 @@ import "@rainbow-me/rainbowkit/styles.css";
 import "../styles/globals.css";
 
 import { wagmiConfig } from "../lib/wagmi";
-import { demoMode } from "../lib/demo";
 import { ThemeProvider } from "../lib/theme";
 import {
   clearSession,
@@ -91,8 +90,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(() => {
     clearSession();
     setProfile(null);
-    // In a demo, logging out is how you switch accounts, so go straight back to sign-in.
-    window.location.href = demoMode ? "/login" : "/";
+    window.location.href = "/";
   }, []);
 
   const router = useRouter();

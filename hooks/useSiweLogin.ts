@@ -63,6 +63,7 @@ export function useSiweLogin() {
         const profile: Profile = {
           wallet_address: address,
           role: admin ? "admin" : (role ?? "farmer"),
+          canVerify: admin,
         };
 
         persistSession(createSessionToken({ profile, message, signature }), profile);

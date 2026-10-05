@@ -31,6 +31,8 @@ export type Profile = {
   display_name?: string | null;
   wallet_address: string;
   role: UserRole;
+  /** The wallet holds the verifier role (or is the configured admin), so it may open the Verifier view. */
+  canVerify?: boolean;
 };
 
 type Session = {
@@ -200,15 +202,17 @@ export function isAdminWallet(wallet: string): boolean {
 }
 
 /**
- * Switches between the farmer and investor views of the same wallet.
+ * Switches the view (farmer, investor or verifier) of the signed-in wallet.
  *
- * Neither role is enforced on-chain (any wallet can deposit or borrow), so no
- * new signature is needed. Admin is derived from the wallet, so it cannot be
- * switched to or from.
+ * Farmer and investor are not enforced on-chain (any wallet can deposit or
+ * borrow), so no new signature is needed. The verifier view is only offered to
+ * wallets that held the verifier role at sign-in, which lets one test wallet
+ * walk through the whole demo; the contracts still check the role on every action.
  */
-export function switchRole(role: SignupRole): Profile | null {
+export function switchRole(role: UserRole): Profile | null {
   const session = readSession();
-  if (!session || session.profile.role === "admin") return null;
+  if (!session) return null;
+  if (role === "admin" && !session.profile.canVerify) return null;
 
   const profile: Profile = { ...session.profile, role };
   persistSession(btoa(JSON.stringify({ ...session, profile })), profile);
@@ -242,5 +246,5 @@ export function dashboardPathFor(role: UserRole | string | null | undefined): st
 
 /** Pages that need a signed-in session; see components/withAuth.tsx. */
 export function isProtectedPath(pathname: string): boolean {
-  return /^\/(farmer|investor|admin)(\/|$)/.test(pathname);
+  return /^\/(farmer|investor|admin|activity)(\/|$)/.test(pathname);
 }
