@@ -4,4 +4,5 @@ export { CommodityTokenAbi } from './CommodityToken';
 export { CommodityPriceOracleAbi } from './CommodityPriceOracle';
 export { AgriShareTokenAbi } from './AgriShareToken';
 export { LendingPoolAbi } from './LendingPool';
+export { DemoUSDCAbi } from './DemoUSDC';
 export { ERC20Abi } from './ERC20';

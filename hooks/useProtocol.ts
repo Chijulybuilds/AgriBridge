@@ -18,6 +18,7 @@ import {
   commodityTypeToIndex,
   gradeToIndex,
   statusFromIndex,
+  COMMODITY_TYPES,
   USDC_DECIMALS,
   QUANTITY_DECIMALS,
   PRICE_DECIMALS,
@@ -686,4 +687,159 @@ export function useCollateralApproval() {
   });
 
   return { isApproved: Boolean(data), refetch };
+}
+
+/*//////////////////////////////////////////////////////////////
+                    VERIFIER: PRICES AND LIQUIDATION
+//////////////////////////////////////////////////////////////*/
+
+/** Whether the connected wallet holds `role` on the oracle or the pool (both OpenZeppelin AccessControl). */
+export function useHasRole(target: "priceOracle" | "lendingPool", role: `0x${string}`) {
+  const { address } = useAccount();
+  const contract = contracts[target];
+  const { data, isLoading } = useReadContract({
+    address: contract,
+    abi: target === "priceOracle" ? CommodityPriceOracleAbi : LendingPoolAbi,
+    functionName: "hasRole",
+    args: address ? [role, address] : undefined,
+    query: { enabled: Boolean(contract && address) },
+  });
+  return { hasRole: data === true, isLoading };
+}
+
+export type CommodityPrice = {
+  name: CommodityType;
+  index: number;
+  price?: bigint;
+  updatedAt?: number;
+  fresh?: boolean;
+};
+
+/** Every commodity's oracle price, when it was set, and whether it is still within the heartbeat. */
+export function useCommodityPrices() {
+  const oracle = contracts.priceOracle;
+  const { data, isLoading, refetch } = useReadContracts({
+    contracts: oracle
+      ? COMMODITY_TYPES.flatMap((_, index) => [
+        { address: oracle, abi: CommodityPriceOracleAbi, functionName: "getPrice" as const, args: [index] as const },
+        { address: oracle, abi: CommodityPriceOracleAbi, functionName: "isFresh" as const, args: [index] as const },
+      ])
+      : [],
+    query: { enabled: Boolean(oracle), refetchInterval: 10_000 },
+  });
+
+  const prices: CommodityPrice[] = COMMODITY_TYPES.map((name, index) => {
+    const answer = data?.[index * 2]?.result as readonly [bigint, bigint] | undefined;
+    return {
+      name,
+      index,
+      price: answer?.[0],
+      updatedAt: answer ? Number(answer[1]) : undefined,
+      fresh: data?.[index * 2 + 1]?.result as boolean | undefined,
+    };
+  });
+
+  return { prices, isLoading, refetch };
+}
+
+export function useSetPrices() {
+  const tx = useTx();
+
+  const setPrices = useCallback(
+    (updates: { index: number; price: bigint }[]) =>
+      tx.writeAndWait({
+        address: requireContract("priceOracle"),
+        abi: CommodityPriceOracleAbi,
+        functionName: "setPrices",
+        args: [updates.map((u) => u.index), updates.map((u) => u.price)],
+      }),
+    [tx],
+  );
+
+  return { ...tx, setPrices };
+}
+
+export type PoolLoan = Loan & { commodityId?: bigint };
+
+/** Every loan in the pool, newest first, with live debt and health factor. */
+export function useAllLoans() {
+  const pool = contracts.lendingPool;
+
+  const { data: count, refetch: refetchCount } = useReadContract({
+    address: pool,
+    abi: LendingPoolAbi,
+    functionName: "loanCount",
+    query: { enabled: Boolean(pool), refetchInterval: 10_000 },
+  });
+
+  const loanIds = useMemo(
+    () => Array.from({ length: Number((count as bigint | undefined) ?? 0n) }, (_, i) => BigInt(i + 1)).reverse(),
+    [count],
+  );
+
+  const { data, isLoading, refetch: refetchLoans } = useReadContracts({
+    contracts: pool
+      ? loanIds.flatMap((id) => [
+        { address: pool, abi: LendingPoolAbi, functionName: "getLoanDetails" as const, args: [id] as const },
+        { address: pool, abi: LendingPoolAbi, functionName: "getHealthFactor" as const, args: [id] as const },
+        { address: pool, abi: LendingPoolAbi, functionName: "loans" as const, args: [id] as const },
+      ])
+      : [],
+    query: { enabled: loanIds.length > 0, refetchInterval: 10_000 },
+  });
+
+  const loans: PoolLoan[] = useMemo(() => {
+    if (!data) return [];
+    return loanIds.flatMap((id, i) => {
+      const details = data[i * 3]?.result as readonly [Address, bigint, bigint, number, bigint] | undefined;
+      if (!details) return [];
+      const record = data[i * 3 + 2]?.result as readonly unknown[] | undefined;
+      return [{
+        id,
+        farmer: details[0],
+        principal: details[1],
+        collateralAmount: details[2],
+        status: Number(details[3]),
+        totalDebt: details[4],
+        healthFactor: data[i * 3 + 1]?.result as bigint | undefined,
+        commodityId: record?.[2] as bigint | undefined,
+      }];
+    });
+  }, [data, loanIds]);
+
+  const refetch = useCallback(async () => {
+    await refetchCount();
+    await refetchLoans();
+  }, [refetchCount, refetchLoans]);
+
+  return { loans, isLoading, refetch };
+}
+
+export function useLiquidate() {
+  const tx = useTx();
+
+  /** The liquidator pays the loan's debt, so the pool needs a USDC allowance first. */
+  const approveUsdc = useCallback(
+    (amount: bigint) =>
+      tx.writeAndWait({
+        address: requireContract("usdc"),
+        abi: ERC20Abi,
+        functionName: "approve",
+        args: [requireContract("lendingPool"), amount],
+      }),
+    [tx],
+  );
+
+  const liquidate = useCallback(
+    (loanId: bigint) =>
+      tx.writeAndWait({
+        address: requireContract("lendingPool"),
+        abi: LendingPoolAbi,
+        functionName: "liquidate",
+        args: [loanId],
+      }),
+    [tx],
+  );
+
+  return { ...tx, approveUsdc, liquidate };
 }

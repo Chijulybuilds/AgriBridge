@@ -27,6 +27,7 @@ docs/
 # Secrets / local session state — never commit
 .session-store.json
 backend/.session-store.json
+.demo-wallets.json
 
 # Build artifacts
 *.tsbuildinfo

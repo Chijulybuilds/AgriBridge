@@ -56,6 +56,12 @@ export function missingContracts(): ContractName[] {
 /** Matches `keccak256("VERIFIER_ROLE")` in CommodityRegistry.sol: who may approve or reject commodities. */
 export const VERIFIER_ROLE = keccak256(toHex("VERIFIER_ROLE"));
 
+/** CommodityPriceOracle: who may set prices. */
+export const PRICE_UPDATER_ROLE = keccak256(toHex("PRICE_UPDATER_ROLE"));
+
+/** LendingPool: who may liquidate loans. */
+export const LIQUIDATOR_ROLE = keccak256(toHex("LIQUIDATOR_ROLE"));
+
 /*//////////////////////////////////////////////////////////////
                     ON-CHAIN ENUM MAPPINGS
 //////////////////////////////////////////////////////////////*/
@@ -113,6 +119,9 @@ export const QUANTITY_DECIMALS = 18;
 
 /** Oracle prices carry 8 decimals. */
 export const PRICE_DECIMALS = 8;
+
+/** USD per kg the deploy scripts start with, in COMMODITY_TYPES order. */
+export const STARTING_PRICES_USD = [6.5, 1.2, 0.45, 3.2, 0.85] as const;
 
 /** Maximum loan-to-value the pool accepts, as a fraction. Mirrors MAX_LTV. */
 export const MAX_LTV = 0.7;

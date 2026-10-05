@@ -19,6 +19,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAuth } from "../../pages/_app";
 import { dashboardPathFor, switchRole, type SignupRole } from "../../lib/auth";
 import { ThemeToggle } from "../ThemeToggle";
+import { DemoFaucet } from "../DemoFaucet";
 
 interface Props {
   children: ReactNode;
@@ -47,6 +48,8 @@ const investorNav = [
 const adminNav = [
   { label: "Overview", icon: Squares2X2Icon, href: "/admin/dashboard" },
   { label: "Verification Queue", icon: ArchiveBoxIcon, href: "/admin/queue" },
+  { label: "Prices", icon: ChartBarIcon, href: "/admin/prices" },
+  { label: "Loans & Liquidation", icon: BanknotesIcon, href: "/admin/loans" },
 ];
 
 function SidebarContent({
@@ -259,7 +262,6 @@ function SidebarContent({
 }
 
 export default function DashboardLayout({ children, userType }: Props) {
-  const router = useRouter();
   const { profile, signOut } = useAuth();
   const nav =
     userType === "farmer"
@@ -283,8 +285,8 @@ export default function DashboardLayout({ children, userType }: Props) {
   const walletAddress = profile?.wallet_address || "";
 
   function handleLogout() {
+    // signOut does a full-page navigation itself.
     signOut();
-    router.push("/");
   }
 
   return (
@@ -425,6 +427,7 @@ export default function DashboardLayout({ children, userType }: Props) {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <DemoFaucet />
               <ThemeToggle variant="minimal" />
               <ConnectButton
                 showBalance={false}

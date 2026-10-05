@@ -9,6 +9,10 @@
 [![Network](https://img.shields.io/badge/Network-Sepolia-8B92B2?logo=ethereum)](https://sepolia.etherscan.io/)
 ![Status](https://img.shields.io/badge/Status-Development-yellow)
 
+> **See every feature working, with play money:** `npm run demo` starts a local demo with one-click
+> Farmer, Investor and Verifier accounts, and `npm run demo:check` verifies it end to end.
+> Guide (local and online on Sepolia): [DEMO.md](DEMO.md).
+
 ---
 
 ## 📋 Table of Contents

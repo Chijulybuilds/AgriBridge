@@ -11,7 +11,10 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "abis": "node scripts/generate-abis.mjs",
-    "build:static": "NEXT_OUTPUT=export next build"
+    "build:static": "NEXT_OUTPUT=export next build",
+    "demo": "node scripts/demo.mjs",
+    "demo:check": "node scripts/demo-check.mjs",
+    "demo:sepolia": "node scripts/demo-sepolia.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

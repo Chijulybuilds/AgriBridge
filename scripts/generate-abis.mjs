@@ -24,6 +24,8 @@ const CONTRACTS = [
   'CommodityPriceOracle',
   'AgriShareToken',
   'LendingPool',
+  // Play-money USDC with a public faucet, used by demo deployments (script/DeployDemo.s.sol).
+  'DemoUSDC',
 ];
 
 /** Minimal ERC-20 surface, for USDC approve/balance calls from the frontend. */

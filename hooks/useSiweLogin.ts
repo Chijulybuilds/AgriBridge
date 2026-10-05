@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { useAccount, usePublicClient, useSignMessage } from "wagmi";
+import { useAccount, useConfig, usePublicClient, useSignMessage } from "wagmi";
+import { getAccount } from "wagmi/actions";
 import { type Address } from "viem";
 
 import { CommodityRegistryAbi } from "../lib/contracts/abis";
@@ -26,6 +27,7 @@ import {
  */
 export function useSiweLogin() {
   const { address, isConnected } = useAccount();
+  const config = useConfig();
   const publicClient = usePublicClient();
   const { signMessageAsync } = useSignMessage();
 
@@ -34,6 +36,9 @@ export function useSiweLogin() {
 
   const signIn = useCallback(
     async (role?: SignupRole): Promise<Profile | null> => {
+      // Read the account now rather than from the last render: a one-click demo login
+      // connects and signs in within the same handler.
+      const { address, isConnected } = getAccount(config);
       if (!isConnected || !address) {
         setError("Connect a wallet first.");
         return null;
@@ -74,7 +79,7 @@ export function useSiweLogin() {
         setIsSigningIn(false);
       }
     },
-    [address, isConnected, publicClient, signMessageAsync],
+    [config, publicClient, signMessageAsync],
   );
 
   return { signIn, isSigningIn, error, address, isConnected };
