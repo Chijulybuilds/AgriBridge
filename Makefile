@@ -36,12 +36,17 @@ gas:
 anvil:
 	anvil
 
-# Deploy the whole protocol locally against a running anvil node.
+# Deploy the demo (play-money USDC, two warehouses, seeded pool) to a running anvil node.
+# Anvil account #4 stands in for the verifier Safe; #1 is the farmer and #2 the investor.
+# The end-to-end tests use the same accounts. See RUN_THE_APP.md.
 deploy-local:
-	forge script script/DeployAll.s.sol:DeployAll \
+	VERIFIER_ADDRESS=0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65 \
+	DEMO_FARMER=0x70997970C51812dc3A010C7d01b50e0d17dc79C8 \
+	DEMO_INVESTOR=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
+	forge script script/DeployDemo.s.sol:DeployDemo \
 	  --rpc-url http://127.0.0.1:8545 \
 	  --private-key ${ANVIL_PRIVATE_KEY} \
-	  --broadcast
+	  --broadcast --slow
 
 # Deploy the whole protocol on Sepolia. This is the supported path when you
 # already have deployed contract addresses and just need to re-deploy.

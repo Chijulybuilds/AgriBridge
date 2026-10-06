@@ -1,38 +1,62 @@
 import { expect, type Page } from "@playwright/test";
 
 /**
- * A deterministic test account. This is Anvil's well-known account #1, whose
- * private key is published in Foundry's documentation. It holds nothing on any
- * real network and is safe to commit.
+ * Test accounts: Anvil's well-known default accounts, whose keys are published in
+ * Foundry's documentation. They hold nothing on any real network. Anvil keeps them
+ * unlocked, so the mock wallet below can send their transactions without keys.
  */
-export const TEST_ACCOUNT = {
-  address: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-  privateKey: "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
+export const ACCOUNTS = {
+  farmer: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  investor: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+  buyer: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+  /** Stands in for the verifier Safe on the local chain (VERIFIER_ADDRESS in the local deploy). */
+  verifier: "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+  regulator: "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc",
 } as const;
 
+export type AccountName = keyof typeof ACCOUNTS;
+
+export const RPC_URL = "http://127.0.0.1:8545";
 export const TEST_CHAIN_ID_HEX = "0x7a69"; // 31337, the Anvil / Foundry chain
 
-/**
- * Injects an EIP-1193 provider into the page before any app code runs.
- *
- * Wagmi discovers wallets through EIP-6963 announcements and the legacy
- * `window.ethereum` object; this provides both, so RainbowKit lists it as a
- * normal injected wallet. Signing is delegated back to the Node context, where
- * viem holds the key, because the browser has no signing primitives of its own.
- */
-export async function installMockWallet(page: Page) {
-  // Signing happens in Node: the browser calls out through this binding.
-  await page.exposeFunction("__signMessage", async (message: string) => {
-    const { privateKeyToAccount } = await import("viem/accounts");
-    const account = privateKeyToAccount(TEST_ACCOUNT.privateKey);
-    return account.signMessage({ message });
+/** Sends a JSON-RPC request to the local chain from Node. */
+export async function rpc(method: string, params: unknown[] = []): Promise<unknown> {
+  const response = await fetch(RPC_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
   });
+  const json = (await response.json()) as { result?: unknown; error?: { message: string } };
+  if (json.error) throw new Error(json.error.message);
+  return json.result;
+}
+
+/**
+ * Injects an EIP-1193 wallet for `account` into the page before any app code runs.
+ *
+ * It announces itself the way browser wallets do (EIP-6963 and window.ethereum),
+ * answers for its one account, and passes every other request, transactions
+ * included, to the local Anvil chain, which signs for its unlocked accounts. So
+ * the app is driven end to end with real transactions and no private keys.
+ */
+export async function installMockWallet(page: Page, account: AccountName = "farmer") {
+  await page.exposeFunction("__anvilRpc", (method: string, params: unknown[]) => rpc(method, params));
 
   await page.addInitScript(
     ({ address, chainIdHex }) => {
       type Handler = (args: unknown) => void;
-
       const listeners = new Map<string, Handler[]>();
+      const forward = (window as never as { __anvilRpc: (m: string, p: unknown[]) => Promise<unknown> }).__anvilRpc;
+
+      // Like MetaMask: no accounts until the site is approved, and the approval is remembered per site.
+      const APPROVED = "mockwallet:approved";
+      const approved = () => {
+        try {
+          return window.localStorage.getItem(APPROVED) === "1";
+        } catch {
+          return false;
+        }
+      };
 
       const provider = {
         isMetaMask: true,
@@ -41,43 +65,26 @@ export async function installMockWallet(page: Page) {
         async request({ method, params }: { method: string; params?: unknown[] }) {
           switch (method) {
             case "eth_requestAccounts":
-            case "eth_accounts":
+              window.localStorage.setItem(APPROVED, "1");
               return [address];
-
+            case "eth_accounts":
+              return approved() ? [address] : [];
             case "eth_chainId":
               return chainIdHex;
-
             case "net_version":
               return String(parseInt(chainIdHex, 16));
-
-            case "personal_sign": {
-              // personal_sign passes [message, address]; the message arrives hex-encoded.
-              const raw = (params?.[0] as string) ?? "";
-              const text = raw.startsWith("0x")
-                ? new TextDecoder().decode(
-                    Uint8Array.from(
-                      raw
-                        .slice(2)
-                        .match(/.{1,2}/g)
-                        ?.map((b) => parseInt(b, 16)) ?? [],
-                    ),
-                  )
-                : raw;
-              return (window as never as { __signMessage: (m: string) => Promise<string> }).__signMessage(
-                text,
-              );
-            }
-
             case "wallet_switchEthereumChain":
+            case "wallet_addEthereumChain":
               return null;
-
-            case "eth_estimateGas":
-              return "0x5208";
-
+            case "wallet_requestPermissions":
+            case "wallet_getPermissions":
+              return [{ parentCapability: "eth_accounts" }];
+            case "eth_sendTransaction": {
+              const [tx] = (params ?? []) as Array<Record<string, unknown>>;
+              return forward("eth_sendTransaction", [{ ...tx, from: address }]);
+            }
             default:
-              // Reads the app makes through the wallet are not part of what the
-              // e2e suite asserts; contract state is covered by the Foundry suite.
-              return null;
+              return forward(method, params ?? []);
           }
         },
 
@@ -89,56 +96,33 @@ export async function installMockWallet(page: Page) {
         },
       };
 
-      Object.defineProperty(window, "ethereum", {
-        value: provider,
-        writable: true,
-        configurable: true,
-      });
+      Object.defineProperty(window, "ethereum", { value: provider, writable: true, configurable: true });
 
-      // EIP-6963: announce the provider so Wagmi's connector discovery finds it.
+      // EIP-6963: announce the provider so wagmi's connector discovery finds it.
       const info = {
         uuid: "00000000-0000-4000-8000-000000000001",
         name: "Mock Wallet",
         icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=",
         rdns: "io.agribridge.mockwallet",
       };
-
       const announce = () =>
-        window.dispatchEvent(
-          new CustomEvent("eip6963:announceProvider", {
-            detail: Object.freeze({ info, provider }),
-          }),
-        );
-
+        window.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail: Object.freeze({ info, provider }) }));
       window.addEventListener("eip6963:requestProvider", announce);
       announce();
     },
-    { address: TEST_ACCOUNT.address, chainIdHex: TEST_CHAIN_ID_HEX },
+    { address: ACCOUNTS[account], chainIdHex: TEST_CHAIN_ID_HEX },
   );
 }
 
-/**
- * Connects the mock wallet through the RainbowKit modal and completes
- * Sign-In with Ethereum, leaving the page on the signed-in dashboard.
- */
-export async function connectAndSignIn(page: Page, role: "farmer" | "investor" = "farmer") {
+/** Signs in with the mock wallet as `role`, leaving the page on that role's home. */
+export async function signIn(page: Page, role: "farmer" | "investor" | "buyer" = "farmer") {
   await page.goto(`/login?role=${role}`);
+  await page.getByTestId("connect-wallet").first().click();
+  const home = role === "farmer" ? /\/farmer$/ : role === "investor" ? /\/investor$/ : /\/market$/;
+  await page.waitForURL(home);
+}
 
-  // The mock answers eth_accounts at once, so wagmi can reconnect it on its
-  // own; only go through the modal when the button is still there.
-  const connect = page.getByRole("button", { name: /connect wallet/i }).first();
-  if (await connect.isVisible().catch(() => false)) {
-    await connect.click();
-    await page.getByText("Mock Wallet").first().click({ timeout: 5_000 }).catch(() => {});
-  }
-
-  // The SIWE button only enables once the connection is established.
-  const signIn = page.getByTestId("siwe-sign-in");
-  await expect(signIn).toBeEnabled();
-  await signIn.click();
-
-  // Signing in is asynchronous (signature, verification, on-chain role check).
-  // Wait for the redirect; a test that navigates straight away races it and
-  // lands on /login with no session.
-  await page.waitForURL(/\/(farmer|investor|admin)\/dashboard/);
+/** Waits until the transaction status on the page (or inside `scope`) reads "confirmed". */
+export async function expectConfirmed(scope: Page | ReturnType<Page["locator"]>, timeout = 45_000) {
+  await expect(scope.getByTestId("tx-status").last()).toHaveAttribute("data-status", "confirmed", { timeout });
 }
