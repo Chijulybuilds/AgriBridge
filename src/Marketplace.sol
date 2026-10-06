@@ -24,7 +24,8 @@ interface IMarketRegistry {
  * @author ChijulyBuilds (AgriBridge Protocol Team)
  * @notice Where holders sell graded commodity tokens to buyers for USDC, and where expired stock is
  *         cleared. Sellers list at a fixed price or at a percentage of the live reference value, which
- *         follows the commodity's price and the lot's decay; buyers take any part of a listing.
+ *         follows the commodity's price and the lot's decay; buyers take any part of a listing. A seller
+ *         can add a bulk deal, a discount for large orders, so volume buyers get a better price.
  * @dev Listed tokens are held here until bought or the listing is cancelled. Normal listings need a
  *      usable lot (verified, not frozen, not expired). Expired stock goes through clearance instead:
  *      holders sell it to the protocol at `clearanceDiscountBps` below the reference value, paid
@@ -51,6 +52,9 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         uint256 lotId;
         uint256 kgRemaining;
         uint256 price;
+        /// @dev Bulk deal: one purchase of at least `bulkMinKg` gets `bulkDiscountBps` off. Zero: none.
+        uint256 bulkMinKg;
+        uint256 bulkDiscountBps;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -65,6 +69,7 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     uint256 public constant MAX_FEE_BPS = 500; // 5%
     uint256 public constant MAX_REFERENCE_BPS = 20_000; // a listing may ask up to 2x the reference
     uint256 public constant MAX_CLEARANCE_DISCOUNT_BPS = 9_000;
+    uint256 public constant MAX_BULK_DISCOUNT_BPS = 5_000; // a bulk deal takes at most 50% off
 
     /*//////////////////////////////////////////////////////////////
                                IMMUTABLES
@@ -103,6 +108,7 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         uint256 price
     );
     event Repriced(uint256 indexed listingId, PriceMode mode, uint256 price);
+    event BulkDealSet(uint256 indexed listingId, uint256 minKg, uint256 discountBps);
     event Bought(
         uint256 indexed listingId, address indexed buyer, uint256 indexed lotId, uint256 kg, uint256 cost, uint256 fee
     );
@@ -167,29 +173,40 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
      * @notice Lists `_kg` of a lot for sale. The tokens move here until sold or the listing is cancelled.
      * @param _mode Fixed: `_price` is USDC per kilogram. Reference: `_price` is basis points of the live
      *        reference value, so the asking price follows the market and the lot's decay.
+     * @param _bulkMinKg With `_bulkDiscountBps`, an optional bulk deal: one purchase of at least this
+     *        many kilograms gets `_bulkDiscountBps` off. Zeros for none.
      */
-    function list(uint256 _lotId, uint256 _kg, PriceMode _mode, uint256 _price)
-        external
-        whenNotPaused
-        nonReentrant
-        returns (uint256 listingId)
-    {
+    function list(
+        uint256 _lotId,
+        uint256 _kg,
+        PriceMode _mode,
+        uint256 _price,
+        uint256 _bulkMinKg,
+        uint256 _bulkDiscountBps
+    ) external whenNotPaused nonReentrant returns (uint256 listingId) {
         if (_kg == 0) revert Marketplace__InvalidAmount();
         _requirePrice(_mode, _price);
+        _requireBulkDeal(_bulkMinKg, _bulkDiscountBps);
         if (!i_registry.isUsable(_lotId)) revert Marketplace__LotNotTradable();
 
         listingId = _create(msg.sender, _lotId, _kg, _mode, _price, false);
+        if (_bulkDiscountBps != 0) _setBulkDeal(listingId, _bulkMinKg, _bulkDiscountBps);
         i_token.safeTransferFrom(msg.sender, address(this), _lotId, _kg, "");
     }
 
-    function reprice(uint256 _listingId, PriceMode _mode, uint256 _price) external {
+    /// @notice Changes a listing's price and its bulk deal (zeros remove the deal).
+    function reprice(uint256 _listingId, PriceMode _mode, uint256 _price, uint256 _bulkMinKg, uint256 _bulkDiscountBps)
+        external
+    {
         Listing storage listing = _activeListing(_listingId);
         if (listing.seller != msg.sender || listing.clearance) revert Marketplace__NotSeller();
         _requirePrice(_mode, _price);
+        _requireBulkDeal(_bulkMinKg, _bulkDiscountBps);
 
         listing.mode = _mode;
         listing.price = _price;
         emit Repriced(_listingId, _mode, _price);
+        _setBulkDeal(_listingId, _bulkMinKg, _bulkDiscountBps);
     }
 
     /// @notice Takes a listing down and returns the unsold tokens. Clearance stock returns to inventory.
@@ -232,7 +249,7 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         bool tradable = listing.clearance ? !i_registry.isFrozen(listing.lotId) : i_registry.isUsable(listing.lotId);
         if (!tradable) revert Marketplace__LotNotTradable();
 
-        cost = _ceilDiv(pricePerKg(_listingId) * _kg, KG);
+        cost = quote(_listingId, _kg);
         if (cost == 0) revert Marketplace__InvalidAmount();
         if (cost > _maxCost) revert Marketplace__PriceAboveLimit();
 
@@ -351,6 +368,15 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         return (referencePricePerKg(listing.lotId) * listing.price) / BPS;
     }
 
+    /// @notice What `_kg` from a listing costs now (USDC, 6 decimals), after its bulk deal if the order qualifies.
+    function quote(uint256 _listingId, uint256 _kg) public view returns (uint256 cost) {
+        Listing storage listing = s_listings[_listingId];
+        cost = _ceilDiv(pricePerKg(_listingId) * _kg, KG);
+        if (listing.bulkDiscountBps != 0 && _kg >= listing.bulkMinKg) {
+            cost -= (cost * listing.bulkDiscountBps) / BPS;
+        }
+    }
+
     /// @notice What the protocol pays for `_kg` of an expired lot now.
     function clearanceQuote(uint256 _lotId, uint256 _kg) public view returns (uint256) {
         return (referencePricePerKg(_lotId) * (BPS - clearanceDiscountBps) * _kg) / (BPS * KG);
@@ -372,9 +398,18 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
             active: true,
             lotId: _lotId,
             kgRemaining: _kg,
-            price: _price
+            price: _price,
+            bulkMinKg: 0,
+            bulkDiscountBps: 0
         });
         emit Listed(listingId, _seller, _lotId, _kg, _mode, _price);
+    }
+
+    function _setBulkDeal(uint256 _listingId, uint256 _minKg, uint256 _discountBps) internal {
+        Listing storage listing = s_listings[_listingId];
+        listing.bulkMinKg = _discountBps == 0 ? 0 : _minKg;
+        listing.bulkDiscountBps = _discountBps;
+        emit BulkDealSet(_listingId, listing.bulkMinKg, _discountBps);
     }
 
     function _activeListing(uint256 _listingId) internal view returns (Listing storage listing) {
@@ -384,6 +419,13 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
     function _requirePrice(PriceMode _mode, uint256 _price) internal pure {
         if (_price == 0 || (_mode == PriceMode.Reference && _price > MAX_REFERENCE_BPS)) {
+            revert Marketplace__InvalidPrice();
+        }
+    }
+
+    /// @dev A bulk deal needs a minimum order and takes at most MAX_BULK_DISCOUNT_BPS off; zeros mean none.
+    function _requireBulkDeal(uint256 _minKg, uint256 _discountBps) internal pure {
+        if (_discountBps > MAX_BULK_DISCOUNT_BPS || (_discountBps != 0 && _minKg == 0)) {
             revert Marketplace__InvalidPrice();
         }
     }

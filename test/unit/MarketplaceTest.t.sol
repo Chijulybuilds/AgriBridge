@@ -39,7 +39,7 @@ contract MarketplaceTest is ProtocolFixture {
 
     function _list(uint256 _kg, Marketplace.PriceMode _mode, uint256 _price) internal returns (uint256) {
         vm.prank(farmer);
-        return market.list(lotId, _kg, _mode, _price);
+        return market.list(lotId, _kg, _mode, _price, 0, 0);
     }
 
     function _buy(uint256 _listingId, uint256 _kg) internal returns (uint256) {
@@ -66,13 +66,13 @@ contract MarketplaceTest is ProtocolFixture {
     function test_List_Revert_BadInput() public {
         vm.startPrank(farmer);
         vm.expectRevert(Marketplace.Marketplace__InvalidAmount.selector);
-        market.list(lotId, 0, Marketplace.PriceMode.Fixed, 5e6);
+        market.list(lotId, 0, Marketplace.PriceMode.Fixed, 5e6, 0, 0);
 
         vm.expectRevert(Marketplace.Marketplace__InvalidPrice.selector);
-        market.list(lotId, 1e18, Marketplace.PriceMode.Fixed, 0);
+        market.list(lotId, 1e18, Marketplace.PriceMode.Fixed, 0, 0, 0);
 
         vm.expectRevert(Marketplace.Marketplace__InvalidPrice.selector);
-        market.list(lotId, 1e18, Marketplace.PriceMode.Reference, 20_001);
+        market.list(lotId, 1e18, Marketplace.PriceMode.Reference, 20_001, 0, 0);
         vm.stopPrank();
     }
 
@@ -184,16 +184,70 @@ contract MarketplaceTest is ProtocolFixture {
         market.cancel(listingId);
 
         vm.expectRevert(Marketplace.Marketplace__NotSeller.selector);
-        market.reprice(listingId, Marketplace.PriceMode.Fixed, 1e6);
+        market.reprice(listingId, Marketplace.PriceMode.Fixed, 1e6, 0, 0);
         vm.stopPrank();
     }
 
     function test_Reprice() public {
         uint256 listingId = _list(600e18, Marketplace.PriceMode.Fixed, 5e6);
         vm.prank(farmer);
-        market.reprice(listingId, Marketplace.PriceMode.Reference, 9_800); // 98% of reference
+        market.reprice(listingId, Marketplace.PriceMode.Reference, 9_800, 0, 0); // 98% of reference
 
         assertEq(market.pricePerKg(listingId), (5_525_000 * 9_800) / 10_000);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                               BULK DEALS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice 10% off orders of at least 500 kg: 499 kg pays full price, 500 kg gets the deal.
+    function test_BulkDeal_DiscountsLargeOrdersOnly() public {
+        vm.prank(farmer);
+        uint256 listingId = market.list(lotId, KG, Marketplace.PriceMode.Fixed, 2e6, 500e18, 1_000);
+
+        assertEq(market.quote(listingId, 499e18), 998e6, "below the minimum: 499 kg x $2");
+        assertEq(market.quote(listingId, 500e18), 900e6, "at the minimum: $1,000 less 10%");
+
+        assertEq(_buy(listingId, 500e18), 900e6);
+        assertEq(usdc.balanceOf(farmer), 891e6, "the seller gets the deal price less the 1% fee");
+        assertEq(d.commodityToken.balanceOf(buyer, lotId), 500e18);
+    }
+
+    function test_BulkDeal_Revert_BadTerms() public {
+        vm.startPrank(farmer);
+        vm.expectRevert(Marketplace.Marketplace__InvalidPrice.selector);
+        market.list(lotId, KG, Marketplace.PriceMode.Fixed, 2e6, 500e18, 5_001); // over 50% off
+
+        vm.expectRevert(Marketplace.Marketplace__InvalidPrice.selector);
+        market.list(lotId, KG, Marketplace.PriceMode.Fixed, 2e6, 0, 1_000); // a deal needs a minimum order
+        vm.stopPrank();
+    }
+
+    function test_Reprice_ChangesAndRemovesTheBulkDeal() public {
+        uint256 listingId = _list(KG, Marketplace.PriceMode.Fixed, 2e6);
+        assertEq(market.quote(listingId, 500e18), 1_000e6, "no deal yet");
+
+        vm.prank(farmer);
+        market.reprice(listingId, Marketplace.PriceMode.Fixed, 2e6, 400e18, 2_000);
+        assertEq(market.quote(listingId, 500e18), 800e6, "20% off from 400 kg");
+
+        vm.prank(farmer);
+        market.reprice(listingId, Marketplace.PriceMode.Fixed, 2e6, 0, 0);
+        assertEq(market.quote(listingId, 500e18), 1_000e6, "deal removed");
+        assertEq(market.getListing(listingId).bulkMinKg, 0);
+    }
+
+    function testFuzz_BulkDeal_NeverRaisesTheCost(uint256 _kg, uint256 _minKg, uint256 _discountBps) public {
+        _kg = bound(_kg, 1e18, KG);
+        _minKg = bound(_minKg, 1, KG);
+        _discountBps = bound(_discountBps, 1, market.MAX_BULK_DISCOUNT_BPS());
+
+        vm.startPrank(farmer);
+        uint256 plain = market.list(lotId, KG / 2, Marketplace.PriceMode.Reference, 10_000, 0, 0);
+        uint256 deal = market.list(lotId, KG / 2, Marketplace.PriceMode.Reference, 10_000, _minKg, _discountBps);
+        vm.stopPrank();
+
+        assertLe(market.quote(deal, _kg), market.quote(plain, _kg));
     }
 
     /*//////////////////////////////////////////////////////////////

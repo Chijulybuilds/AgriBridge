@@ -82,7 +82,7 @@ contract SepoliaRehearsal is Test {
         // Farmer sells maize to a feed mill, which withdraws it; the Safe confirms the release.
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.marketplace), true);
-        uint256 listingId = d.marketplace.list(maize, 2_000e18, Marketplace.PriceMode.Reference, 9_800);
+        uint256 listingId = d.marketplace.list(maize, 2_000e18, Marketplace.PriceMode.Reference, 9_800, 0, 0);
         vm.stopPrank();
 
         usdc.faucet(feedMill, 5_000e6);

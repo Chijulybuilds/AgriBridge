@@ -152,7 +152,7 @@ contract DemoDeploymentTest is Test {
         uint256 maize = _deliverAndVerify(CommodityDefaults.MAIZE);
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.marketplace), true);
-        uint256 listingId = d.marketplace.list(maize, 600e18, Marketplace.PriceMode.Reference, 10_000);
+        uint256 listingId = d.marketplace.list(maize, 600e18, Marketplace.PriceMode.Reference, 10_000, 0, 0);
         vm.stopPrank();
 
         address buyer = makeAddr("feedMill");
