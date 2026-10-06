@@ -17,7 +17,7 @@ import {ProtocolDeployer} from "script/ProtocolDeployer.sol";
  *
  *      Environment (all optional): VERIFIER_ADDRESS (defaults to the Safe), ADMIN_ADDRESS (defaults
  *      to VERIFIER_ADDRESS), DEMO_FARMER, DEMO_INVESTOR (default to Anvil's public accounts #2 and
- *      #3), PRICE_HEARTBEAT_SECONDS, SEED_LIQUIDITY.
+ *      #3), PRICE_HEARTBEAT_SECONDS, SEED_LIQUIDITY, FUNCTIONS_ROUTER (deploys the price feeder).
  *
  *      Sepolia: see DEMO.md
  */
@@ -36,6 +36,8 @@ contract DeployDemo is Script, ProtocolDeployer {
 
     /// @dev Protocol reserves the keeper can liquidate with, so the backstop works in the demo.
     uint256 internal constant RESERVE_SEED = 10_000e6;
+
+    string internal constant FUNCTIONS_SOURCE = "scripts/functions/commodity-prices.js";
 
     /// @dev Demo warehouse capacity: 5,000 metric tons each (18-decimal kilograms).
     uint96 internal constant DEMO_WAREHOUSE_CAPACITY = 5_000_000e18;
@@ -74,10 +76,15 @@ contract DeployDemo is Script, ProtocolDeployer {
         usdc.approve(address(d.pool), RESERVE_SEED);
         d.pool.depositReserves(RESERVE_SEED);
 
-        // 4. The Safe becomes the only verifier and takes over every admin role.
+        // 4. Optional: the Chainlink Functions price feeder, when a router is given.
+        address router = vm.envOr("FUNCTIONS_ROUTER", address(0));
+        if (router != address(0)) _deployFeeder(d, router, deployer, vm.readFile(FUNCTIONS_SOURCE));
+
+        // 5. The Safe becomes the only verifier and takes over every admin role.
         _handOver(d, deployer, verifier, finalAdmin);
 
         vm.stopBroadcast();
+        _checkHandOver(d, deployer, verifier, finalAdmin);
 
         console.log("=== AgriBridge demo deployed (play money only) ===");
         console.log("NEXT_PUBLIC_COMMODITY_CONFIG_ADDRESS=%s", address(d.config));
@@ -89,6 +96,7 @@ contract DeployDemo is Script, ProtocolDeployer {
         console.log("NEXT_PUBLIC_LIQUIDATION_KEEPER_ADDRESS=%s", address(d.keeper));
         console.log("NEXT_PUBLIC_MARKETPLACE_ADDRESS=%s", address(d.marketplace));
         console.log("NEXT_PUBLIC_WAREHOUSE_DESK_ADDRESS=%s", address(d.desk));
+        console.log("FunctionsPriceFeeder: %s", address(d.feeder));
         console.log("NEXT_PUBLIC_USDC_ADDRESS=%s", address(usdc));
         console.log("NEXT_PUBLIC_VERIFIER_SAFE=%s", verifier);
         console.log("Demo farmer:   %s", farmer);

@@ -10,6 +10,7 @@ import {LendingPool} from "src/LendingPool.sol";
 import {LiquidationKeeper} from "src/LiquidationKeeper.sol";
 import {Marketplace} from "src/Marketplace.sol";
 import {WarehouseDesk} from "src/WarehouseDesk.sol";
+import {FunctionsPriceFeeder} from "src/oracle/FunctionsPriceFeeder.sol";
 import {CommodityDefaults} from "script/CommodityDefaults.sol";
 
 /**
@@ -30,6 +31,8 @@ abstract contract ProtocolDeployer {
         LiquidationKeeper keeper;
         Marketplace marketplace;
         WarehouseDesk desk;
+        /// @dev Zero unless a Chainlink Functions router was given.
+        FunctionsPriceFeeder feeder;
         address usdc;
     }
 
@@ -84,6 +87,25 @@ abstract contract ProtocolDeployer {
     }
 
     /**
+     * @dev Deploys the Chainlink Functions feeder for the world-priced commodities and lets it push
+     *      prices. The Safe sets its subscription and DON settings afterwards (they need testnet LINK)
+     *      and the price providers in its JavaScript source.
+     */
+    function _deployFeeder(Deployment memory d, address _router, address _deployer, string memory _source) internal {
+        d.feeder = new FunctionsPriceFeeder(_router, address(d.oracle), _deployer);
+        d.oracle.grantRole(d.oracle.PRICE_UPDATER_ROLE(), address(d.feeder));
+
+        uint256[] memory ids = new uint256[](4);
+        string[] memory symbols = new string[](4);
+        (ids[0], symbols[0]) = (CommodityDefaults.COCOA, "COCOA");
+        (ids[1], symbols[1]) = (CommodityDefaults.RICE, "RICE");
+        (ids[2], symbols[2]) = (CommodityDefaults.MAIZE, "CORN");
+        (ids[3], symbols[3]) = (CommodityDefaults.SOYBEANS, "SOYBEANS");
+        d.feeder.setCommodities(ids, symbols);
+        if (bytes(_source).length > 0) d.feeder.setSource(_source);
+    }
+
+    /**
      * @dev Adds the six launch commodities and seeds their starting prices. Seeding uses the admin's
      *      `forcePrice`, since locally priced crops only otherwise take prices from their reporters.
      */
@@ -122,6 +144,10 @@ abstract contract ProtocolDeployer {
         d.marketplace.setFees(d.marketplace.feeBps(), _finalAdmin, d.marketplace.clearanceDiscountBps());
         d.desk.grantRole(adminRole, _finalAdmin);
         d.desk.setFeeRecipient(_finalAdmin);
+        if (address(d.feeder) != address(0)) {
+            d.feeder.grantRole(adminRole, _finalAdmin);
+            d.feeder.renounceRole(adminRole, _deployer);
+        }
 
         d.oracle.renounceRole(d.oracle.PRICE_UPDATER_ROLE(), _deployer);
         d.marketplace.renounceRole(d.marketplace.CLEARANCE_ROLE(), _deployer);
@@ -132,5 +158,41 @@ abstract contract ProtocolDeployer {
         d.commodityToken.renounceRole(adminRole, _deployer);
         d.oracle.renounceRole(adminRole, _deployer);
         d.pool.renounceRole(adminRole, _deployer);
+    }
+
+    /**
+     * @dev Stops the deployment if any role ended up in the wrong hands: the verifier must be the only
+     *      verifier and the warehouses' custodian, and after a handover the final admin must hold
+     *      every admin role while the deployer holds none.
+     */
+    function _checkHandOver(Deployment memory d, address _deployer, address _verifier, address _finalAdmin)
+        internal
+        view
+    {
+        require(d.registry.verifier() == _verifier, "handover: verifier");
+        require(d.desk.hasRole(d.desk.CUSTODIAN_ROLE(), _verifier), "handover: custodian");
+        if (_finalAdmin == _deployer) return;
+
+        bytes32 adminRole = 0x00;
+        require(
+            d.config.hasRole(adminRole, _finalAdmin) && d.registry.hasRole(adminRole, _finalAdmin)
+                && d.commodityToken.hasRole(adminRole, _finalAdmin) && d.oracle.hasRole(adminRole, _finalAdmin)
+                && d.pool.hasRole(adminRole, _finalAdmin) && d.marketplace.hasRole(adminRole, _finalAdmin)
+                && d.desk.hasRole(adminRole, _finalAdmin),
+            "handover: final admin is missing a role"
+        );
+        require(
+            !d.config.hasRole(adminRole, _deployer) && !d.registry.hasRole(adminRole, _deployer)
+                && !d.commodityToken.hasRole(adminRole, _deployer) && !d.oracle.hasRole(adminRole, _deployer)
+                && !d.oracle.hasRole(d.oracle.PRICE_UPDATER_ROLE(), _deployer) && !d.pool.hasRole(adminRole, _deployer)
+                && !d.marketplace.hasRole(adminRole, _deployer)
+                && !d.marketplace.hasRole(d.marketplace.CLEARANCE_ROLE(), _deployer)
+                && !d.desk.hasRole(adminRole, _deployer) && !d.desk.hasRole(d.desk.CUSTODIAN_ROLE(), _deployer),
+            "handover: the deployer kept a role"
+        );
+        if (address(d.feeder) != address(0)) {
+            require(d.feeder.hasRole(adminRole, _finalAdmin), "handover: feeder admin");
+            require(!d.feeder.hasRole(adminRole, _deployer), "handover: deployer kept the feeder");
+        }
     }
 }
