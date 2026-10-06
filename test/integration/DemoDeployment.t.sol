@@ -50,7 +50,9 @@ contract DemoDeploymentTest is Test {
         assertEq(usdc.balanceOf(SAFE), 50_000e6);
         assertEq(usdc.balanceOf(farmer), 2_000e6);
         assertEq(usdc.balanceOf(investor), 50_000e6);
-        assertEq(d.pool.totalAssets(), 50_000e6);
+        assertEq(d.pool.totalAssets(), 50_000e6, "investors' liquidity");
+        assertEq(d.pool.reserves(), 10_000e6, "the keeper's backstop");
+        assertTrue(d.pool.hasRole(d.pool.KEEPER_ROLE(), address(d.keeper)));
     }
 
     function test_SixCommoditiesAndTwoWarehousesAreSeeded() public view {
@@ -70,7 +72,6 @@ contract DemoDeploymentTest is Test {
         assertTrue(d.commodityToken.hasRole(admin, SAFE));
         assertTrue(d.oracle.hasRole(admin, SAFE));
         assertTrue(d.pool.hasRole(admin, SAFE));
-        assertTrue(d.pool.hasRole(d.pool.LIQUIDATOR_ROLE(), SAFE));
     }
 
     function test_DeployerKeepsNoRoles() public view {
@@ -81,8 +82,6 @@ contract DemoDeploymentTest is Test {
         assertFalse(d.oracle.hasRole(admin, deployer));
         assertFalse(d.oracle.hasRole(d.oracle.PRICE_UPDATER_ROLE(), deployer));
         assertFalse(d.pool.hasRole(admin, deployer));
-        assertFalse(d.pool.hasRole(d.pool.ADMIN_ROLE(), deployer));
-        assertFalse(d.pool.hasRole(d.pool.LIQUIDATOR_ROLE(), deployer), "the leftover the old handover missed");
     }
 
     function test_PricesStayFreshForTheWholeDemo() public {
@@ -101,7 +100,7 @@ contract DemoDeploymentTest is Test {
         uint256 cocoa = _deliverAndVerify(CommodityDefaults.COCOA);
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.pool), true);
-        uint256 loan = d.pool.borrow(cocoa, QUANTITY, 3_500e6); // $5,525 of collateral
+        uint256 loan = d.pool.borrow(cocoa, QUANTITY, 2_000e6, uint64(block.timestamp + 90 days));
         vm.stopPrank();
 
         vm.warp(block.timestamp + 30 days);
@@ -111,24 +110,27 @@ contract DemoDeploymentTest is Test {
         vm.stopPrank();
         assertEq(d.commodityToken.balanceOf(farmer, cocoa), QUANTITY, "collateral returned");
 
-        // Second lot: borrow, the price crashes, the Safe liquidates.
+        // Second lot: borrow, the price crashes, the Safe liquidates and the farmer gets the rest back.
         uint256 cashew = _deliverAndVerify(CommodityDefaults.CASHEW); // $3,200 lot, priced locally
         vm.prank(farmer);
-        uint256 risky = d.pool.borrow(cashew, QUANTITY, 2_000e6);
+        uint256 risky = d.pool.borrow(cashew, QUANTITY, 1_400e6, uint64(block.timestamp + 30 days));
 
         // The demo's price crash: the Safe sets the price directly, past the oracle's move cap.
         vm.prank(SAFE);
-        d.oracle.forcePrice(CommodityDefaults.CASHEW, 150 * 10 ** 6); // $1.50/kg
+        d.oracle.forcePrice(CommodityDefaults.CASHEW, 170 * 10 ** 6); // $1.70/kg: $1,700 against $1,400
         assertLt(d.pool.getHealthFactor(risky), 1e18);
 
         vm.startPrank(SAFE);
         usdc.approve(address(d.pool), type(uint256).max);
         d.pool.liquidate(risky);
         vm.stopPrank();
-        assertEq(d.commodityToken.balanceOf(SAFE, cashew), QUANTITY);
+        uint256 seized = d.commodityToken.balanceOf(SAFE, cashew);
+        assertGt(seized, 0);
+        assertEq(d.commodityToken.balanceOf(farmer, cashew), QUANTITY - seized, "leftover returned");
 
         // Investor withdraws, having earned the first loan's interest.
         uint256 shares = d.shareToken.balanceOf(investor);
+        vm.roll(block.number + 1);
         vm.prank(investor);
         d.pool.withdraw(shares);
         assertGt(usdc.balanceOf(investor), 50_000e6, "investor ends with more than they put in");
@@ -147,7 +149,7 @@ contract DemoDeploymentTest is Test {
         uint256 rice = _deliverAndVerify(CommodityDefaults.RICE); // $1,080 after rice's 10% basis cut
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.pool), true);
-        uint256 loan = d.pool.borrow(rice, QUANTITY, 500e6);
+        uint256 loan = d.pool.borrow(rice, QUANTITY, 400e6, uint64(block.timestamp + 30 days));
         usdc.approve(address(d.pool), type(uint256).max);
         d.pool.repay(loan, type(uint256).max);
         vm.stopPrank();

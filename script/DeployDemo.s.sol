@@ -34,6 +34,9 @@ contract DeployDemo is Script, ProtocolDeployer {
     uint256 internal constant FARMER_FUNDS = 2_000e6; // covers interest on top of a loan
     uint256 internal constant INVESTOR_FUNDS = 50_000e6;
 
+    /// @dev Protocol reserves the keeper can liquidate with, so the backstop works in the demo.
+    uint256 internal constant RESERVE_SEED = 10_000e6;
+
     /// @dev Demo warehouse capacity: 5,000 metric tons each (18-decimal kilograms).
     uint96 internal constant DEMO_WAREHOUSE_CAPACITY = 5_000_000e18;
 
@@ -67,6 +70,9 @@ contract DeployDemo is Script, ProtocolDeployer {
             usdc.approve(address(d.pool), seedLiquidity);
             d.pool.deposit(seedLiquidity);
         }
+        usdc.faucet(deployer, RESERVE_SEED);
+        usdc.approve(address(d.pool), RESERVE_SEED);
+        d.pool.depositReserves(RESERVE_SEED);
 
         // 4. The Safe becomes the only verifier and takes over every admin role.
         _handOver(d, deployer, verifier, finalAdmin);
@@ -80,6 +86,7 @@ contract DeployDemo is Script, ProtocolDeployer {
         console.log("NEXT_PUBLIC_COMMODITY_PRICE_ORACLE_ADDRESS=%s", address(d.oracle));
         console.log("NEXT_PUBLIC_AGRI_SHARE_TOKEN_ADDRESS=%s", address(d.shareToken));
         console.log("NEXT_PUBLIC_LENDING_POOL_ADDRESS=%s", address(d.pool));
+        console.log("NEXT_PUBLIC_LIQUIDATION_KEEPER_ADDRESS=%s", address(d.keeper));
         console.log("NEXT_PUBLIC_USDC_ADDRESS=%s", address(usdc));
         console.log("NEXT_PUBLIC_VERIFIER_SAFE=%s", verifier);
         console.log("Demo farmer:   %s", farmer);

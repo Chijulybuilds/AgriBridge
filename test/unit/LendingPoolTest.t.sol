@@ -1,429 +1,447 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {LendingPool} from "src/LendingPool.sol"; // Adjust import paths according to your structure
-import {AgriShareToken} from "src/AgriShareToken.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-// --- Concrete Mock Helper for ERC1155 Token ---
-contract MockCommodityToken {
-    mapping(address => mapping(uint256 => uint256)) public balanceOf;
-
-    function setBalance(address account, uint256 id, uint256 amount) external {
-        balanceOf[account][id] = amount;
-    }
-
-    function safeTransferFrom(address from, address to, uint256 id, uint256 value, bytes calldata) external {
-        require(balanceOf[from][id] >= value, "Insufficient balance");
-        balanceOf[from][id] -= value;
-        balanceOf[to][id] += value;
-    }
-
-    function burn(address from, uint256 id, uint256 amount) external {
-        require(balanceOf[from][id] >= amount, "Insufficient balance");
-        balanceOf[from][id] -= amount;
-    }
-}
-
-// --- Concrete Mock Helper for Share Token ---
-contract MockAgriShareToken is ERC20 {
-    constructor() ERC20("Agri Share Token", "agUSDC") {}
-
-    function mintShares(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-
-    function burnShares(address from, uint256 amount) external {
-        _burn(from, amount);
-    }
-}
-
-// -- Concrete Mock Helper for minting USDC Token ---
-contract MockUSDC is ERC20 {
-    constructor() ERC20("USD Coin", "USDC") {
-        // Optional: Mint an initial supply to the deployer if needed
-        // _mint(msg.sender, 1_000_000 * 10**6);
-    }
-}
+import {CommodityRegistry} from "src/CommodityRegistry.sol";
+import {CommodityPriceOracle} from "src/CommodityPriceOracle.sol";
+import {LendingPool} from "src/LendingPool.sol";
+import {ProtocolFixture} from "test/utils/ProtocolFixture.sol";
 
 /**
  * @title LendingPoolTest
- * @author Senior Smart Contract Engineer
- * @notice Exhaustive branch & function coverage test suite for LendingPool.sol
+ * @notice Deposits, borrowing rules, repayment, interest and reserves, on the real contracts.
+ * @dev Most loans here are against cashew: priced locally, so no basis cut, and Grade B at 270 days.
+ *      1,000 kg at $3.20 is $3,200 today; at a 90-day maturity it will have decayed to 91.67%.
  */
-contract LendingPoolTest is Test {
-    LendingPool public pool;
+contract LendingPoolTest is ProtocolFixture {
+    LendingPool internal pool;
 
-    // Dependencies
-    MockCommodityToken public commodityToken;
-    MockAgriShareToken public shareToken;
-    MockUSDC public usdc;
+    address internal regulator = makeAddr("regulator");
+    address internal stranger = makeAddr("stranger");
 
-    // Mock Interface addresses
-    address public registry = makeAddr("REGISTRY");
-    address public priceOracle = makeAddr("PRICE_ORACLE");
-
-    // Roles & Actors
-    address public admin = makeAddr("ADMIN");
-    address public farmer = makeAddr("FARMER");
-    address public investor = makeAddr("INVESTOR");
-    address public liquidator = makeAddr("LIQUIDATOR");
-
-    // Copy errors exactly for assertion accuracy
-    error LendingPool__UnauthorizedAccess();
-    error LendingPool__ZeroAddress();
-    error LendingPool__ZeroAmount();
-    error LendingPool__InvalidLoanBounds();
-    error LendingPool__InsufficientPoolCash();
-    error LendingPool__CommodityNotApprovedForBorrowing();
-    error LendingPool__Unauthorized();
-    error LendingPool__InsufficientCollateralBalance();
-    error LendingPool__ExceedsMaxLTV();
-    error LendingPool__LoanNotActive();
-    error LendingPool__PositionHealthy();
-    error LendingPool__NativeTokenNotSupported();
-    error LendingPool__InvalidCall();
-    error LendingPool__InvalidReserveFactor();
+    uint96 internal constant KG = 1_000e18;
 
     function setUp() public {
-        usdc = new MockUSDC();
-        commodityToken = new MockCommodityToken();
-        shareToken = new MockAgriShareToken();
-
-        // Deploy Core Pool under Admin identity
-        vm.prank(admin);
-        pool =
-            new LendingPool(admin, address(usdc), registry, address(commodityToken), address(shareToken), priceOracle);
-
-        // Standard labels for clean trace debugging
-        vm.label(address(pool), "LendingPool");
-        vm.label(address(usdc), "USDC");
-        vm.label(address(commodityToken), "CommodityToken");
-        vm.label(address(shareToken), "ShareToken");
+        _deployFixture();
+        pool = d.pool;
+        d.registry.grantRole(d.registry.REGULATOR_ROLE(), regulator);
     }
 
-    // =========================================================================
-    // CONSTRUCTOR TESTS
-    // =========================================================================
-
-    function test_Constructor_RevertOnZeroAddresses() public {
-        vm.expectRevert(LendingPool__ZeroAddress.selector);
-        new LendingPool(address(0), address(usdc), registry, address(commodityToken), address(shareToken), priceOracle);
-
-        vm.expectRevert(LendingPool__ZeroAddress.selector);
-        new LendingPool(admin, address(0), registry, address(commodityToken), address(shareToken), priceOracle);
+    function _cashewLot() internal returns (uint256) {
+        return _verifiedLot(farmer, CASHEW, KG, CommodityRegistry.Grade.A);
     }
 
-    // =========================================================================
-    // MODIFIER & GUARD TESTS
-    // =========================================================================
-
-    function test_Modifier_CheckZeroAmount() public {
-        vm.expectRevert(LendingPool__ZeroAmount.selector);
-        pool.deposit(0);
+    function _withdrawAllNextBlock(address _investor) internal {
+        vm.roll(block.number + 1);
+        uint256 shares = d.shareToken.balanceOf(_investor);
+        vm.prank(_investor);
+        pool.withdraw(shares);
     }
 
-    function test_Modifier_OnlyAdmin() public {
-        vm.startPrank(investor);
-        vm.expectRevert(LendingPool__UnauthorizedAccess.selector);
-        pool.pause();
-        vm.stopPrank();
-    }
+    /*//////////////////////////////////////////////////////////////
+                              CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
 
-    // =========================================================================
-    // INVESTOR DEPOSIT & WITHDRAWAL PATHS
-    // =========================================================================
-
-    function test_DepositAndWithdraw_Success() public {
-        deal(address(usdc), investor, 10_000e6);
-
-        vm.startPrank(investor);
-        usdc.approve(address(pool), 10_000e6);
-
-        // Target deposit paths
-        pool.deposit(10_000e6);
-        assertEq(shareToken.balanceOf(investor), 10_000e6);
-
-        // Target withdrawal paths
-        pool.withdraw(5_000e6);
-        assertEq(usdc.balanceOf(investor), 5_000e6);
-        vm.stopPrank();
-    }
-
-    function test_Withdraw_Revert_InsufficientPoolCash() public {
-        deal(address(usdc), address(pool), 0);
-        vm.startPrank(investor);
-        vm.expectRevert(LendingPool__InsufficientPoolCash.selector);
-        pool.withdraw(1_000e6);
-        vm.stopPrank();
-    }
-
-    // =========================================================================
-    // BORROW LOGIC & PARAMETER BOUNDS
-    // =========================================================================
-
-    function test_Borrow_Revert_InvalidLoanBounds() public {
-        vm.startPrank(farmer);
-        // Below MIN_BORROW_AMOUNT ($100 / 100e6)
-        vm.expectRevert(LendingPool__InvalidLoanBounds.selector);
-        pool.borrow(1, 100e18, 50e6);
-
-        // Above MAX_BORROW_AMOUNT ($10M / 10_000_000e6)
-        vm.expectRevert(LendingPool__InvalidLoanBounds.selector);
-        pool.borrow(1, 100e18, 11_000_000e6);
-        vm.stopPrank();
-    }
-
-    function test_Borrow_Revert_InsufficientPoolCash() public {
-        vm.startPrank(farmer);
-        vm.expectRevert(LendingPool__InsufficientPoolCash.selector);
-        pool.borrow(1, 100e18, 500e6);
-        vm.stopPrank();
-    }
-
-    function test_Borrow_Revert_CommodityNotApproved() public {
-        _fundPoolWithLiquidity(50_000e6);
-
-        // Mock ICommodityRegistry.isUsable -> false (unverified, frozen or expired)
-        vm.mockCall(registry, abi.encodeWithSignature("isUsable(uint256)"), abi.encode(false));
-
-        vm.startPrank(farmer);
-        vm.expectRevert(LendingPool__CommodityNotApprovedForBorrowing.selector);
-        pool.borrow(1, 100e18, 1_000e6);
-        vm.stopPrank();
-    }
-
-    function test_Borrow_Revert_UnauthorizedFarmer() public {
-        _fundPoolWithLiquidity(50_000e6);
-        _mockRegistryCommodityData(1, address(admin)); // Farmer is Admin, not caller
-
-        vm.startPrank(farmer);
-        vm.expectRevert(LendingPool__Unauthorized.selector);
-        pool.borrow(1, 100e18, 1_000e6);
-        vm.stopPrank();
-    }
-
-    function test_Borrow_Revert_InsufficientCollateralBalance() public {
-        _fundPoolWithLiquidity(50_000e6);
-        _mockRegistryCommodityData(1, farmer);
-        commodityToken.setBalance(farmer, 1, 10e18); // set lower balance than locked collateral
-
-        vm.startPrank(farmer);
-        vm.expectRevert(LendingPool__InsufficientCollateralBalance.selector);
-        pool.borrow(1, 20e18, 1_000e6);
-        vm.stopPrank();
-    }
-
-    function test_Borrow_Revert_ExceedsMaxLTV() public {
-        _fundPoolWithLiquidity(50_000e6);
-        _mockRegistryCommodityData(1, farmer);
-        commodityToken.setBalance(farmer, 1, 100e18);
-
-        // Mocking collateral value to be worth $1,000. LTV max 70% ($700 max borrow)
-        _mockCollateralValue(1_000e6, 100e18);
-
-        vm.startPrank(farmer);
-        vm.expectRevert(LendingPool__ExceedsMaxLTV.selector);
-        pool.borrow(1, 100e18, 800e6); // Attempting to borrow $800
-        vm.stopPrank();
-    }
-
-    function test_Borrow_Success() public {
-        _fundPoolWithLiquidity(50_000e6);
-        _mockRegistryCommodityData(1, farmer);
-        commodityToken.setBalance(farmer, 1, 100e18);
-        _mockCollateralValue(10_000e6, 100e18);
-
-        vm.startPrank(farmer);
-        uint256 loanId = pool.borrow(1, 100e18, 2_000e6);
-        assertEq(loanId, 1);
-        assertEq(usdc.balanceOf(farmer), 2_000e6);
-        assertEq(commodityToken.balanceOf(address(pool), 1), 100e18);
-        vm.stopPrank();
-    }
-
-    // =========================================================================
-    // REPAYMENT & INTEREST ENGINE TESTS
-    // =========================================================================
-
-    function test_Repay_Revert_LoanNotActive() public {
-        // Create an actual loan ID 1, but make it REPAID so it triggers the enum check
-        // instead of panicking on a division-by-zero from uninitialized storage.
-        uint256 loanId = _setupActiveLoan(2_000e6, 100e18);
-
-        deal(address(usdc), farmer, 2_000e6);
-        vm.startPrank(farmer);
-        usdc.approve(address(pool), 2_000e6);
-        pool.repay(loanId, 2_000e6); // Enters REPAID status
-
-        // Now try to repay it again
-        vm.expectRevert(LendingPool__LoanNotActive.selector);
-        pool.repay(loanId, 100e6);
-        vm.stopPrank();
-    }
-
-    function test_Repay_Overpayment_IsCappedAtDebt() public {
-        uint256 loanId = _setupActiveLoan(2_000e6, 100e18);
-
-        deal(address(usdc), farmer, 5_000e6);
-        vm.startPrank(farmer);
-        usdc.approve(address(pool), 5_000e6);
-
-        // Asking to pay more than is owed takes only the debt and closes the loan.
-        pool.repay(loanId, 2_001e6);
-        vm.stopPrank();
-
-        assertEq(usdc.balanceOf(farmer), 3_000e6);
-        assertEq(commodityToken.balanceOf(farmer, 1), 100e18);
-    }
-
-    function test_Repay_Full_Success() public {
-        uint256 loanId = _setupActiveLoan(2_000e6, 100e18);
-
-        deal(address(usdc), farmer, 2_000e6);
-        vm.startPrank(farmer);
-        usdc.approve(address(pool), 2_000e6);
-
-        pool.repay(loanId, 2_000e6);
-        assertEq(commodityToken.balanceOf(farmer, 1), 100e18); // Collateral returned
-        vm.stopPrank();
-    }
-
-    function test_Repay_Partial_Success() public {
-        uint256 loanId = _setupActiveLoan(2_000e6, 100e18);
-
-        deal(address(usdc), farmer, 1_000e6);
-        vm.startPrank(farmer);
-        usdc.approve(address(pool), 1_000e6);
-
-        pool.repay(loanId, 1_000e6);
-
-        // Read via the clean external view instead of directly reading unadjusted storage mappings
-        (, uint256 principal,,,) = pool.getLoanDetails(loanId);
-        assertEq(principal, 1_000e6);
-        vm.stopPrank();
-    }
-
-    // =========================================================================
-    // LIQUIDATION SYSTEM TESTS
-    // =========================================================================
-
-    function test_Liquidate_Revert_PositionHealthy() public {
-        uint256 loanId = _setupActiveLoan(2_000e6, 100e18);
-
-        vm.startPrank(admin);
-        vm.expectRevert(LendingPool__PositionHealthy.selector);
-        pool.liquidate(loanId);
-        vm.stopPrank();
-    }
-
-    function test_Liquidate_Success() public {
-        uint256 loanId = _setupActiveLoan(2_000e6, 100e18);
-
-        // The pool holds exactly the loan's 100 units. (This test used to top the pool up to 150
-        // so a collateral-plus-bonus payout could succeed; in practice that payout always reverted.)
-        _mockCollateralValue(1_000e6, 100e18);
-
-        deal(address(usdc), admin, 2_000e6);
-        vm.startPrank(admin);
-        usdc.approve(address(pool), 2_000e6);
-
-        pool.liquidate(loanId);
-        assertEq(commodityToken.balanceOf(admin, 1), 100e18);
-        assertEq(commodityToken.balanceOf(address(pool), 1), 0);
-        vm.stopPrank();
-    }
-
-    // =========================================================================
-    // ADMIN CONFIGURATION & ROLE ACTIONS
-    // =========================================================================
-
-    function test_SetReserveFactor_Revert_InvalidBounds() public {
-        vm.startPrank(admin);
-        vm.expectRevert(LendingPool__InvalidReserveFactor.selector);
-        pool.setReserveFactor(55e16); // > 50% threshold limit
-        vm.stopPrank();
-    }
-
-    function test_SetReserveFactor_Success() public {
-        vm.startPrank(admin);
-        pool.setReserveFactor(30e16);
-        assertEq(pool.reserveFactor(), 30e16);
-        vm.stopPrank();
-    }
-
-    function test_InterestRateModel_KinkBranches() public {
-        _fundPoolWithLiquidity(10_000e6);
-        _mockRegistryCommodityData(1, farmer);
-
-        // Ensure farmer has plenty of balance for multiple borrows
-        commodityToken.setBalance(farmer, 1, 1000e18);
-        _mockCollateralValue(100_000e6, 100e18);
-
-        vm.prank(farmer);
-        pool.borrow(1, 100e18, 200e6);
-        uint256 rateLow = pool.getBorrowRate();
-
-        vm.prank(farmer);
-        pool.borrow(1, 100e18, 7_000e6); // Push utilization past Kink
-        uint256 rateHigh = pool.getBorrowRate();
-
-        assertTrue(rateHigh > rateLow);
-    }
-
-    // =========================================================================
-    // DEFENSIVE FALLBACK COVERS
-    // =========================================================================
-
-    function test_Fallback_Reverts_InvalidCall() public {
-        vm.expectRevert(LendingPool__InvalidCall.selector);
-        (bool success,) = address(pool).call(abi.encodeWithSignature("nonExistentSignature()"));
-        assertTrue(success);
-    }
-
-    function test_Receive_Reverts_NativeNotSupported() public {
-        vm.expectRevert(bytes("")); // Expect low-level execution to revert natively
-        (bool success,) = address(pool).call{value: 1 ether}("");
-        assertTrue(!success);
-    }
-
-    // =========================================================================
-    // INTERNAL ENVIRONMENT SETUP UTILS
-    // =========================================================================
-
-    function _fundPoolWithLiquidity(uint256 amount) internal {
-        deal(address(usdc), investor, amount);
-        vm.startPrank(investor);
-        usdc.approve(address(pool), amount);
-        pool.deposit(amount);
-        vm.stopPrank();
-    }
-
-    /// @dev Lot `id` is usable, belongs to `owner`, is a lot of commodity 1, and counts at full value.
-    function _mockRegistryCommodityData(uint256 id, address owner) internal {
-        vm.mockCall(registry, abi.encodeWithSignature("isUsable(uint256)", id), abi.encode(true));
-        vm.mockCall(registry, abi.encodeWithSignature("lotFarmer(uint256)", id), abi.encode(owner));
-        vm.mockCall(registry, abi.encodeWithSignature("commodityOf(uint256)", id), abi.encode(uint256(1)));
-        vm.mockCall(
-            registry, abi.encodeWithSignature("valuationFactorBps(uint256,uint256)"), abi.encode(uint256(10_000))
+    function test_Constructor_Revert_ZeroAddress() public {
+        vm.expectRevert(LendingPool.LendingPool__ZeroAddress.selector);
+        new LendingPool(
+            address(this),
+            address(usdc),
+            address(d.registry),
+            address(d.commodityToken),
+            address(d.shareToken),
+            address(d.oracle),
+            address(0)
         );
     }
 
-    /// @dev Sets the oracle price so that `kg` of collateral is worth `value` (6-decimal USD).
-    function _mockCollateralValue(uint256 value, uint256 kg) internal {
-        uint256 price = (value * 1e20) / kg; // value = price(8dp) * kg(18dp) / 1e20
-        vm.mockCall(priceOracle, abi.encodeWithSignature("getPriceFresh(uint256)"), abi.encode(price));
+    function test_Constructor_WiresEverything() public view {
+        assertTrue(pool.hasRole(pool.DEFAULT_ADMIN_ROLE(), address(this)));
+        assertTrue(pool.hasRole(pool.KEEPER_ROLE(), address(d.keeper)));
+        assertEq(address(pool.i_config()), address(d.config));
+        assertEq(pool.borrowIndex(), 1e18);
     }
 
-    function _setupActiveLoan(uint256 borrowAmount, uint256 collateralAmount) internal returns (uint256 loanId) {
-        _fundPoolWithLiquidity(borrowAmount * 10);
-        _mockRegistryCommodityData(1, farmer);
-        commodityToken.setBalance(farmer, 1, collateralAmount);
-        _mockCollateralValue(borrowAmount * 5, collateralAmount);
+    /*//////////////////////////////////////////////////////////////
+                               INVESTORS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_Deposit_MintsOneToOneAtStart() public {
+        _seedPool(10_000e6);
+
+        assertEq(d.shareToken.balanceOf(investor), 10_000e6);
+        assertEq(pool.cash(), 10_000e6);
+        assertEq(pool.totalAssets(), 10_000e6);
+    }
+
+    function test_Deposit_Revert_Zero() public {
+        vm.expectRevert(LendingPool.LendingPool__ZeroAmount.selector);
+        pool.deposit(0);
+    }
+
+    function test_Withdraw_ReturnsTheDeposit() public {
+        _seedPool(10_000e6);
+        _withdrawAllNextBlock(investor);
+
+        assertEq(usdc.balanceOf(investor), 10_000e6);
+        assertEq(d.shareToken.totalSupply(), 0);
+    }
+
+    function test_Withdraw_Revert_MoreThanIsNotLentOut() public {
+        _seedPool(3_000e6);
+        uint256 lotId = _cashewLot();
+        _borrow(farmer, lotId, KG, 1_400e6, 90);
+
+        vm.roll(block.number + 1);
+        uint256 shares = d.shareToken.balanceOf(investor);
+        vm.expectRevert(LendingPool.LendingPool__InsufficientPoolCash.selector);
+        vm.prank(investor);
+        pool.withdraw(shares);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                             BORROWING RULES
+    //////////////////////////////////////////////////////////////*/
+
+    function test_Borrow_OpensALoan() public {
+        _seedPool(10_000e6);
+        uint256 lotId = _cashewLot();
+        uint64 maturity = uint64(block.timestamp + 90 days);
+
+        uint256 loanId = _borrow(farmer, lotId, KG, 1_400e6, 90);
+
+        LendingPool.Loan memory loan = pool.getLoan(loanId);
+        assertEq(loan.borrower, farmer);
+        assertEq(loan.lotId, lotId);
+        assertEq(loan.collateralKg, KG);
+        assertEq(loan.principal, 1_400e6);
+        assertEq(loan.maturity, maturity);
+        assertEq(uint8(loan.status), uint8(LendingPool.LoanStatus.ACTIVE));
+        assertEq(pool.debtOf(loanId), 1_400e6);
+
+        assertEq(usdc.balanceOf(farmer), 1_400e6);
+        assertEq(d.commodityToken.balanceOf(address(pool), lotId), KG);
+        assertEq(pool.cash(), 8_600e6);
+        assertEq(pool.activeLoanIds().length, 1);
+        assertEq(pool.getBorrowerLoans(farmer)[0], loanId);
+    }
+
+    /// @notice The limit is 50% of what the collateral will be worth at maturity, not today.
+    function test_Borrow_LimitUsesTheValueAtMaturity() public {
+        _seedPool(10_000e6);
+        uint256 lotId = _cashewLot();
+
+        // At day 90 cashew has decayed to 91.67%: 1,000 kg is worth $2,933.44, so the limit is $1,466.72.
+        uint64 maturity = uint64(block.timestamp + 90 days);
+        assertEq(pool.getCollateralValue(lotId, KG), 3_200e6);
+        assertEq(pool.maxBorrow(lotId, KG, maturity), 1_466_720_000);
+
+        vm.startPrank(farmer);
+        d.commodityToken.setApprovalForAll(address(pool), true);
+        vm.expectRevert(LendingPool.LendingPool__ExceedsMaxLTV.selector);
+        pool.borrow(lotId, KG, 1_466_720_001, maturity);
+
+        pool.borrow(lotId, KG, 1_466_720_000, maturity);
+        vm.stopPrank();
+    }
+
+    function test_Borrow_LongerTermMeansALowerLimit() public {
+        uint256 lotId = _cashewLot();
+        uint256 short = pool.maxBorrow(lotId, KG, uint64(block.timestamp + 30 days));
+        uint256 long = pool.maxBorrow(lotId, KG, uint64(block.timestamp + 360 days));
+        assertGt(short, long);
+    }
+
+    function test_Borrow_YamHasALowerLimit() public {
+        // Yam: 40% loan limit, Grade B after 60 days. 1,000 kg at $0.85 decays to 87.5% by day 30.
+        uint256 lotId = _verifiedLot(farmer, YAM, KG, CommodityRegistry.Grade.A);
+        assertEq(pool.maxBorrow(lotId, KG, uint64(block.timestamp + 30 days)), 297_500_000); // $297.50
+    }
+
+    function test_Borrow_PartOfALot() public {
+        _seedPool(10_000e6);
+        uint256 lotId = _cashewLot();
+
+        _borrow(farmer, lotId, 400e18, 500e6, 90);
+
+        assertEq(d.commodityToken.balanceOf(farmer, lotId), 600e18, "the rest stays with the farmer");
+        assertEq(d.commodityToken.balanceOf(address(pool), lotId), 400e18);
+    }
+
+    /// @notice Tokens bought from a farmer can back a loan too: the collateral is the token, not the person.
+    function test_Borrow_AnyHolderCanBorrow() public {
+        _seedPool(10_000e6);
+        uint256 lotId = _cashewLot();
+        vm.prank(farmer);
+        d.commodityToken.safeTransferFrom(farmer, stranger, lotId, 500e18, "");
+
+        uint256 loanId = _borrow(stranger, lotId, 500e18, 500e6, 90);
+        assertEq(pool.getLoan(loanId).borrower, stranger);
+    }
+
+    function test_Borrow_Revert_Bounds() public {
+        uint256 lotId = _cashewLot();
+        uint64 maturity = uint64(block.timestamp + 90 days);
+        vm.startPrank(farmer);
+        vm.expectRevert(LendingPool.LendingPool__InvalidLoanBounds.selector);
+        pool.borrow(lotId, KG, 99e6, maturity);
+
+        vm.expectRevert(LendingPool.LendingPool__InvalidLoanBounds.selector);
+        pool.borrow(lotId, KG, 10_000_001e6, maturity);
+
+        vm.expectRevert(LendingPool.LendingPool__ZeroAmount.selector);
+        pool.borrow(lotId, 0, 500e6, maturity);
+        vm.stopPrank();
+    }
+
+    function test_Borrow_Revert_NotEnoughCash() public {
+        uint256 lotId = _cashewLot();
+        vm.expectRevert(LendingPool.LendingPool__InsufficientPoolCash.selector);
+        vm.prank(farmer);
+        pool.borrow(lotId, KG, 500e6, uint64(block.timestamp + 90 days));
+    }
+
+    function test_Borrow_Revert_LotNotUsable() public {
+        _seedPool(10_000e6);
+        uint64 maturity = uint64(block.timestamp + 90 days);
+
+        // Still pending: never verified.
+        vm.prank(farmer);
+        uint256 pending = d.registry.requestIntake(CASHEW, KG, warehouseId, uint64(block.timestamp));
+        vm.expectRevert(LendingPool.LendingPool__CommodityNotApprovedForBorrowing.selector);
+        vm.prank(farmer);
+        pool.borrow(pending, KG, 500e6, maturity);
+
+        // Frozen by the regulator.
+        uint256 frozen = _cashewLot();
+        vm.prank(regulator);
+        d.registry.setLotFrozen(frozen, true);
+        vm.expectRevert(LendingPool.LendingPool__CommodityNotApprovedForBorrowing.selector);
+        vm.prank(farmer);
+        pool.borrow(frozen, KG, 500e6, maturity);
+    }
+
+    function test_Borrow_Revert_InvalidMaturity() public {
+        _seedPool(10_000e6);
+        uint256 lotId = _cashewLot(); // cashew expires after 720 days
+        vm.startPrank(farmer);
+        d.commodityToken.setApprovalForAll(address(pool), true);
+
+        vm.expectRevert(LendingPool.LendingPool__InvalidMaturity.selector);
+        pool.borrow(lotId, KG, 500e6, uint64(block.timestamp + 1 hours));
+
+        // Must end at least 30 days before the lot expires.
+        vm.expectRevert(LendingPool.LendingPool__InvalidMaturity.selector);
+        pool.borrow(lotId, KG, 500e6, uint64(block.timestamp + 700 days));
+
+        pool.borrow(lotId, KG, 500e6, uint64(block.timestamp + 690 days));
+        vm.stopPrank();
+    }
+
+    function test_Borrow_Revert_NotEnoughTokens() public {
+        _seedPool(10_000e6);
+        uint256 lotId = _cashewLot();
+        vm.expectRevert(LendingPool.LendingPool__InsufficientCollateralBalance.selector);
+        vm.prank(farmer);
+        pool.borrow(lotId, KG + 1, 500e6, uint64(block.timestamp + 90 days));
+    }
+
+    function test_Borrow_Revert_StalePrice() public {
+        _seedPool(10_000e6);
+        uint256 cocoa = _verifiedLot(farmer, COCOA, KG, CommodityRegistry.Grade.A);
+        vm.warp(block.timestamp + HEARTBEAT + 1);
+
+        vm.expectRevert(CommodityPriceOracle.CommodityPriceOracle__PriceStale.selector);
+        vm.prank(farmer);
+        pool.borrow(cocoa, KG, 500e6, uint64(block.timestamp + 90 days));
+    }
+
+    function test_Borrow_Revert_WhenPaused() public {
+        _seedPool(10_000e6);
+        uint256 lotId = _cashewLot();
+        pool.pause();
+
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.prank(farmer);
+        pool.borrow(lotId, KG, 500e6, uint64(block.timestamp + 90 days));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                               REPAYMENT
+    //////////////////////////////////////////////////////////////*/
+
+    function _openLoan() internal returns (uint256 lotId, uint256 loanId) {
+        _seedPool(10_000e6);
+        lotId = _cashewLot();
+        loanId = _borrow(farmer, lotId, KG, 1_000e6, 90);
+        usdc.mint(farmer, 1_000e6); // enough to cover interest
+        vm.prank(farmer);
+        usdc.approve(address(pool), type(uint256).max);
+    }
+
+    function test_Repay_InFullReturnsTheCollateral() public {
+        (uint256 lotId, uint256 loanId) = _openLoan();
+        vm.warp(block.timestamp + 30 days);
+        uint256 debt = pool.debtOf(loanId);
+        assertGt(debt, 1_000e6, "interest accrued");
 
         vm.prank(farmer);
-        loanId = pool.borrow(1, collateralAmount, borrowAmount);
+        pool.repay(loanId, type(uint256).max);
+
+        assertEq(uint8(pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.REPAID));
+        assertEq(d.commodityToken.balanceOf(farmer, lotId), KG);
+        assertEq(usdc.balanceOf(farmer), 2_000e6 - debt);
+        assertEq(pool.totalScaledDebt(), 0);
+        assertEq(pool.activeLoanIds().length, 0);
+    }
+
+    function test_Repay_PartialLowersTheDebt() public {
+        (, uint256 loanId) = _openLoan();
+        vm.prank(farmer);
+        pool.repay(loanId, 400e6);
+
+        assertEq(pool.debtOf(loanId), 600e6);
+        assertEq(uint8(pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.ACTIVE));
+    }
+
+    function test_Repay_AnyoneCanPayAndTheBorrowerGetsTheCollateral() public {
+        (uint256 lotId, uint256 loanId) = _openLoan();
+        usdc.mint(stranger, 2_000e6);
+        vm.startPrank(stranger);
+        usdc.approve(address(pool), type(uint256).max);
+        pool.repay(loanId, type(uint256).max);
+        vm.stopPrank();
+
+        assertEq(d.commodityToken.balanceOf(farmer, lotId), KG);
+        assertEq(d.commodityToken.balanceOf(stranger, lotId), 0);
+    }
+
+    /// @notice Pausing stops new risk, never a borrower stopping their interest.
+    function test_Repay_WorksWhilePaused() public {
+        (, uint256 loanId) = _openLoan();
+        pool.pause();
+
+        vm.prank(farmer);
+        pool.repay(loanId, type(uint256).max);
+        assertEq(uint8(pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.REPAID));
+    }
+
+    function test_Repay_Revert_NotActive() public {
+        (, uint256 loanId) = _openLoan();
+        vm.startPrank(farmer);
+        pool.repay(loanId, type(uint256).max);
+
+        vm.expectRevert(LendingPool.LendingPool__LoanNotActive.selector);
+        pool.repay(loanId, 1e6);
+
+        vm.expectRevert(LendingPool.LendingPool__LoanNotActive.selector);
+        pool.repay(99, 1e6);
+        vm.stopPrank();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          INTEREST AND RESERVES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Interest counts for investors as it accrues, not only when a loan is repaid.
+    function test_Interest_CountsForInvestorsContinuously() public {
+        _openLoan(); // $1,000 out of $10,000: 10% utilisation, 6% a year
+        uint256 start = pool.totalAssets();
+
+        vm.warp(block.timestamp + 365 days);
+        // $60 of interest, $12 of it to reserves: investors are up $48 without any repayment.
+        assertEq(pool.totalDebt(), 1_060e6);
+        assertEq(pool.totalAssets(), start + 48e6);
+    }
+
+    function test_Interest_ReservesTakeTheirShareWhenBooked() public {
+        (, uint256 loanId) = _openLoan();
+        vm.warp(block.timestamp + 365 days);
+
+        vm.prank(farmer);
+        pool.repay(loanId, type(uint256).max); // books the accrual
+
+        assertEq(pool.reserves(), 12e6, "20% of $60");
+        assertEq(pool.totalAssets(), 10_048e6, "investors keep 80%");
+    }
+
+    function test_BorrowRate_FollowsTheKink() public {
+        _seedPool(10_000e6);
+        assertEq(pool.getBorrowRate(), 5e16, "5% with nothing lent");
+
+        uint256 lotId = _verifiedLot(farmer, COCOA, 10_000e18, CommodityRegistry.Grade.A);
+        _borrow(farmer, lotId, 10_000e18, 8_000e6, 30);
+
+        assertEq(pool.utilization(), 80e16);
+        assertEq(pool.getBorrowRate(), 13e16, "13% at the 80% kink");
+        assertGt(pool.getSupplyRate(), 0);
+    }
+
+    function test_SetReserveFactor() public {
+        pool.setReserveFactor(30e16);
+        assertEq(pool.reserveFactor(), 30e16);
+
+        vm.expectRevert(LendingPool.LendingPool__InvalidReserveFactor.selector);
+        pool.setReserveFactor(51e16);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                 VIEWS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice At the liquidation price the loan reaches its liquidation point.
+    function test_LiquidationPrice_IsWhereTheLoanTips() public {
+        (, uint256 loanId) = _openLoan();
+        uint256 tip = pool.liquidationPrice(loanId);
+        assertGt(pool.getHealthFactor(loanId), 1e18);
+        assertFalse(pool.isLiquidatable(loanId));
+
+        d.oracle.forcePrice(CASHEW, uint128(tip + 1));
+        assertFalse(pool.isLiquidatable(loanId));
+
+        d.oracle.forcePrice(CASHEW, uint128(tip));
+        assertTrue(pool.isLiquidatable(loanId));
+        assertLe(pool.getHealthFactor(loanId), 1e18);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                 ADMIN
+    //////////////////////////////////////////////////////////////*/
+
+    function test_Reserves_DepositAndWithdraw() public {
+        usdc.mint(address(this), 1_000e6);
+        usdc.approve(address(pool), 1_000e6);
+        pool.depositReserves(1_000e6);
+        assertEq(pool.reserves(), 1_000e6);
+        assertEq(pool.availableCash(), 0, "reserves are not lendable");
+
+        pool.withdrawReserves(stranger, 400e6);
+        assertEq(pool.reserves(), 600e6);
+        assertEq(usdc.balanceOf(stranger), 400e6);
+
+        vm.expectRevert(LendingPool.LendingPool__InsufficientReserves.selector);
+        pool.withdrawReserves(stranger, 601e6);
+    }
+
+    function test_Admin_Revert_NotAdmin() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, pool.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        vm.prank(stranger);
+        pool.pause();
+    }
+
+    function test_Fallback_AndReceive_Revert() public {
+        vm.expectRevert(LendingPool.LendingPool__InvalidCall.selector);
+        (bool ok,) = address(pool).call(abi.encodeWithSignature("nonExistent()"));
+        ok;
+
+        vm.deal(address(this), 1 ether);
+        (bool sent,) = address(pool).call{value: 1 ether}("");
+        assertFalse(sent);
     }
 }

@@ -71,6 +71,17 @@ abstract contract ProtocolFixture is Test, ProtocolDeployer {
         d.registry.approveIntake(lotId, _kg, _grade, EVIDENCE);
     }
 
+    /// @dev `_who` locks `_kg` of a lot and borrows `_amount`, repayable in `_termDays` days.
+    function _borrow(address _who, uint256 _lotId, uint256 _kg, uint256 _amount, uint256 _termDays)
+        internal
+        returns (uint256 loanId)
+    {
+        vm.startPrank(_who);
+        d.commodityToken.setApprovalForAll(address(d.pool), true);
+        loanId = d.pool.borrow(_lotId, _kg, _amount, uint64(block.timestamp + _termDays * 1 days));
+        vm.stopPrank();
+    }
+
     function _seedPool(uint256 _liquidity) internal {
         usdc.mint(investor, _liquidity);
         vm.startPrank(investor);

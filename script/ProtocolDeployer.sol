@@ -7,6 +7,7 @@ import {CommodityToken} from "src/CommodityToken.sol";
 import {CommodityPriceOracle} from "src/CommodityPriceOracle.sol";
 import {AgriShareToken} from "src/AgriShareToken.sol";
 import {LendingPool} from "src/LendingPool.sol";
+import {LiquidationKeeper} from "src/LiquidationKeeper.sol";
 import {CommodityDefaults} from "script/CommodityDefaults.sol";
 
 /**
@@ -24,6 +25,7 @@ abstract contract ProtocolDeployer {
         CommodityPriceOracle oracle;
         AgriShareToken shareToken;
         LendingPool pool;
+        LiquidationKeeper keeper;
         address usdc;
     }
 
@@ -50,13 +52,21 @@ abstract contract ProtocolDeployer {
         d.oracle = new CommodityPriceOracle(_deployer, d.config, _heartbeat);
         d.shareToken = new AgriShareToken(_usdc, "agUSDC", "aU");
         d.pool = new LendingPool(
-            _deployer, _usdc, address(d.registry), address(d.commodityToken), address(d.shareToken), address(d.oracle)
+            _deployer,
+            _usdc,
+            address(d.registry),
+            address(d.commodityToken),
+            address(d.shareToken),
+            address(d.oracle),
+            address(d.config)
         );
+        d.keeper = new LiquidationKeeper(address(d.pool));
 
-        // Without these the contracts deploy but cannot mint, lend or return collateral.
+        // Without these the contracts deploy but cannot mint, lend, return collateral or backstop.
         d.shareToken.setLendingPool(address(d.pool));
         d.registry.setCommodityTokenAddress(address(d.commodityToken));
         d.commodityToken.grantRole(d.commodityToken.PROTOCOL_ROLE(), address(d.pool));
+        d.pool.grantRole(d.pool.KEEPER_ROLE(), address(d.keeper));
     }
 
     /**
@@ -73,8 +83,8 @@ abstract contract ProtocolDeployer {
 
     /**
      * @dev Makes `_verifier` the registry's only verifier, then moves every admin role from
-     *      `_deployer` to `_finalAdmin` and renounces the deployer's roles, including the liquidator
-     *      role the pool's constructor gives it (the old handover left that one behind).
+     *      `_deployer` to `_finalAdmin` and renounces the deployer's roles, so the deploy key holds
+     *      nothing once deployment ends.
      */
     function _handOver(Deployment memory d, address _deployer, address _verifier, address _finalAdmin) internal {
         d.registry.grantRole(d.registry.VERIFIER_ROLE(), _verifier);
@@ -89,12 +99,8 @@ abstract contract ProtocolDeployer {
         d.oracle.grantRole(adminRole, _finalAdmin);
         d.oracle.grantRole(d.oracle.PRICE_UPDATER_ROLE(), _finalAdmin);
         d.pool.grantRole(adminRole, _finalAdmin);
-        d.pool.grantRole(d.pool.ADMIN_ROLE(), _finalAdmin);
-        d.pool.grantRole(d.pool.LIQUIDATOR_ROLE(), _finalAdmin);
 
         d.oracle.renounceRole(d.oracle.PRICE_UPDATER_ROLE(), _deployer);
-        d.pool.renounceRole(d.pool.LIQUIDATOR_ROLE(), _deployer);
-        d.pool.renounceRole(d.pool.ADMIN_ROLE(), _deployer);
         d.config.renounceRole(adminRole, _deployer);
         d.registry.renounceRole(adminRole, _deployer);
         d.commodityToken.renounceRole(adminRole, _deployer);
