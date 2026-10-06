@@ -6,6 +6,7 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {CommodityRegistry} from "src/CommodityRegistry.sol";
 import {LendingPool} from "src/LendingPool.sol";
+import {LiquidationKeeper} from "src/LiquidationKeeper.sol";
 import {ProtocolFixture} from "test/utils/ProtocolFixture.sol";
 
 /**
@@ -285,6 +286,24 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
         d.keeper.performUpkeep(performData);
         assertEq(uint8(pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.LIQUIDATED));
         assertEq(pool.inventory(lotId), 840e18);
+    }
+
+    /// @notice Too little gas reverts the run rather than letting the liquidation fail and be "skipped",
+    ///         so a wallet's gas estimate for a manual run always covers the liquidation.
+    function test_Keeper_RevertsWithoutEnoughGasInsteadOfSkipping() public {
+        (, uint256 loanId) = _openLoan();
+        _seedReserves(5_000e6);
+        d.oracle.forcePrice(CASHEW, 250e6);
+        (, bytes memory performData) = d.keeper.checkUpkeep("");
+
+        vm.expectRevert(LiquidationKeeper.LiquidationKeeper__NotEnoughGas.selector);
+        d.keeper.performUpkeep{gas: 200_000}(performData);
+        assertEq(uint8(pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.ACTIVE), "nothing skipped");
+
+        d.keeper.performUpkeep{gas: 400_000}(performData);
+        assertEq(
+            uint8(pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.LIQUIDATED), "the gas kept back is enough"
+        );
     }
 
     /// @notice A loan repaid between the check and the run is skipped, not reverted.

@@ -58,6 +58,7 @@ dangerous wherever capital can move a price or a share value. Here:
 | A suspect lot or warehouse | The regulator freezes it: no loans, listings, withdrawals or user-to-user transfers; protocol contracts can still return tokens to their owners | `test_Transfer_Revert_FrozenLotBetweenUsers`, `test_RepayReturnsCollateralOfAFrozenLot`, `test_Liquidate_Revert_FrozenLot` |
 | Liquidating only once a loan is underwater | Liquidation at 80% LTV leaves a 20% buffer; a liquidator takes debt + 5% and the rest returns to the borrower; bad debt hits reserves before investors | `LendingPoolLiquidationTest` (worked example, bad debt), fuzz `testFuzz_LiquidationTakesAtMostDebtPlusBonus` |
 | Nobody liquidates | The Automation keeper liquidates with reserves | `test_Keeper_FindsAndLiquidatesDueLoans`, `test_OverdueLoanIsLiquidatedByTheKeeper` |
+| A keeper run sent with too little gas, so liquidations fail and are logged as skipped | Each attempt needs `GAS_PER_LIQUIDATION` left or the whole run reverts, so a gas estimate always covers the liquidation | `test_Keeper_RevertsWithoutEnoughGasInsteadOfSkipping` |
 | Investors draining protocol reserves | Reserves never back withdrawals or loans | `test_InvestorsCannotWithdrawReserves` |
 | Admin key compromise | Every admin role sits with the Safe; the deployer renounces everything at the end of deployment; the demo script refuses leaked keys, and refuses a Safe that lists one as owner | `DemoDeploymentTest` → `test_DeployerKeepsNoRoles`, `test_SafeIsTheOnlyVerifierAndTheAdmin` |
 

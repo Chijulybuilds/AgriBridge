@@ -21,9 +21,14 @@ interface ILiquidatablePool {
  * @dev `checkUpkeep` runs off-chain and scans every open loan; `performUpkeep` liquidates up to
  *      MAX_BATCH of them. Anyone may call `performUpkeep`: each loan is checked again on-chain, and a
  *      loan that is no longer liquidatable (or that reserves cannot cover) is skipped, not reverted.
+ *      Running out of gas is not a reason to skip: each attempt needs GAS_PER_LIQUIDATION left, or
+ *      the whole call reverts. Otherwise a wallet's gas estimate (which only needs the outer call to
+ *      succeed) leaves too little for the liquidation itself, which then fails quietly as "skipped".
  */
 contract LiquidationKeeper is AutomationCompatibleInterface {
     uint256 public constant MAX_BATCH = 5;
+    /// @notice Gas kept for each liquidation attempt; one liquidation uses roughly 215,000.
+    uint256 public constant GAS_PER_LIQUIDATION = 350_000;
 
     ILiquidatablePool public immutable i_pool;
 
@@ -31,6 +36,7 @@ contract LiquidationKeeper is AutomationCompatibleInterface {
     event LiquidationSkipped(uint256 indexed loanId, bytes reason);
 
     error LiquidationKeeper__InvalidAddress();
+    error LiquidationKeeper__NotEnoughGas();
 
     constructor(address _pool) {
         if (_pool == address(0)) revert LiquidationKeeper__InvalidAddress();
@@ -61,6 +67,7 @@ contract LiquidationKeeper is AutomationCompatibleInterface {
     function performUpkeep(bytes calldata _performData) external override {
         uint256[] memory loanIds = abi.decode(_performData, (uint256[]));
         for (uint256 i = 0; i < loanIds.length && i < MAX_BATCH; i++) {
+            if (gasleft() < GAS_PER_LIQUIDATION) revert LiquidationKeeper__NotEnoughGas();
             try i_pool.liquidateWithReserves(loanIds[i]) {
                 emit LoanLiquidatedByKeeper(loanIds[i]);
             } catch (bytes memory reason) {
