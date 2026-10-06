@@ -181,10 +181,10 @@ contract DemoDeploymentTest is Test {
     }
 
     function test_LoanStatusAfterRepayIsRepaid() public {
-        uint256 rice = _deliverAndVerify(CommodityDefaults.RICE); // $1,080 after rice's 10% basis cut
+        uint256 rice = _deliverAndVerify(CommodityDefaults.RICE); // $324 after rice's 10% basis cut
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.pool), true);
-        uint256 loan = d.pool.borrow(rice, QUANTITY, 400e6, uint64(block.timestamp + 30 days));
+        uint256 loan = d.pool.borrow(rice, QUANTITY, 100e6, uint64(block.timestamp + 30 days));
         usdc.approve(address(d.pool), type(uint256).max);
         d.pool.repay(loan, type(uint256).max);
         vm.stopPrank();

@@ -59,6 +59,17 @@ abstract contract ProtocolFixture is Test, ProtocolDeployer {
         _handOver(d, address(this), SAFE, address(this));
     }
 
+    /// @dev Fixed test prices, so the arithmetic in tests does not move when the demo's prices change.
+    function _startingPrices() internal pure override returns (uint128[] memory prices) {
+        prices = new uint128[](CommodityDefaults.COUNT);
+        prices[0] = 650 * 10 ** 6; // Cocoa $6.50
+        prices[1] = 120 * 10 ** 6; // Rice $1.20
+        prices[2] = 45 * 10 ** 6; // Maize $0.45
+        prices[3] = 320 * 10 ** 6; // Cashew $3.20
+        prices[4] = 85 * 10 ** 6; // Yam $0.85
+        prices[5] = 40 * 10 ** 6; // Soybeans $0.40
+    }
+
     /// @dev `_farmer` requests intake and the Safe approves it as measured: the lot's tokens are minted.
     function _verifiedLot(address _farmer, uint256 _commodityId, uint96 _kg, CommodityRegistry.Grade _grade)
         internal

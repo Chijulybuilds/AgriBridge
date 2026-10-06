@@ -71,9 +71,10 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     uint256 private constant SECONDS_PER_YEAR = 365 days;
 
     // Interest rate model (kink), annual rates in WAD
+    // (slopes are per 100% of utilisation: 5% when idle, 13% at the kink, 23% when fully lent out)
     uint256 private constant BASE_RATE = 5e16; // 5%
-    uint256 private constant SLOPE_BELOW_KINK = 10e16; // +10% across 0-80% utilisation
-    uint256 private constant SLOPE_ABOVE_KINK = 50e16; // +50% across 80-100%
+    uint256 private constant SLOPE_BELOW_KINK = 10e16; // adds 8% between 0 and 80% utilisation
+    uint256 private constant SLOPE_ABOVE_KINK = 50e16; // adds 10% between 80% and 100%
     uint256 private constant KINK = 80e16; // 80% utilisation
 
     uint256 public constant LIQUIDATION_BONUS_BPS = 500; // 5%

@@ -69,7 +69,9 @@ dangerous wherever capital can move a price or a share value. Here:
 - **The verifier Safe's owners:** one owner, `0xb7d9…4f99`, is a key that is public in this repo's git
   history. Swap it out before the Safe is used on any deployment; `npm run demo:sepolia` refuses to
   deploy until then.
-- **Price providers** for Chainlink Functions are not chosen yet (`scripts/functions/commodity-prices.js`).
+- **No live prices in the festival demo.** Prices are set at deployment and only the Safe can change
+  them. The Chainlink Functions feeder and the reporter quorum are built and tested but switched
+  off; their price providers are not chosen yet (`scripts/functions/commodity-prices.js`).
 - **No timelock** on admin actions; planned for a pilot.
 - **Physical risk** (loss, theft, mis-grading) is handled off-chain by the warehouse operator,
   insurance and audits. The contracts can freeze stock and record evidence, but cannot see the

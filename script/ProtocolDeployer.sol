@@ -36,15 +36,20 @@ abstract contract ProtocolDeployer {
         address usdc;
     }
 
-    /// @dev Starting prices in USD per kilogram (8 decimals), in CommodityDefaults order.
-    function _startingPrices() internal pure returns (uint128[] memory prices) {
+    /**
+     * @dev Starting prices in USD per kilogram (8 decimals), in CommodityDefaults order. The festival
+     *      demo runs no live price feed, so these hold until the Safe changes them. The export crops
+     *      use world futures prices on 6 Oct 2026 (ICE cocoa; CBOT rough rice, corn and soybeans);
+     *      cashew and yam are local estimates. Tests pin their own prices instead (see ProtocolFixture).
+     */
+    function _startingPrices() internal pure virtual returns (uint128[] memory prices) {
         prices = new uint128[](CommodityDefaults.COUNT);
-        prices[0] = 650 * 10 ** 6; // Cocoa $6.50
-        prices[1] = 120 * 10 ** 6; // Rice $1.20
-        prices[2] = 45 * 10 ** 6; // Maize $0.45
+        prices[0] = 585 * 10 ** 6; // Cocoa $5.85
+        prices[1] = 36 * 10 ** 6; // Rice $0.36
+        prices[2] = 20 * 10 ** 6; // Maize $0.20
         prices[3] = 320 * 10 ** 6; // Cashew $3.20
         prices[4] = 85 * 10 ** 6; // Yam $0.85
-        prices[5] = 40 * 10 ** 6; // Soybeans $0.40
+        prices[5] = 47 * 10 ** 6; // Soybeans $0.47
     }
 
     /// @dev Deploys every contract and wires them together, with `_deployer` as the temporary admin.
