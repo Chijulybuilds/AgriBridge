@@ -101,7 +101,7 @@ contract DemoDeploymentTest is Test {
         uint256 cocoa = _deliverAndVerify(CommodityDefaults.COCOA);
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.pool), true);
-        uint256 loan = d.pool.borrow(cocoa, QUANTITY, 4_000e6);
+        uint256 loan = d.pool.borrow(cocoa, QUANTITY, 3_500e6); // $5,525 of collateral
         vm.stopPrank();
 
         vm.warp(block.timestamp + 30 days);
@@ -112,12 +112,13 @@ contract DemoDeploymentTest is Test {
         assertEq(d.commodityToken.balanceOf(farmer, cocoa), QUANTITY, "collateral returned");
 
         // Second lot: borrow, the price crashes, the Safe liquidates.
-        uint256 cashew = _deliverAndVerify(CommodityDefaults.CASHEW); // $3,200 lot
+        uint256 cashew = _deliverAndVerify(CommodityDefaults.CASHEW); // $3,200 lot, priced locally
         vm.prank(farmer);
         uint256 risky = d.pool.borrow(cashew, QUANTITY, 2_000e6);
 
+        // The demo's price crash: the Safe sets the price directly, past the oracle's move cap.
         vm.prank(SAFE);
-        d.oracle.setPrice(CommodityDefaults.CASHEW, 150 * 10 ** 6); // $1.50/kg
+        d.oracle.forcePrice(CommodityDefaults.CASHEW, 150 * 10 ** 6); // $1.50/kg
         assertLt(d.pool.getHealthFactor(risky), 1e18);
 
         vm.startPrank(SAFE);
@@ -143,7 +144,7 @@ contract DemoDeploymentTest is Test {
     }
 
     function test_LoanStatusAfterRepayIsRepaid() public {
-        uint256 rice = _deliverAndVerify(CommodityDefaults.RICE); // $1,200 lot
+        uint256 rice = _deliverAndVerify(CommodityDefaults.RICE); // $1,080 after rice's 10% basis cut
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.pool), true);
         uint256 loan = d.pool.borrow(rice, QUANTITY, 500e6);

@@ -417,6 +417,51 @@ contract CommodityRegistryTest is ProtocolFixture {
         assertEq(uint8(registry.currentGrade(lotId)), uint8(CommodityRegistry.Grade.C));
     }
 
+    /*//////////////////////////////////////////////////////////////
+                              VALUE DECAY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_ValueFactor_SlidesDayByDay() public {
+        // Cocoa: Grade B (75%) at day 180, Grade C (40%) at day 360, expiry at day 540.
+        uint256 lotId = _verifiedLot(farmer, COCOA, KG, CommodityRegistry.Grade.A);
+        uint256 start = block.timestamp;
+
+        assertEq(registry.valueFactorAt(lotId, start), 10_000);
+        assertEq(registry.valueFactorAt(lotId, start + 90 days), 8_750, "halfway from A to B");
+        assertEq(registry.valueFactorAt(lotId, start + 180 days), 7_500, "Grade B level");
+        assertEq(registry.valueFactorAt(lotId, start + 270 days), 5_750, "halfway from B to C");
+        assertEq(registry.valueFactorAt(lotId, start + 360 days), 4_000, "Grade C level");
+        assertEq(registry.valueFactorAt(lotId, start + 500 days), 4_000, "holds at C until expiry");
+    }
+
+    function test_ValueFactor_NeverIncreases(uint256 _a, uint256 _b) public {
+        uint256 lotId = _verifiedLot(farmer, YAM, KG, CommodityRegistry.Grade.A);
+        uint256 earlier = block.timestamp + bound(_a, 0, 400 days);
+        uint256 later = earlier + bound(_b, 0, 400 days);
+        assertLe(registry.valueFactorAt(lotId, later), registry.valueFactorAt(lotId, earlier));
+    }
+
+    function test_ValueFactor_GradeBLotStartsAtTheBLevel() public {
+        uint256 lotId = _verifiedLot(farmer, COCOA, KG, CommodityRegistry.Grade.B);
+        assertEq(registry.valueFactorAt(lotId, block.timestamp), 7_500);
+        assertEq(registry.valueFactorAt(lotId, block.timestamp + 180 days), 4_000);
+    }
+
+    function test_ValuationFactor_AppliesTheBasisCut() public {
+        uint256 cocoa = _verifiedLot(farmer, COCOA, KG, CommodityRegistry.Grade.A); // 15% basis
+        uint256 yam = _verifiedLot(farmer, YAM, KG, CommodityRegistry.Grade.A); // priced locally: no cut
+
+        assertEq(registry.valuationFactorBps(cocoa, block.timestamp), 8_500);
+        assertEq(registry.valuationFactorBps(yam, block.timestamp), 10_000);
+        assertEq(registry.valuationFactorBps(cocoa, block.timestamp + 180 days), 6_375); // 75% x 85%
+    }
+
+    function test_ValueFactor_ZeroUntilVerified() public {
+        uint256 lotId = _request(COCOA);
+        assertEq(registry.valueFactorAt(lotId, block.timestamp), 0);
+        assertEq(registry.valuationFactorBps(lotId, block.timestamp), 0);
+    }
+
     function test_ExpiresAt_ZeroUntilVerified() public {
         uint256 lotId = _request(COCOA);
         assertEq(registry.expiresAt(lotId), 0);

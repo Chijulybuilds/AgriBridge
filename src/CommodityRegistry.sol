@@ -83,6 +83,7 @@ contract CommodityRegistry is AccessControl, Pausable {
     bytes32 public constant CUSTODY_ROLE = keccak256("CUSTODY_ROLE");
 
     uint96 private constant MIN_QUANTITY = 1e18; // 1 kg
+    uint256 private constant BPS = 10_000;
 
     /*//////////////////////////////////////////////////////////////
                                IMMUTABLES
@@ -394,6 +395,30 @@ contract CommodityRegistry is AccessControl, Pausable {
         return Grade.A;
     }
 
+    /**
+     * @notice Share of its Grade A value (basis points) the lot has decayed to at `_timestamp`.
+     * @dev Value slides day by day: from 100% down to the Grade B factor when the lot reaches Grade B,
+     *      then down to the Grade C factor at Grade C, then holds until expiry. A lot graded B or C
+     *      at intake starts at that point of the curve. Zero for lots that are not verified.
+     */
+    function valueFactorAt(uint256 _lotId, uint256 _timestamp) public view returns (uint256) {
+        Lot storage lot = _lot(_lotId);
+        if (lot.status != LotStatus.Verified) return 0;
+        return _decay(i_config.getCommodity(lot.commodityId), lot, _timestamp);
+    }
+
+    /**
+     * @notice What the pool may count of the lot's world-price value at `_timestamp` (basis points):
+     *         its decay factor less the commodity's basis cut for transport, export and storage.
+     */
+    function valuationFactorBps(uint256 _lotId, uint256 _timestamp) external view returns (uint256) {
+        Lot storage lot = _lot(_lotId);
+        if (lot.status != LotStatus.Verified) return 0;
+
+        CommodityConfig.Commodity memory commodity = i_config.getCommodity(lot.commodityId);
+        return (_decay(commodity, lot, _timestamp) * (BPS - commodity.basisBps)) / BPS;
+    }
+
     /// @notice When the lot stops being usable as collateral or for sale. Zero until it is verified.
     function expiresAt(uint256 _lotId) public view returns (uint64) {
         Lot storage lot = _lot(_lotId);
@@ -460,6 +485,24 @@ contract CommodityRegistry is AccessControl, Pausable {
         if (_grade == Grade.A) return 0;
         if (_grade == Grade.B) return uint256(_commodity.daysToGradeB) * 1 days;
         return uint256(_commodity.daysToGradeC) * 1 days;
+    }
+
+    /// @dev The decay curve described at `valueFactorAt`, evaluated for a verified lot.
+    function _decay(CommodityConfig.Commodity memory _commodity, Lot storage _lotData, uint256 _timestamp)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 elapsed = _timestamp > _lotData.verifiedAt ? _timestamp - _lotData.verifiedAt : 0;
+        uint256 position = _curveStart(_commodity, _lotData.grade) + elapsed;
+        uint256 toB = uint256(_commodity.daysToGradeB) * 1 days;
+        uint256 toC = uint256(_commodity.daysToGradeC) * 1 days;
+        uint256 factorB = _commodity.gradeBFactorBps;
+        uint256 factorC = _commodity.gradeCFactorBps;
+
+        if (position >= toC) return factorC;
+        if (position >= toB) return factorB - ((factorB - factorC) * (position - toB)) / (toC - toB);
+        return BPS - ((BPS - factorB) * position) / toB;
     }
 
     function _mintLotTokens(uint256 _lotId, address _farmer, uint96 _quantity) internal {

@@ -401,11 +401,14 @@ contract LendingPoolTest is Test {
         vm.stopPrank();
     }
 
-    /// @dev Lot `id` is usable, belongs to `owner`, and is a lot of commodity 1.
+    /// @dev Lot `id` is usable, belongs to `owner`, is a lot of commodity 1, and counts at full value.
     function _mockRegistryCommodityData(uint256 id, address owner) internal {
         vm.mockCall(registry, abi.encodeWithSignature("isUsable(uint256)", id), abi.encode(true));
         vm.mockCall(registry, abi.encodeWithSignature("lotFarmer(uint256)", id), abi.encode(owner));
         vm.mockCall(registry, abi.encodeWithSignature("commodityOf(uint256)", id), abi.encode(uint256(1)));
+        vm.mockCall(
+            registry, abi.encodeWithSignature("valuationFactorBps(uint256,uint256)"), abi.encode(uint256(10_000))
+        );
     }
 
     /// @dev Sets the oracle price so that `kg` of collateral is worth `value` (6-decimal USD).

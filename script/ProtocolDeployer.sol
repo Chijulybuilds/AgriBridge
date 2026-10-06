@@ -59,14 +59,16 @@ abstract contract ProtocolDeployer {
         d.commodityToken.grantRole(d.commodityToken.PROTOCOL_ROLE(), address(d.pool));
     }
 
-    /// @dev Adds the six launch commodities and sets their starting prices.
+    /**
+     * @dev Adds the six launch commodities and seeds their starting prices. Seeding uses the admin's
+     *      `forcePrice`, since locally priced crops only otherwise take prices from their reporters.
+     */
     function _seedCommodities(Deployment memory d) internal {
         CommodityConfig.Commodity[] memory rows = CommodityDefaults.all();
-        uint256[] memory ids = new uint256[](rows.length);
+        uint128[] memory prices = _startingPrices();
         for (uint256 i = 0; i < rows.length; i++) {
-            ids[i] = d.config.addCommodity(rows[i]);
+            d.oracle.forcePrice(d.config.addCommodity(rows[i]), prices[i]);
         }
-        d.oracle.setPrices(ids, _startingPrices());
     }
 
     /**

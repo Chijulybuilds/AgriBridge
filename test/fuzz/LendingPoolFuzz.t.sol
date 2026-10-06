@@ -12,7 +12,8 @@ import {ProtocolFixture} from "test/utils/ProtocolFixture.sol";
  */
 contract LendingPoolFuzzTest is ProtocolFixture {
     uint256 internal constant MAX_LTV_BPS = 7000; // 70%
-    uint256 internal constant COCOA_USD_PER_KG_6DP = 6_500_000; // $6.50 in 6 decimals
+    /// @dev $6.50/kg world price less cocoa's 15% basis cut, in 6 decimals.
+    uint256 internal constant COCOA_USD_PER_KG_6DP = 5_525_000;
 
     function setUp() public {
         _deployFixture();
@@ -117,7 +118,7 @@ contract LendingPoolFuzzTest is ProtocolFixture {
 
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.pool), true);
-        uint256 loanId = d.pool.borrow(lotId, quantity, 4_000e6);
+        uint256 loanId = d.pool.borrow(lotId, quantity, 3_500e6);
         vm.stopPrank();
 
         (,,,, uint256 debtBefore) = d.pool.getLoanDetails(loanId);

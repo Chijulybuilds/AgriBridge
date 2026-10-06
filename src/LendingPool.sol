@@ -27,6 +27,9 @@ interface ICommodityRegistry {
 
     /// @notice Verified, not frozen and not expired.
     function isUsable(uint256 _lotId) external view returns (bool);
+
+    /// @notice Share of world-price value (basis points) the lot counts for: grade decay less basis.
+    function valuationFactorBps(uint256 _lotId, uint256 _timestamp) external view returns (uint256);
 }
 
 /**
@@ -89,6 +92,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
     /// @dev Converts an 8-decimal price times an 18-decimal quantity into 6-decimal USDC.
     uint256 private constant PRICE_TO_USDC_SCALING = 1e20;
+    uint256 private constant BPS = 10_000;
 
     // Borrow bounds
     uint256 private constant MIN_BORROW_AMOUNT = 100e6; // $100 minimum (USDC: 6 decimals)
@@ -368,6 +372,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
         // Validate LTV: (borrow amount) / (collateral USD value) <= MAX_LTV
         uint256 collateralUSDValue = _collateralValue(_commodityId, _collateralAmount);
+        if (collateralUSDValue == 0) revert LendingPool__ExceedsMaxLTV();
         uint256 calculatedLTV = (_borrowAmount * INDEX_PRECISION) / collateralUSDValue;
         if (calculatedLTV > MAX_LTV) {
             revert LendingPool__ExceedsMaxLTV();
@@ -512,12 +517,14 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     }
 
     /**
-     * @dev USD value (6 decimals) of `_quantity` tokens of lot `_lotId`, at its commodity's fresh
-     *      oracle price: price(8 decimals) * quantity(18 decimals) / 1e20. Reverts on a stale price.
+     * @dev USD value (6 decimals) of `_quantity` tokens of lot `_lotId`: its commodity's fresh oracle
+     *      price, times the quantity, times the lot's valuation factor (grade decay less the basis cut):
+     *      price(8 decimals) * quantity(18 decimals) * factor(bps) / (1e20 * 1e4). Reverts on a stale price.
      */
     function _collateralValue(uint256 _lotId, uint256 _quantity) internal view returns (uint256) {
         uint256 price = i_priceOracle.getPriceFresh(i_registry.commodityOf(_lotId));
-        return (price * _quantity) / PRICE_TO_USDC_SCALING;
+        uint256 factor = i_registry.valuationFactorBps(_lotId, block.timestamp);
+        return (price * _quantity * factor) / (PRICE_TO_USDC_SCALING * BPS);
     }
 
     /*//////////////////////////////////////////////////////////////

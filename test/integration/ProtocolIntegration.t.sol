@@ -31,14 +31,14 @@ contract ProtocolIntegrationTest is ProtocolFixture {
         lotId = _verifiedLot(farmer, COCOA, QUANTITY, CommodityRegistry.Grade.A);
     }
 
-    /// @dev Opens a $4,000 loan against the farmer's whole cocoa lot.
+    /// @dev Opens a $3,500 loan against the farmer's whole cocoa lot ($5,525 of collateral).
     function _openLoan() internal returns (uint256 lotId, uint256 loanId) {
         lotId = _cocoaLot();
         _seedPool(INVESTOR_LIQUIDITY);
 
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.pool), true);
-        loanId = d.pool.borrow(lotId, QUANTITY, 4_000e6);
+        loanId = d.pool.borrow(lotId, QUANTITY, 3_500e6);
         vm.stopPrank();
     }
 
@@ -61,23 +61,53 @@ contract ProtocolIntegrationTest is ProtocolFixture {
         uint256 lotId = _cocoaLot();
         _seedPool(INVESTOR_LIQUIDITY);
 
-        // 1,000 kg cocoa at $6.50/kg is $6,500 of collateral; at 70% the ceiling is $4,550.
-        assertEq(d.pool.getCollateralValue(lotId, QUANTITY), 6_500e6);
+        // 1,000 kg cocoa at $6.50/kg is $6,500 at the world price; less cocoa's 15% basis cut it counts
+        // for $5,525, so at 70% the ceiling is $3,867.50.
+        assertEq(d.pool.getCollateralValue(lotId, QUANTITY), 5_525e6);
 
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.pool), true);
-        uint256 loanId = d.pool.borrow(lotId, QUANTITY, 4_000e6);
+        uint256 loanId = d.pool.borrow(lotId, QUANTITY, 3_500e6);
         vm.stopPrank();
 
-        assertEq(usdc.balanceOf(farmer), 4_000e6);
+        assertEq(usdc.balanceOf(farmer), 3_500e6);
         assertEq(d.commodityToken.balanceOf(address(d.pool), lotId), QUANTITY);
         assertGt(d.pool.getHealthFactor(loanId), 1e18);
     }
 
-    /// @notice Each commodity is valued at its own price: 1,000 kg of soybeans at $0.40 is $400.
+    /// @notice Each commodity is valued at its own price and basis: 1,000 kg of soybeans at $0.40,
+    ///         less a 10% basis cut, is $360; cashew is priced locally, so no cut: $3,200.
     function test_CollateralValueUsesTheLotsCommodity() public {
         uint256 soy = _verifiedLot(farmer, SOYBEANS, QUANTITY, CommodityRegistry.Grade.A);
-        assertEq(d.pool.getCollateralValue(soy, QUANTITY), 400e6);
+        assertEq(d.pool.getCollateralValue(soy, QUANTITY), 360e6);
+
+        uint256 cashew = _verifiedLot(farmer, CASHEW, QUANTITY, CommodityRegistry.Grade.A);
+        assertEq(d.pool.getCollateralValue(cashew, QUANTITY), 3_200e6);
+    }
+
+    /// @notice Collateral loses value day by day as its grade ages: after 180 days cocoa has slid from
+    ///         Grade A to the Grade B level (75%), so the same lot counts for $4,143.75.
+    function test_CollateralValueDecaysWithGrade() public {
+        uint256 lotId = _cocoaLot();
+        vm.warp(block.timestamp + 90 days);
+        d.oracle.setPrice(COCOA, COCOA_PRICE); // keep the price fresh
+        // 87.5% decay times the 85% left after the basis cut is 74.375%, counted in whole basis points
+        // (7,437): $6,500 x 74.37% = $4,834.05.
+        assertEq(d.pool.getCollateralValue(lotId, QUANTITY), 4_834_050_000);
+
+        vm.warp(block.timestamp + 90 days);
+        d.oracle.setPrice(COCOA, COCOA_PRICE);
+        assertEq(d.pool.getCollateralValue(lotId, QUANTITY), 4_143_750_000); // 75% of $5,525
+    }
+
+    /// @notice Decay alone can push a loan under water once enough time passes.
+    function test_DecayLowersLoanHealth() public {
+        (, uint256 loanId) = _openLoan();
+        uint256 healthAtStart = d.pool.getHealthFactor(loanId);
+
+        vm.warp(block.timestamp + 120 days);
+        d.oracle.setPrice(COCOA, COCOA_PRICE);
+        assertLt(d.pool.getHealthFactor(loanId), healthAtStart);
     }
 
     function test_BorrowRevertsAboveMaxLtv() public {
@@ -100,7 +130,7 @@ contract ProtocolIntegrationTest is ProtocolFixture {
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.pool), true);
         vm.expectRevert(CommodityPriceOracle.CommodityPriceOracle__PriceStale.selector);
-        d.pool.borrow(lotId, QUANTITY, 4_000e6);
+        d.pool.borrow(lotId, QUANTITY, 3_500e6);
         vm.stopPrank();
     }
 
@@ -114,7 +144,7 @@ contract ProtocolIntegrationTest is ProtocolFixture {
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(d.pool), true);
         vm.expectRevert(LendingPool.LendingPool__CommodityNotApprovedForBorrowing.selector);
-        d.pool.borrow(lotId, QUANTITY, 4_000e6);
+        d.pool.borrow(lotId, QUANTITY, 3_500e6);
         vm.stopPrank();
     }
 
@@ -138,7 +168,7 @@ contract ProtocolIntegrationTest is ProtocolFixture {
         usdc.mint(farmer, 1_000e6);
 
         (,,,, uint256 totalDebt) = d.pool.getLoanDetails(loanId);
-        assertGt(totalDebt, 4_000e6, "interest should have accrued over 30 days");
+        assertGt(totalDebt, 3_500e6, "interest should have accrued over 30 days");
 
         vm.startPrank(farmer);
         usdc.approve(address(d.pool), totalDebt);
@@ -196,8 +226,9 @@ contract ProtocolIntegrationTest is ProtocolFixture {
     function test_LiquidationAfterPriceCrashTransfersCollateral() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
 
-        // Cocoa halves: $3,250 of collateral against $4,000 of debt.
-        d.oracle.setPrice(COCOA, COCOA_PRICE / 2);
+        // Cocoa halves: $2,762.50 of collateral against $3,500 of debt. A move that large would be
+        // held by the oracle's move cap, so the admin sets it directly.
+        d.oracle.forcePrice(COCOA, COCOA_PRICE / 2);
         assertLt(d.pool.getHealthFactor(loanId), 1e18);
 
         address liquidator = makeAddr("liquidator");
