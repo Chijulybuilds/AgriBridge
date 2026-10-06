@@ -8,6 +8,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import {AgriShareToken} from "src/AgriShareToken.sol";
+import {ICommodityPriceOracle} from "src/interfaces/ICommodityPriceOracle.sol";
 
 /*//////////////////////////////////////////////////////////////
                           INTERFACES
@@ -18,28 +19,14 @@ import {AgriShareToken} from "src/AgriShareToken.sol";
  * @dev Avoids circular imports and keeps concerns separated.
  */
 interface ICommodityRegistry {
-    function getCommodity(uint256 _commodityId)
-        external
-        view
-        returns (
-            address farmer,
-            uint8 status,
-            uint8 commodityType,
-            uint8 grade,
-            address verifier,
-            uint96 quantity,
-            uint64 harvestDate,
-            uint64 registeredAt,
-            uint64 storageEndDate,
-            uint64 verificationTimestamp,
-            bytes32 rejectionReason
-        );
+    /// @notice The farmer who delivered the lot.
+    function lotFarmer(uint256 _lotId) external view returns (address);
 
-    function isApprovedForBorrowing(uint256 _commodityId) external view returns (bool);
+    /// @notice CommodityConfig id of the lot's crop.
+    function commodityOf(uint256 _lotId) external view returns (uint256);
 
-    function markCollateralized(uint256 _commodityId) external;
-
-    function updateStatus(uint256 _commodityId, uint8 _newStatus) external;
+    /// @notice Verified, not frozen and not expired.
+    function isUsable(uint256 _lotId) external view returns (bool);
 }
 
 /**
@@ -52,16 +39,6 @@ interface ICommodityToken {
     function safeTransferFrom(address from, address to, uint256 id, uint256 value, bytes calldata data) external;
 
     function burn(address _from, uint256 _commodityId, uint256 _amount) external;
-}
-
-/**
- * @notice Interface for price oracle.
- * @dev Backend service is responsible for keeping this oracle updated.
- */
-interface ICommodityPriceOracle {
-    function getCollateralValue(uint256 commodityId, uint256 quantity) external view returns (uint256 usdValue);
-
-    function getCommodityPrice(uint256 commodityId) external view returns (uint256 pricePerUnit);
 }
 
 /*//////////////////////////////////////////////////////////////
@@ -81,7 +58,6 @@ interface ICommodityPriceOracle {
  *      - Backend service monitors health factor and triggers liquidations
  *
  *      Role Flow:
- *      - Backend engineer (POOL_ROLE in CommodityRegistry) can call markCollateralized()
  *      - Admin can pause/unpause and manage reserve factor
  *      - Liquidators (open) can trigger liquidations when health factor < 1.0
  */
@@ -111,9 +87,8 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     uint256 private constant LIQUIDATION_THRESHOLD = 1e18; // 1.0 health factor
     uint256 private constant MAX_LTV = 70e16; // 70% max loan-to-value
 
-    // CommodityRegistry.CommodityStatus values the pool sets (enum order in CommodityRegistry.sol)
-    uint8 private constant COMMODITY_RELEASED = 4;
-    uint8 private constant COMMODITY_LIQUIDATED = 5;
+    /// @dev Converts an 8-decimal price times an 18-decimal quantity into 6-decimal USDC.
+    uint256 private constant PRICE_TO_USDC_SCALING = 1e20;
 
     // Borrow bounds
     uint256 private constant MIN_BORROW_AMOUNT = 100e6; // $100 minimum (USDC: 6 decimals)
@@ -187,9 +162,6 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     mapping(uint256 => Loan) public loans;
     mapping(address => uint256[]) private s_farmerLoans;
 
-    /// @notice Active loans per commodity lot; its registry status changes only when the last one closes.
-    mapping(uint256 => uint256) public activeLoansByCommodity;
-
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -223,8 +195,6 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         uint256 collateralSeized,
         uint64 timestamp
     );
-
-    event CommodityCollateralized(uint256 indexed commodityId, uint256 indexed loanId, uint64 timestamp);
 
     event GlobalIndexUpdated(uint256 newIndex, uint256 totalReserves, uint64 timestamp);
 
@@ -353,12 +323,11 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
      * @notice Borrow USDC against ERC1155 commodity collateral.
      * @dev
      *      Workflow:
-     *      1. Farmer calls CommodityToken.approve() to allow pool to transfer tokens
-     *      2. Verifier calls CommodityRegistry.approveCommodity(commodityId) → mints tokens to farmer
+     *      1. Verifier calls CommodityRegistry.approveIntake(lotId, ...) → mints the lot's tokens to the farmer
+     *      2. Farmer calls CommodityToken.setApprovalForAll(pool) so the pool can take custody
      *      3. Farmer calls this function to borrow
-     *      4. The first loan against a lot marks it Collateralized in the registry
-     *      5. Collateral is transferred from farmer to pool
-     *      6. USDC is transferred to farmer
+     *      4. Collateral is transferred from farmer to pool
+     *      5. USDC is transferred to farmer
      *
      * @param _commodityId The commodity to use as collateral.
      * @param _collateralAmount Amount of commodity tokens to lock as collateral.
@@ -384,16 +353,13 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
         _accrueGlobalInterest();
 
-        // Validate commodity is verified and approved for borrowing
-        if (!i_registry.isApprovedForBorrowing(_commodityId)) {
+        // The lot must be verified, not frozen by a regulator, and not expired
+        if (!i_registry.isUsable(_commodityId)) {
             revert LendingPool__CommodityNotApprovedForBorrowing();
         }
 
-        // Get commodity details
-        (address farmer,,,,,,,,,,) = i_registry.getCommodity(_commodityId);
-
-        // Only the farmer who submitted this commodity can borrow against it
-        if (farmer != msg.sender) revert LendingPool__Unauthorized();
+        // Only the farmer who delivered this lot can borrow against it
+        if (i_registry.lotFarmer(_commodityId) != msg.sender) revert LendingPool__Unauthorized();
 
         // Verify farmer has sufficient token balance
         if (i_commodityToken.balanceOf(msg.sender, _commodityId) < _collateralAmount) {
@@ -401,7 +367,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         }
 
         // Validate LTV: (borrow amount) / (collateral USD value) <= MAX_LTV
-        uint256 collateralUSDValue = i_priceOracle.getCollateralValue(_commodityId, _collateralAmount);
+        uint256 collateralUSDValue = _collateralValue(_commodityId, _collateralAmount);
         uint256 calculatedLTV = (_borrowAmount * INDEX_PRECISION) / collateralUSDValue;
         if (calculatedLTV > MAX_LTV) {
             revert LendingPool__ExceedsMaxLTV();
@@ -425,13 +391,6 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
         s_farmerLoans[msg.sender].push(loanId);
         totalBorrowed += _borrowAmount;
-
-        // The first loan against a lot marks it Collateralized. This used to wait for a backend to
-        // call syncCollateralizedStatus, so without one the registry kept showing it as Verified.
-        if (activeLoansByCommodity[_commodityId]++ == 0) {
-            i_registry.markCollateralized(_commodityId);
-            emit CommodityCollateralized(_commodityId, loanId, uint64(block.timestamp));
-        }
 
         // Transfer collateral from farmer to pool
         i_commodityToken.safeTransferFrom(msg.sender, address(this), _commodityId, _collateralAmount, "");
@@ -492,7 +451,6 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         // If fully repaid, return collateral
         if (loan.principal == 0) {
             loan.status = LoanStatus.REPAID;
-            _closeLoanOnCommodity(loan.commodityId, COMMODITY_RELEASED);
             i_commodityToken.safeTransferFrom(address(this), loan.farmer, loan.commodityId, loan.collateralAmount, "");
         }
 
@@ -532,7 +490,6 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         // Mark loan as liquidated
         loan.status = LoanStatus.LIQUIDATED;
         totalBorrowed -= loan.principal;
-        _closeLoanOnCommodity(loan.commodityId, COMMODITY_LIQUIDATED);
 
         // Liquidator pays debt
         i_usdc.safeTransferFrom(msg.sender, address(this), debtToCover);
@@ -546,15 +503,21 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     }
 
     /*//////////////////////////////////////////////////////////////
-                      REGISTRY STATUS TRACKING
+                          COLLATERAL VALUATION
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Records that a loan against `_commodityId` closed. When it was the lot's last active
-    ///      loan, the registry moves the lot to `_finalStatus` (Released or Liquidated).
-    function _closeLoanOnCommodity(uint256 _commodityId, uint8 _finalStatus) private {
-        if (--activeLoansByCommodity[_commodityId] == 0) {
-            i_registry.updateStatus(_commodityId, _finalStatus);
-        }
+    /// @notice USD value (6 decimals) of `_quantity` tokens of lot `_lotId`, as the pool values collateral.
+    function getCollateralValue(uint256 _lotId, uint256 _quantity) external view returns (uint256) {
+        return _collateralValue(_lotId, _quantity);
+    }
+
+    /**
+     * @dev USD value (6 decimals) of `_quantity` tokens of lot `_lotId`, at its commodity's fresh
+     *      oracle price: price(8 decimals) * quantity(18 decimals) / 1e20. Reverts on a stale price.
+     */
+    function _collateralValue(uint256 _lotId, uint256 _quantity) internal view returns (uint256) {
+        uint256 price = i_priceOracle.getPriceFresh(i_registry.commodityOf(_lotId));
+        return (price * _quantity) / PRICE_TO_USDC_SCALING;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -665,7 +628,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         Loan memory loan = loans[_loanId];
         if (loan.status != LoanStatus.ACTIVE) return 0;
 
-        uint256 collateralUSDValue = i_priceOracle.getCollateralValue(loan.commodityId, loan.collateralAmount);
+        uint256 collateralUSDValue = _collateralValue(loan.commodityId, loan.collateralAmount);
         uint256 currentDebt = _calculateCurrentDebt(loan);
 
         if (currentDebt == 0) return type(uint256).max;

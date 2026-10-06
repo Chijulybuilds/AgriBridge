@@ -186,8 +186,8 @@ contract LendingPoolTest is Test {
     function test_Borrow_Revert_CommodityNotApproved() public {
         _fundPoolWithLiquidity(50_000e6);
 
-        // Mock ICommodityRegistry.isApprovedForBorrowing -> false
-        vm.mockCall(registry, abi.encodeWithSignature("isApprovedForBorrowing(uint256)"), abi.encode(false));
+        // Mock ICommodityRegistry.isUsable -> false (unverified, frozen or expired)
+        vm.mockCall(registry, abi.encodeWithSignature("isUsable(uint256)"), abi.encode(false));
 
         vm.startPrank(farmer);
         vm.expectRevert(LendingPool__CommodityNotApprovedForBorrowing.selector);
@@ -222,7 +222,7 @@ contract LendingPoolTest is Test {
         commodityToken.setBalance(farmer, 1, 100e18);
 
         // Mocking collateral value to be worth $1,000. LTV max 70% ($700 max borrow)
-        vm.mockCall(priceOracle, abi.encodeWithSignature("getCollateralValue(uint256,uint256)"), abi.encode(1_000e6));
+        _mockCollateralValue(1_000e6, 100e18);
 
         vm.startPrank(farmer);
         vm.expectRevert(LendingPool__ExceedsMaxLTV.selector);
@@ -234,7 +234,7 @@ contract LendingPoolTest is Test {
         _fundPoolWithLiquidity(50_000e6);
         _mockRegistryCommodityData(1, farmer);
         commodityToken.setBalance(farmer, 1, 100e18);
-        vm.mockCall(priceOracle, abi.encodeWithSignature("getCollateralValue(uint256,uint256)"), abi.encode(10_000e6));
+        _mockCollateralValue(10_000e6, 100e18);
 
         vm.startPrank(farmer);
         uint256 loanId = pool.borrow(1, 100e18, 2_000e6);
@@ -324,7 +324,7 @@ contract LendingPoolTest is Test {
 
         // The pool holds exactly the loan's 100 units. (This test used to top the pool up to 150
         // so a collateral-plus-bonus payout could succeed; in practice that payout always reverted.)
-        vm.mockCall(priceOracle, abi.encodeWithSignature("getCollateralValue(uint256,uint256)"), abi.encode(1_000e6));
+        _mockCollateralValue(1_000e6, 100e18);
 
         deal(address(usdc), admin, 2_000e6);
         vm.startPrank(admin);
@@ -354,19 +354,13 @@ contract LendingPoolTest is Test {
         vm.stopPrank();
     }
 
-    function test_Borrow_MarksCommodityCollateralized() public {
-        // No admin step: the pool itself tells the registry when a lot becomes collateral.
-        vm.expectCall(registry, abi.encodeWithSignature("markCollateralized(uint256)", 1));
-        _setupActiveLoan(2_000e6, 100e18);
-    }
-
     function test_InterestRateModel_KinkBranches() public {
         _fundPoolWithLiquidity(10_000e6);
         _mockRegistryCommodityData(1, farmer);
 
         // Ensure farmer has plenty of balance for multiple borrows
         commodityToken.setBalance(farmer, 1, 1000e18);
-        vm.mockCall(priceOracle, abi.encodeWithSignature("getCollateralValue(uint256,uint256)"), abi.encode(100_000e6));
+        _mockCollateralValue(100_000e6, 100e18);
 
         vm.prank(farmer);
         pool.borrow(1, 100e18, 200e6);
@@ -407,37 +401,24 @@ contract LendingPoolTest is Test {
         vm.stopPrank();
     }
 
+    /// @dev Lot `id` is usable, belongs to `owner`, and is a lot of commodity 1.
     function _mockRegistryCommodityData(uint256 id, address owner) internal {
-        vm.mockCall(registry, abi.encodeWithSignature("isApprovedForBorrowing(uint256)"), abi.encode(true));
+        vm.mockCall(registry, abi.encodeWithSignature("isUsable(uint256)", id), abi.encode(true));
+        vm.mockCall(registry, abi.encodeWithSignature("lotFarmer(uint256)", id), abi.encode(owner));
+        vm.mockCall(registry, abi.encodeWithSignature("commodityOf(uint256)", id), abi.encode(uint256(1)));
+    }
 
-        // Define exact types to unpack structural responses for ICommodityRegistry.getCommodity
-        bytes memory structuralReturn = abi.encode(
-            owner,
-            uint8(0),
-            uint8(0),
-            uint8(0),
-            address(0),
-            uint96(0),
-            uint64(0),
-            uint64(0),
-            uint64(0),
-            uint64(0),
-            bytes32(0)
-        );
-        vm.mockCall(registry, abi.encodeWithSignature("getCommodity(uint256)"), structuralReturn);
-
-        // The pool keeps the registry's status in step on borrow, full repayment and liquidation.
-        vm.mockCall(registry, abi.encodeWithSignature("markCollateralized(uint256)"), "");
-        vm.mockCall(registry, abi.encodeWithSignature("updateStatus(uint256,uint8)"), "");
+    /// @dev Sets the oracle price so that `kg` of collateral is worth `value` (6-decimal USD).
+    function _mockCollateralValue(uint256 value, uint256 kg) internal {
+        uint256 price = (value * 1e20) / kg; // value = price(8dp) * kg(18dp) / 1e20
+        vm.mockCall(priceOracle, abi.encodeWithSignature("getPriceFresh(uint256)"), abi.encode(price));
     }
 
     function _setupActiveLoan(uint256 borrowAmount, uint256 collateralAmount) internal returns (uint256 loanId) {
         _fundPoolWithLiquidity(borrowAmount * 10);
         _mockRegistryCommodityData(1, farmer);
         commodityToken.setBalance(farmer, 1, collateralAmount);
-        vm.mockCall(
-            priceOracle, abi.encodeWithSignature("getCollateralValue(uint256,uint256)"), abi.encode(borrowAmount * 5)
-        );
+        _mockCollateralValue(borrowAmount * 5, collateralAmount);
 
         vm.prank(farmer);
         loanId = pool.borrow(1, collateralAmount, borrowAmount);

@@ -1,27 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {DataTypes} from "./ICommodityRegistry.sol"; // Adjust path as necessary
-
+/// @notice Price surface the lending pool reads.
 interface ICommodityPriceOracle {
-    enum CommodityType {
-        Cocoa,
-        Rice,
-        Maize,
-        Cashew,
-        Yam
-    }
-
-    struct PriceData {
-        uint256 answer;
-        uint256 updatedAt;
-        bool active;
-    }
-
-    function VERSION() external view returns (uint256);
+    /// @notice Decimals of every price (8).
     function decimals() external view returns (uint8);
-    function getPrice(CommodityType _commodity) external view returns (uint256 answer, uint256 updatedAt);
-    function getPriceFresh(CommodityType _commodity) external view returns (uint256 answer);
-    function isFresh(CommodityType _commodity) external view returns (bool);
-    function getPriceFreshData(DataTypes.CommodityType commodity) external view returns (uint256 answer);
+
+    /// @notice USD price per kilogram for a commodity id. Reverts if the feed is inactive or stale.
+    function getPriceFresh(uint256 commodityId) external view returns (uint256 answer);
 }
