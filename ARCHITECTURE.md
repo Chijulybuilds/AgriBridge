@@ -1,144 +1,104 @@
-# AgriBridge Architecture
+# AgriBridge architecture
 
-## Flow
+AgriBridge turns crop held in partner warehouses into tokens that can be borrowed against or sold.
+This page explains how the contracts fit together, who may do what, and how the app is built.
+For the threats and the tests that cover them, see [SECURITY.md](SECURITY.md).
+
+## The flow
 
 ```
-Farmer connects wallet and signs in (SIWE)
-                │
-                ▼
-Registers a commodity on-chain  ─────────────►  CommodityRegistry
-   (type, quantity, grade, harvest date)          status: Pending
-                │                                       │
-                │  mirrored off-chain for search        │
-                ▼                                       │
-           Supabase                                     │
-                                                        ▼
-AgriBridge Safe (VERIFIER_ROLE) reviews the live on-chain queue
-                │
-      ┌─────────┴─────────┐
-      ▼                   ▼
-  rejectCommodity     approveCommodity
-   status: Rejected    status: Verified
-                              │
-                              ▼
-                    CommodityToken mints ERC-1155
-                    to the farmer (id = commodity id)
-                              │
-                              ▼
-              Farmer deposits it as collateral
-                              │
-        CommodityPriceOracle prices the lot
-        (per-type price × quantity, 70% max LTV)
-                              │
-                              ▼
-                        LendingPool
-                    ┌───────────────┐
-                    ▼               ▼
-           Farmer borrows      Investors deposit
-              USDC               USDC, receive agUSDC
-                    └──────► interest ──────┘
+Farmer books a delivery ──► CommodityRegistry (lot: Pending)
+                                     │
+                 Verifier Safe weighs, grades, attaches report fingerprint
+                                     │ approveIntake
+                                     ▼
+              CommodityToken mints 1 token per kg to the farmer (token id = lot id)
+                                     │
+       ┌──────────────────┬──────────┴────────┬───────────────────────┐
+       ▼                  ▼                   ▼                       ▼
+  LendingPool         Marketplace        WarehouseDesk          (holds and ages)
+  borrow against it   list / buy         collect: pickup or     value falls daily:
+  repay → crop back   bulk deals         delivery, storage fee; A → B → C → expired
+  liquidation         clearance of       Safe confirms, tokens
+  (anyone, or keeper) expired stock      are burned
+       ▲
+  Investors deposit USDC, receive AgriShare shares, earn interest
 ```
+
+Every value the protocol uses comes from one formula:
+
+```
+value = oracle price (USD/kg) × kilograms × decay factor × (1 − basis cut)
+```
+
+- **Decay** follows each crop's schedule. Value slides daily from Grade A to the Grade B level, then
+  to the Grade C level, then holds until the lot expires.
+- **The basis cut** lowers a world price to a local warehouse value. It is 0 for locally priced crops.
 
 ## Contracts
 
-```
-src/
-├── CommodityRegistry.sol      Records and lifecycle. Approval mints collateral.
-├── CommodityToken.sol         ERC-1155 collateral. Only the registry may mint.
-├── CommodityPriceOracle.sol   Prices by commodity type; valuation by commodity id.
-├── AgriShareToken.sol         Soulbound agUSDC receipt for pool shares.
-└── LendingPool.sol            Deposits, borrowing, interest, liquidation.
-```
-
-There is no `CommodityVerifier` contract. Approval and rejection are functions
-on `CommodityRegistry`, guarded by `VERIFIER_ROLE`.
-
-### How they connect
-
-`LendingPool` holds immutable references to the registry, the commodity token,
-the share token and the oracle. The registry holds mutable addresses for the
-token and the pool, set after deployment. `CommodityPriceOracle` holds a
-reference to the registry so it can resolve a commodity id to its type.
-
-Deployment order and wiring are handled by `script/DeployAll.s.sol`. The wiring
-matters: without `setCommodityTokenAddress`, `setLendingPoolAddress`, and the
-`POOL_ROLE` and `VERIFIER_ROLE` grants, the contracts deploy but cannot approve a
-commodity or open a loan. The configured Safe receives verifier and admin roles
-on a fresh deployment. For an existing deployment, `make transfer-admin` grants
-the Safe those roles and revokes the previous admin/verifier accounts.
-
-## Roles
-
-| Role | Held by | Grants |
-|---|---|---|
-| `VERIFIER_ROLE` | AgriBridge Safe (`NEXT_PUBLIC_ADMIN_WALLET`) | Approve or reject commodities through Safe transactions |
-| `POOL_ROLE` | LendingPool | Update commodity status on collateralisation |
-| `MINTER_ROLE` | CommodityRegistry | Mint ERC-1155 collateral |
-| `PRICE_UPDATER_ROLE` | Price Oracle owner | Push oracle prices |
-| `DEFAULT_ADMIN_ROLE` | AgriBridge Safe (`ADMIN_ADDRESS`) | Wiring, pausing, configuration |
-
-App-level roles (`farmer`, `investor`, `admin`) live in the database and are
-separate from on-chain roles. `admin` gates the verifier queue in the UI; the
-Safe executes approval or rejection after its configured owners approve the
-transaction.
-
-## Decimals
-
-Getting these wrong mis-prices every loan, so they are fixed by contract:
-
-| Quantity | Decimals | Notes |
-|---|---|---|
-| USDC and agUSDC | 6 | Borrow amounts, deposits, collateral value |
-| Commodity quantity | 18 | Kilograms, and the ERC-1155 amount |
-| Oracle price | 8 | USD per kilogram |
-| Rates and indices | 18 | Interest, health factor, LTV |
-
-`getCollateralValue` converts an 8-decimal price and an 18-decimal quantity into
-6-decimal USD, because `LendingPool` compares the result directly against a USDC
-borrow amount. 1,000 kg of cocoa at $6.50/kg is `6_500_000_000`.
-
-## Risk parameters
-
-| Parameter | Value |
+| Contract | What it does |
 |---|---|
-| Maximum loan-to-value | 70% |
-| Liquidation threshold | Health factor 1.0 |
-| Liquidation bonus | 5% |
-| Base borrow rate | 5% annual |
-| Utilisation kink | 80% |
-| Reserve factor | 20% of interest |
-| Borrow bounds | $100 to $10,000,000 |
-| Oracle heartbeat | 24 hours |
+| `CommodityConfig` | One row of rules per crop: grade values, days to each grade and to expiry, borrow limit, settlement point, basis cut, storage fee, price source, open or closed. |
+| `CommodityRegistry` | Warehouses (capacity, region, open, frozen) and lots. Deliveries are booked by farmers and approved or rejected by the one verifier. Lots carry the measured weight, grade, warehouse and report fingerprint. Also the decay maths and the regulator's freezes. |
+| `CommodityToken` | ERC-1155, one token per kilogram, token id = lot id. Only the registry mints and only the warehouse desk burns. Frozen lots can't move, except back from the protocol. Metadata is on-chain. |
+| `CommodityPriceOracle` | USD/kg per crop. Staleness limit per crop; a 10% move cap that holds a bigger jump until a later update agrees; pause as a circuit breaker; the Safe's override; and for local crops, a price only when 2 of the approved reporters agree. |
+| `FunctionsPriceFeeder` | Chainlink Functions: the median of several price APIs for the world-priced crops. Built and tested; switched off for the festival demo. |
+| `LendingPool` | Investors' USDC and AgriShare shares, plus the advances. A borrow is limited by the crop's value at its end date. Interest accrues every second (80% to investors, 20% to the loss cushion). A loan is liquidated at 80% of the crop's value or 7 days overdue: the debt plus 5% is taken and the rest returned. Bad debt hits the cushion first. |
+| `LiquidationKeeper` | Chainlink Automation upkeep, also callable by anyone, that settles due loans from the cushion. |
+| `Marketplace` | Listings at a fixed price or at a share of today's value, with optional bulk deals and partial buys protected by a price limit. A 1% fee. Clearance: expired stock sold to the protocol 30% below value and relisted for feed buyers. |
+| `WarehouseDesk` | Collecting goods: pickup, or delivery within a budget. Storage is charged pro rata by the day, and the Safe confirms the goods left. |
+| `AgriShareToken` | Non-transferable receipt for pool shares. |
+| `DemoUSDC` | Play-money USDC with a faucet, for demo deployments only. |
 
-A stale price cannot back a loan: collateral valuation reverts once the feed is
-older than the heartbeat.
+Deployment lives in `script/ProtocolDeployer.sol`, shared by `DeployAll` (real USDC) and `DeployDemo`
+(play money, two warehouses, a seeded pool). It wires the contracts, seeds the six crops and their
+prices, hands every role to the Safe, and audits the result: the deployer must keep nothing.
 
-## On-chain architecture
+## Who may do what
 
-The chain is the source of truth for value, collateral, debt, and all application
-state. The frontend reads balances, loans, pool statistics and commodity records
-directly from the chain through Wagmi, and sends all user-initiated value
-transfers straight from the user's own wallet.
+| Who | Role(s) | Can |
+|---|---|---|
+| Verifier Safe `0xDa15…de12` | admin of every contract, `VERIFIER_ROLE` (one holder, enforced by the registry), `CUSTODIAN_ROLE`, `CLEARANCE_ROLE` | approve or reject deliveries; confirm collections; set prices; edit crops and warehouses; run clearance; grant the regulator and reporters; pause |
+| Regulator | `REGULATOR_ROLE` | freeze or unfreeze lots and warehouses |
+| Reporters | `isReporter` on the oracle | post local prices (two must agree) |
+| Keeper | `KEEPER_ROLE` on the pool | settle due loans from the cushion |
+| Anyone | none | deliver, borrow, repay, invest, list, buy, collect, liquidate due loans for the 5% bonus |
 
-### Changes from Backend Version
+## The app
 
-- **No Backend Server**: The Node.js/Express backend has been removed entirely
-- **On-Chain SIWE**: Sign-In with Ethereum implemented client-side with wallet signature verification
-- **On-Chain Data**: All commodity data stored on Ethereum (no Supabase mirror)
-- **Direct Admin Actions**: Verifier queue access requires wallet with VERIFIER_ROLE
-- **USDC Pool**: Investors use `/investor/deposit` to approve USDC, deposit it into
-    `LendingPool`, and receive agUSDC shares; the investor dashboard reads pool
-    liquidity and utilization from the same deployed pool.
-- **No Off-Chain Storage**: All sessions stored in browser localStorage
+Next.js (Pages Router), wagmi v3 and viem. There is no backend: everything is read from and written
+to the chain.
 
-## Testing strategy
+```
+pages/
+  index, login                    landing page with live figures; sign-in
+  farmer/  index, deliver, advance, loans
+  stock/   index (My stock), collect
+  investor/ index, risk
+  market/  index (public), sell, clearance
+  regulator, activity
+  verifier/index                  the Safe's console: hidden, Safe-only, its own wallet setup
+components/  layout, ui, lots, market, wallet, verifier/*
+hooks/       useProtocolData (reads), useTx (writes), useActivity (events)
+lib/         contracts/config, chain (read client), wagmi (wallet setups), format, session
+```
 
-Unit tests cover each contract in isolation, with mocks for its collaborators.
-That alone proved insufficient: mocks shaped like the interface a contract
-*expects* hid the fact that the real collaborator implemented something else.
+- **Two wallet setups.** The public app signs people in with MetaMask Embedded Wallets
+  (Google, email or SMS; no wallet to install), or with a browser wallet when no client ID is set,
+  as in local development and the tests. `/verifier` uses its own setup that connects only to the
+  Safe, as a Safe App inside Safe{Wallet}. See `components/providers.tsx`.
+- **Reads** go through one viem client (`lib/chain.ts`), not the wallet, so they work signed out
+  and in both setups. Concurrent reads are grouped into one Multicall3 call where the chain has it.
+- **Writes** go through `useTx`. It asks for an approval only when one is missing, waits for the
+  receipt, then refreshes every screen. Inside Safe{Wallet} it reports "sent to the Safe" instead
+  of waiting.
+- **Plain words.** The screens show dollars and kilograms, grades and dates. Contract errors map to
+  sentences in `hooks/useTx.ts`, and every action links to its record on the block explorer.
 
-`test/integration/` therefore wires the five real contracts together and drives
-the whole journey. Fuzz tests in `test/fuzz/` assert properties that must hold
-across the input range: deposit round trips are lossless, collateral valuation
-is linear, the LTV ceiling holds from both directions, and debt never shrinks
-while a loan sits untouched.
+## Tests
+
+- **Contracts:** 260 Foundry tests: unit, fuzz, integration, attack scenarios, and the handover
+  audit. `test/fork/SepoliaRehearsal.t.sol` plays the whole story on a Sepolia fork as the real Safe.
+- **App:** Playwright drives the real app with a test wallet that sends real transactions to a
+  local chain. It covers sign-in, the hidden verifier page, and the full demo journey (`e2e/`).

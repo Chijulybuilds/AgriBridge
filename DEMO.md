@@ -1,95 +1,127 @@
-# AgriBridge demo on Sepolia
+# AgriBridge festival demo
 
-The demo runs on **Sepolia**, a free public test network. You sign in with **MetaMask test accounts**, and every action is a real transaction that anyone can open on [Sepolia Etherscan](https://sepolia.etherscan.io).
+How to show AgriBridge from start to finish, one role at a time. Everything runs on **Sepolia**,
+a free public test network, with **play money**: every step is a real transaction that anyone can
+open on [Sepolia Etherscan](https://sepolia.etherscan.io), and nothing costs real money.
 
-No real money is involved:
-
-- **Demo USDC (dUSDC)** is a play-money dollar. The **"+10k test USDC"** button in the top bar gives you more.
-- **Transaction fees** are paid in **Sepolia ETH**, which is free from a "faucet" website.
-
----
-
-## 1. One-time setup: deploy the contracts
-
-You need **Node.js 20+**, then in the project folder:
-
-```bash
-npm install
-git submodule update --init --recursive
-```
-
-You also need **Foundry** (`forge`):
-
-- **Mac / Linux:** `curl -L https://foundry.paradigm.xyz | bash` then `foundryup`
-- **Windows** (Git Bash). `foundryup` can hang, but npm works:
-  ```bash
-  npm install --prefix "$HOME/.foundry-npm" --ignore-scripts @foundry-rs/forge-win32-amd64 @foundry-rs/anvil-win32-amd64 @foundry-rs/cast-win32-amd64
-  mkdir -p "$HOME/.foundry/bin"
-  cp "$HOME"/.foundry-npm/node_modules/@foundry-rs/*-win32-amd64/bin/*.exe "$HOME/.foundry/bin/"
-  ```
-
-Then:
-
-1. **Create the deploy wallet.** This is a separate throwaway wallet, so nobody has to export a MetaMask key.
-   ```bash
-   npm run demo:sepolia -- wallet
-   ```
-   It prints an address. Its key is saved in `.demo-wallets.json` (gitignored). **Keep that file private:** this wallet has admin rights over the demo contracts.
-2. **Send the deploy wallet about 0.06 Sepolia ETH**, from a Sepolia faucet or from your MetaMask test account.
-3. **Deploy**, giving your MetaMask test address:
-   ```bash
-   npm run demo:sepolia -- deploy 0xYourMetaMaskAddress
-   ```
-   This account becomes the **Verifier** (it can approve crops, set prices and liquidate) and receives play-money USDC. You can also give separate addresses for a farmer and an investor: `deploy 0xVerifier 0xFarmer 0xInvestor`.
-   The command writes `.env.local`, so the app uses this deployment, and prints the same settings for Vercel.
-4. **Run the app:**
-   ```bash
-   npm run dev
-   ```
-   Open http://localhost:3000. To put it online, add the printed settings in **Vercel → Settings → Environment Variables** and redeploy. `npm run demo:sepolia -- env` prints them again.
-5. **Optional: more verifiers.** Make a teammate's MetaMask account a verifier, with play money:
-   ```bash
-   npm run demo:sepolia -- grant 0xTheirAddress
-   ```
-
-`npm run demo:sepolia -- status` shows the Sepolia ETH of the deploy wallet and your accounts.
+The same story runs automatically on a local chain in `e2e/journeys.spec.ts`, so every step below
+is tested.
 
 ---
 
-## 2. MetaMask
+## Who is who
 
-- Show test networks (**Settings → Advanced → Show test networks**) and select **Sepolia**.
-- Each account needs a little Sepolia ETH for fees. About 0.02 covers a full demo.
-- Every action asks MetaMask to confirm. Some take two confirmations, for example approving dUSDC and then depositing it.
-- If MetaMask shows *"MetaMask encountered an error"* while docked in the browser's side panel, open it as a pop-up instead. That's a MetaMask bug, not the app.
+| Role | Who plays it | How they sign in |
+|---|---|---|
+| **Farmer** | a volunteer | Google, on the farmer's laptop or phone |
+| **Investor** | a volunteer | email (a one-time code) |
+| **Buyer** | a volunteer | phone number (an SMS code) |
+| **Verifier** (the warehouse team) | two of the Safe's owners | Safe{Wallet}, with AgriBridge opened inside it |
+| **Regulator** | a team member | any sign-in; the Safe gives them the role |
+
+Nobody needs a crypto wallet: signing in creates one. Everyone gets play dollars from the
+**Get test dollars** button at the top of the app.
+
+## Before the day
+
+1. The contracts are deployed on Sepolia and the app is online: see [RUN_THE_APP.md](RUN_THE_APP.md).
+2. The Safe's leaked owner has been replaced, ideally making it 2 of 3 owners (see
+   [RUN_THE_APP.md](RUN_THE_APP.md)). **Enough owners to sign must be at the demo** (or on their
+   phones): every verifier action waits for their confirmations.
+3. Each owner has opened the app inside Safe{Wallet} once (**Apps → My custom apps → Add custom
+   Safe App**, address `https://<your site>/verifier`).
+4. Prices are set at deployment: today's world prices for cocoa, rice, maize and soybeans, and
+   local estimates for cashew and yam. Only the Safe can change them.
 
 ---
 
-## 3. The demo story
+## The story (about 15 minutes)
 
-Sign in with the Verifier account. It opens in the **Verifier** view. Use **Switch to Farmer / Investor / Verifier** at the bottom left to play every role with the same account.
+### 1. The farmer delivers a crop
+**Farmer → Deliver a crop.** Cocoa, the Ibadan warehouse, 1,000 kg, harvested today. The delivery
+appears as *Pending*.
 
-1. **Farmer → Tokenize:** Cocoa, 1000 kg, grade A, a past harvest date, 90 days. **My Commodities** shows it as *Pending*.
-2. **Verifier → Verification Queue → Approve.** Type any inspection and warehouse references, and a report hash such as `0x` followed by 64 `a`s. Then click *View the transaction on Etherscan*.
-3. **Investor → Deposit → 10,000.**
-4. **Farmer → Borrow Funds →** pick the cocoa → 4,000. The crop is now *Collateralized*. Then **My Loans → Repay → Full**: the loan closes and the crop comes back (*Released*).
-5. **Farmer:** tokenize **Cashew** (1000 kg). **Verifier** approves it. **Farmer** borrows 2,000 against it.
-6. **Verifier → Prices → Simulate price crash (−50%).** Then **Loans & Liquidation**: the cashew loan's health is below 1.00. Click *Liquidate*. Afterwards, **Prices → Reset to starting prices**.
-7. **Investor → Deposit → Withdraw** everything.
-8. **On-chain Activity** (in every view) lists all of it, newest first. Each row links to its transaction on Etherscan, and the page links the contracts too.
+> Say: the farmer brings the crop to a partner warehouse. Nothing happens on the blockchain until
+> the warehouse has weighed and checked it.
 
-For a more realistic demo, use a separate MetaMask account for the farmer and another for the investor. Any account can farm or invest; only verifiers need the role, from `deploy` or `grant`.
+### 2. The warehouse grades it
+**Verifier (in Safe{Wallet}) → Intake.** Enter the measured weight (1,000 kg), Grade A, and attach
+the signed inspection report (its fingerprint is stored on-chain, not the file). **Approve**, then
+the second owner confirms in Safe{Wallet}.
+
+> Say: only this Safe can verify; the contract itself refuses anyone else. The page isn't linked
+> anywhere, and for any other wallet it looks like a missing page.
+
+### 3. The crop is now stock in the farmer's name
+**Farmer → My stock:** 1,000 kg of Grade A cocoa, its value today, and **Value over time**: how
+much it will be worth each month as it ages, until it expires after 540 days.
+
+### 4. An investor funds the pool
+**Investor → Get test dollars → Invest $5,000.** The overview shows their money in the pool, what
+investors earn now, and the loss cushion that absorbs bad debt before they do.
+
+### 5. The farmer gets an advance
+**Farmer → Get an advance.** Repay by: two months from now. The limit appears (about $2,280 at
+today's prices); take **$1,000**. **My advances** shows what's owed, that it's *Healthy*, and the
+price at which the crop would be sold.
+
+> Say: the limit is half of what the crop will be worth on the end date, because it loses value as
+> it ages. Interest is about 5% a year when the pool is mostly unused, rising as more is lent out.
+
+### 6. The farmer sells some on the market
+**Farmer → Sell.** 500 kg, *Follow the market* at 100%, and a bulk deal: **10% off orders of 200 kg
+or more.**
+
+### 7. A buyer buys and collects
+**Buyer → Get test dollars → Market.** The listing shows the bulk deal. **Buy 200 kg**: the total
+already includes the discount. Then **Collect → I'll pick it up**: the storage fee is shown first.
+**Verifier → Collections → Goods have left: confirm** (two signatures).
+
+> Say: buyers can also resell instead of collecting. That's how stock turns back into cash.
+
+### 8. A price crash, and what protects investors
+**Verifier → Prices:** set cocoa to **$2.50/kg** (it was about $5.85). **Verifier → Advances:** the
+farmer's advance is now *At risk*. **Settle due advances with the cushion.**
+
+**Farmer → My advances:** the advance is *Liquidated*. Enough crop was sold to cover the debt plus
+5%, the rest came back, and the farmer keeps the $1,000.
+
+> Say: anyone may settle an advance once it reaches 80% of the crop's value. If nobody does, the
+> keeper settles it from the cushion. In production the price comes from Chainlink and local price
+> reporters; for the festival, the Safe sets it.
+
+### 9. The regulator
+**Regulator → Regulator:** freeze the cocoa lot. Frozen stock can't be borrowed against, sold, moved
+or collected. Unfreeze it again.
+
+### 10. The record
+**Activity** lists every step, newest first. Each line links to its transaction on Sepolia Etherscan.
+
+Set cocoa back to $5.85 in **Verifier → Prices** before the next run.
 
 ---
 
-## Safety notes
+## What the judges asked for, and where it is
 
-- `.demo-wallets.json` holds the deploy wallet's key. Keep it private and never commit it (it's gitignored).
-- **Never use the keys leaked in this repo's git history** (wallets `0xb7d9…4f99` and `0xC54d…191f`). The script refuses them.
-- dUSDC is play money with a public faucet. Never deploy `DemoUSDC` where tokens have real value.
+| The brief | In AgriBridge |
+|---|---|
+| Tokenized commodities with quantity, quality and storage location | One token per kilogram per lot, with the measured weight, grade, warehouse and the inspection report's fingerprint on-chain (`CommodityRegistry`, `CommodityToken`) |
+| A lending pool: investors provide liquidity, farmers borrow | `LendingPool`: shares for investors, advances against crop, interest every second |
+| Oracle prices, automatic LTV and liquidation | `CommodityPriceOracle` with staleness limits, a 10% move cap and a circuit breaker; Chainlink Functions and a 2-of-3 reporter quorum are built and tested, switched off for the demo; liquidation at 80% by anyone, or the keeper |
+| Security against reentrancy, flash loans and oracle manipulation | [SECURITY.md](SECURITY.md): each threat, its protection, and the test that proves it |
+| A permissioned verification layer | One verifier only, a 2-of-3 Safe; its page is hidden; a regulator can freeze stock |
+| Dashboards for investors and farmers | Farmer overview, My stock, My advances; investor overview and Risk (every advance's health and the prices behind it) |
 
 ## Troubleshooting
 
-- **"Your wallet is on the wrong network":** click *Switch to Sepolia*, or pick Sepolia in MetaMask.
-- **"Contract addresses are not configured":** run the deploy step, or add the settings in Vercel.
-- **A transaction seems slow:** Sepolia confirms in about 12 seconds. The status box says when it's done.
+- **"Sent to the Safe…" and nothing happens:** the other owners still have to confirm it in Safe{Wallet}.
+- **"The price for this crop is out of date":** the Safe sets it again in **Verifier → Prices**.
+- **A step is slow:** Sepolia confirms in about 12 seconds; the status box says when it's done.
+- **The wrong account is signed in:** **Sign out** at the bottom of the sidebar.
+
+## Safety notes
+
+- The leaked keys in this repo's git history (`0xb7d9…4f99`, `0xC54d…191f`) must never be used.
+  `npm run demo:sepolia` refuses to deploy while either is an owner of the Safe.
+- The demo's dollars are play money with a public faucet. Never deploy `DemoUSDC` where tokens
+  have real value.
