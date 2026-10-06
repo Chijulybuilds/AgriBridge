@@ -15,6 +15,7 @@ import {
   parseSiweMessage,
   validateSiweMessage,
 } from "viem/siwe";
+import { VERIFIER_SAFE } from "./contracts/config";
 
 const SESSION_STORAGE_KEY = "agribridge_session";
 const PROFILE_STORAGE_KEY = "agribridge_profile";
@@ -191,14 +192,12 @@ export function createSessionToken({
 //////////////////////////////////////////////////////////////*/
 
 /**
- * Optional override for the admin wallet. Without it, admin access comes from
- * holding VERIFIER_ROLE on the CommodityRegistry, which is what the contract
- * itself enforces.
+ * Whether `wallet` is the verifier Safe (NEXT_PUBLIC_VERIFIER_SAFE). Holding
+ * VERIFIER_ROLE on the CommodityRegistry also grants verifier access, since that
+ * is what the contract itself enforces.
  */
-const ADMIN_WALLET = process.env.NEXT_PUBLIC_ADMIN_WALLET?.toLowerCase();
-
 export function isAdminWallet(wallet: string): boolean {
-  return Boolean(ADMIN_WALLET) && wallet.toLowerCase() === ADMIN_WALLET;
+  return Boolean(VERIFIER_SAFE) && wallet.toLowerCase() === VERIFIER_SAFE?.toLowerCase();
 }
 
 /**

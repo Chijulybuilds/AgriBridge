@@ -22,6 +22,12 @@ export const contracts = {
 export type ContractName = keyof typeof contracts;
 
 /**
+ * The verifier Safe: the only wallet the contracts grant VERIFIER_ROLE, and the
+ * only one allowed to open the verifier pages.
+ */
+export const VERIFIER_SAFE = address(process.env.NEXT_PUBLIC_VERIFIER_SAFE);
+
+/**
  * Reads an address, failing loudly when it is unset.
  *
  * Calling a contract at `undefined` produces a confusing wallet error far from
