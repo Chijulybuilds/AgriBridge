@@ -8,6 +8,8 @@ import {CommodityPriceOracle} from "src/CommodityPriceOracle.sol";
 import {AgriShareToken} from "src/AgriShareToken.sol";
 import {LendingPool} from "src/LendingPool.sol";
 import {LiquidationKeeper} from "src/LiquidationKeeper.sol";
+import {Marketplace} from "src/Marketplace.sol";
+import {WarehouseDesk} from "src/WarehouseDesk.sol";
 import {CommodityDefaults} from "script/CommodityDefaults.sol";
 
 /**
@@ -26,6 +28,8 @@ abstract contract ProtocolDeployer {
         AgriShareToken shareToken;
         LendingPool pool;
         LiquidationKeeper keeper;
+        Marketplace marketplace;
+        WarehouseDesk desk;
         address usdc;
     }
 
@@ -61,12 +65,22 @@ abstract contract ProtocolDeployer {
             address(d.config)
         );
         d.keeper = new LiquidationKeeper(address(d.pool));
+        d.marketplace = new Marketplace(
+            _deployer, _usdc, address(d.commodityToken), address(d.registry), address(d.oracle), _deployer
+        );
+        d.desk = new WarehouseDesk(_deployer, _deployer, _usdc, address(d.commodityToken), d.registry, _deployer);
 
-        // Without these the contracts deploy but cannot mint, lend, return collateral or backstop.
+        // Without these the contracts deploy but cannot mint, lend, return collateral, backstop,
+        // trade or release stock.
         d.shareToken.setLendingPool(address(d.pool));
         d.registry.setCommodityTokenAddress(address(d.commodityToken));
-        d.commodityToken.grantRole(d.commodityToken.PROTOCOL_ROLE(), address(d.pool));
         d.pool.grantRole(d.pool.KEEPER_ROLE(), address(d.keeper));
+        bytes32 protocolRole = d.commodityToken.PROTOCOL_ROLE();
+        d.commodityToken.grantRole(protocolRole, address(d.pool));
+        d.commodityToken.grantRole(protocolRole, address(d.marketplace));
+        d.commodityToken.grantRole(protocolRole, address(d.desk));
+        d.commodityToken.grantRole(d.commodityToken.BURNER_ROLE(), address(d.desk));
+        d.registry.grantRole(d.registry.CUSTODY_ROLE(), address(d.desk));
     }
 
     /**
@@ -87,7 +101,11 @@ abstract contract ProtocolDeployer {
      *      nothing once deployment ends.
      */
     function _handOver(Deployment memory d, address _deployer, address _verifier, address _finalAdmin) internal {
+        // The verifier also runs the warehouses, so it confirms releases at the desk.
         d.registry.grantRole(d.registry.VERIFIER_ROLE(), _verifier);
+        bytes32 custodianRole = d.desk.CUSTODIAN_ROLE();
+        d.desk.grantRole(custodianRole, _verifier);
+        if (_verifier != _deployer) d.desk.renounceRole(custodianRole, _deployer);
 
         if (_finalAdmin == _deployer) return;
 
@@ -99,8 +117,16 @@ abstract contract ProtocolDeployer {
         d.oracle.grantRole(adminRole, _finalAdmin);
         d.oracle.grantRole(d.oracle.PRICE_UPDATER_ROLE(), _finalAdmin);
         d.pool.grantRole(adminRole, _finalAdmin);
+        d.marketplace.grantRole(adminRole, _finalAdmin);
+        d.marketplace.grantRole(d.marketplace.CLEARANCE_ROLE(), _finalAdmin);
+        d.marketplace.setFees(d.marketplace.feeBps(), _finalAdmin, d.marketplace.clearanceDiscountBps());
+        d.desk.grantRole(adminRole, _finalAdmin);
+        d.desk.setFeeRecipient(_finalAdmin);
 
         d.oracle.renounceRole(d.oracle.PRICE_UPDATER_ROLE(), _deployer);
+        d.marketplace.renounceRole(d.marketplace.CLEARANCE_ROLE(), _deployer);
+        d.marketplace.renounceRole(adminRole, _deployer);
+        d.desk.renounceRole(adminRole, _deployer);
         d.config.renounceRole(adminRole, _deployer);
         d.registry.renounceRole(adminRole, _deployer);
         d.commodityToken.renounceRole(adminRole, _deployer);

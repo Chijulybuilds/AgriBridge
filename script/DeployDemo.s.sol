@@ -87,6 +87,8 @@ contract DeployDemo is Script, ProtocolDeployer {
         console.log("NEXT_PUBLIC_AGRI_SHARE_TOKEN_ADDRESS=%s", address(d.shareToken));
         console.log("NEXT_PUBLIC_LENDING_POOL_ADDRESS=%s", address(d.pool));
         console.log("NEXT_PUBLIC_LIQUIDATION_KEEPER_ADDRESS=%s", address(d.keeper));
+        console.log("NEXT_PUBLIC_MARKETPLACE_ADDRESS=%s", address(d.marketplace));
+        console.log("NEXT_PUBLIC_WAREHOUSE_DESK_ADDRESS=%s", address(d.desk));
         console.log("NEXT_PUBLIC_USDC_ADDRESS=%s", address(usdc));
         console.log("NEXT_PUBLIC_VERIFIER_SAFE=%s", verifier);
         console.log("Demo farmer:   %s", farmer);

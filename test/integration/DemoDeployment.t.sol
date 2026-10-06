@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {CommodityRegistry} from "src/CommodityRegistry.sol";
 import {LendingPool} from "src/LendingPool.sol";
 import {DemoUSDC} from "src/demo/DemoUSDC.sol";
+import {Marketplace} from "src/Marketplace.sol";
 import {DeployDemo} from "script/DeployDemo.s.sol";
 import {CommodityDefaults} from "script/CommodityDefaults.sol";
 import {ProtocolDeployer} from "script/ProtocolDeployer.sol";
@@ -72,6 +73,12 @@ contract DemoDeploymentTest is Test {
         assertTrue(d.commodityToken.hasRole(admin, SAFE));
         assertTrue(d.oracle.hasRole(admin, SAFE));
         assertTrue(d.pool.hasRole(admin, SAFE));
+        assertTrue(d.marketplace.hasRole(admin, SAFE));
+        assertTrue(d.marketplace.hasRole(d.marketplace.CLEARANCE_ROLE(), SAFE));
+        assertTrue(d.desk.hasRole(admin, SAFE));
+        assertTrue(d.desk.hasRole(d.desk.CUSTODIAN_ROLE(), SAFE), "the Safe confirms releases");
+        assertEq(d.marketplace.feeRecipient(), SAFE);
+        assertEq(d.desk.feeRecipient(), SAFE);
     }
 
     function test_DeployerKeepsNoRoles() public view {
@@ -82,6 +89,10 @@ contract DemoDeploymentTest is Test {
         assertFalse(d.oracle.hasRole(admin, deployer));
         assertFalse(d.oracle.hasRole(d.oracle.PRICE_UPDATER_ROLE(), deployer));
         assertFalse(d.pool.hasRole(admin, deployer));
+        assertFalse(d.marketplace.hasRole(admin, deployer));
+        assertFalse(d.marketplace.hasRole(d.marketplace.CLEARANCE_ROLE(), deployer));
+        assertFalse(d.desk.hasRole(admin, deployer));
+        assertFalse(d.desk.hasRole(d.desk.CUSTODIAN_ROLE(), deployer));
     }
 
     function test_PricesStayFreshForTheWholeDemo() public {
@@ -134,6 +145,30 @@ contract DemoDeploymentTest is Test {
         vm.prank(investor);
         d.pool.withdraw(shares);
         assertGt(usdc.balanceOf(investor), 50_000e6, "investor ends with more than they put in");
+    }
+
+    /// @notice A farmer sells part of a lot on the marketplace; the buyer withdraws it from the warehouse.
+    function test_MarketplaceAndWithdrawal() public {
+        uint256 maize = _deliverAndVerify(CommodityDefaults.MAIZE);
+        vm.startPrank(farmer);
+        d.commodityToken.setApprovalForAll(address(d.marketplace), true);
+        uint256 listingId = d.marketplace.list(maize, 600e18, Marketplace.PriceMode.Reference, 10_000);
+        vm.stopPrank();
+
+        address buyer = makeAddr("feedMill");
+        usdc.faucet(buyer, 1_000e6);
+        vm.startPrank(buyer);
+        usdc.approve(address(d.marketplace), type(uint256).max);
+        d.marketplace.buy(listingId, 600e18, type(uint256).max);
+
+        d.commodityToken.setApprovalForAll(address(d.desk), true);
+        uint256 requestId = d.desk.requestWithdrawal(maize, 600e18, 0);
+        vm.stopPrank();
+
+        vm.prank(SAFE);
+        d.desk.confirmRelease(requestId, 0);
+        assertEq(d.commodityToken.totalSupply(maize), 400e18);
+        assertEq(d.registry.getWarehouse(1).storedKg, 400e18);
     }
 
     function test_FaucetCapsEachMint() public {

@@ -133,6 +133,9 @@ function appSettings() {
     `NEXT_PUBLIC_COMMODITY_PRICE_ORACLE_ADDRESS=${deployed.CommodityPriceOracle}`,
     `NEXT_PUBLIC_AGRI_SHARE_TOKEN_ADDRESS=${deployed.AgriShareToken}`,
     `NEXT_PUBLIC_LENDING_POOL_ADDRESS=${deployed.LendingPool}`,
+    `NEXT_PUBLIC_LIQUIDATION_KEEPER_ADDRESS=${deployed.LiquidationKeeper}`,
+    `NEXT_PUBLIC_MARKETPLACE_ADDRESS=${deployed.Marketplace}`,
+    `NEXT_PUBLIC_WAREHOUSE_DESK_ADDRESS=${deployed.WarehouseDesk}`,
     `NEXT_PUBLIC_USDC_ADDRESS=${deployed.DemoUSDC}`,
     `NEXT_PUBLIC_VERIFIER_SAFE=${verifierSafe()}`,
   ];
