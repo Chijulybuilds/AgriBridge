@@ -19,11 +19,15 @@ const outDir = join(root, 'forge-out');
 
 /** Contracts the application talks to. */
 const CONTRACTS = [
+  'CommodityConfig',
   'CommodityRegistry',
   'CommodityToken',
   'CommodityPriceOracle',
   'AgriShareToken',
   'LendingPool',
+  'LiquidationKeeper',
+  'Marketplace',
+  'WarehouseDesk',
   // Play-money USDC with a public faucet, used by demo deployments (script/DeployDemo.s.sol).
   'DemoUSDC',
 ];

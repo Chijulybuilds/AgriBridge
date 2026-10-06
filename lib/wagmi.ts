@@ -1,58 +1,56 @@
-import { getDefaultConfig, getDefaultWallets } from "@rainbow-me/rainbowkit";
-import { metaMaskWallet } from "@rainbow-me/rainbowkit/wallets";
-import { sepolia, foundry } from "wagmi/chains";
-import { createConnector, http } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { createConfig, http } from "wagmi";
+import { foundry, sepolia } from "wagmi/chains";
+import { injected, safe } from "wagmi/connectors";
 
 /**
- * Wagmi + RainbowKit configuration.
+ * Chain and wallet configuration.
  *
- * Sepolia is the deployment target. The local Foundry chain is included so the
- * app can be driven against `anvil` during development and end-to-end tests
+ * Sepolia is the deployment target. The local Foundry chain is supported so the
+ * app can be driven against `anvil` during development and the Playwright tests
  * without touching a public network.
  *
- * Injected wallets (MetaMask, etc.) work without a WalletConnect project ID.
- * Only the QR-code walletconnect flow requires one. We use a try/catch so the
- * build succeeds even when the project ID is missing or invalid.
+ * There are two wallet setups, kept apart on purpose:
+ * - the public app signs people in with MetaMask Embedded Wallets when
+ *   NEXT_PUBLIC_WEB3AUTH_CLIENT_ID is set (see components/providers.tsx), and
+ *   otherwise offers plain browser wallets (`appConfig`), which is what local
+ *   development and the end-to-end tests use;
+ * - the hidden /verifier page only talks to the verifier Safe, opened as a Safe
+ *   App (`verifierConfig`), or to a browser wallet for local development.
  */
 const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? sepolia.id);
 
 export const activeChain = chainId === foundry.id ? foundry : sepolia;
 
-/** Get or define a valid fallback so the build does not crash. */
-const WALLETCONNECT_PROJECT_ID =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "00000000000000000000000000000000";
+export const rpcUrl =
+  process.env.NEXT_PUBLIC_RPC_URL || (activeChain.id === foundry.id ? "http://127.0.0.1:8545" : undefined);
 
-/**
- * MetaMask through the extension's own injected provider.
- *
- * RainbowKit's default MetaMask entry connects through the MetaMask SDK, which
- * can sit on "Opening MetaMask… Confirm connection in the extension" without
- * the extension ever showing a request. Talking to the extension's provider
- * directly is the standard path and connects straight away.
- */
-const metaMaskExtensionWallet: typeof metaMaskWallet = (options) => ({
-  ...metaMaskWallet(options),
-  // Without the extension there is nothing to talk to: offer the download rather than a QR code.
-  mobile: undefined,
-  qrCode: undefined,
-  createConnector: (walletDetails) =>
-    createConnector((config) => ({ ...injected({ target: "metaMask" })(config), ...walletDetails })),
-});
+const transports = {
+  [sepolia.id]: http(activeChain.id === sepolia.id ? rpcUrl : undefined),
+  [foundry.id]: http(activeChain.id === foundry.id ? rpcUrl : "http://127.0.0.1:8545"),
+};
 
-const wallets = getDefaultWallets().wallets.map((group) => ({
-  ...group,
-  wallets: group.wallets.map((wallet) => (wallet === metaMaskWallet ? metaMaskExtensionWallet : wallet)),
-}));
-
-export const wagmiConfig = getDefaultConfig({
-  appName: "AgriBridge",
-  projectId: WALLETCONNECT_PROJECT_ID,
+/** Public app without MetaMask Embedded Wallets: browser wallets only. */
+export const appConfig = createConfig({
   chains: [activeChain],
-  wallets,
-  transports: {
-    [sepolia.id]: http(process.env.NEXT_PUBLIC_RPC_URL),
-    [foundry.id]: http(process.env.NEXT_PUBLIC_RPC_URL ?? "http://127.0.0.1:8545"),
-  },
+  connectors: [injected()],
+  transports,
   ssr: true,
 });
+
+/** The /verifier page: the Safe (as a Safe App), or a browser wallet for local development. */
+export const verifierConfig = createConfig({
+  chains: [activeChain],
+  connectors: [safe({ allowedDomains: [/app\.safe\.global$/], debug: false }), injected()],
+  transports,
+  ssr: true,
+});
+
+/**
+ * MetaMask Embedded Wallets client ID, from the MetaMask Developer Dashboard. Public, not a secret.
+ * The end-to-end tests (NEXT_PUBLIC_E2E) always use browser wallets, which they can drive.
+ */
+export const web3AuthClientId = process.env.NEXT_PUBLIC_E2E ? undefined : process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID || undefined;
+
+/** "sapphire_devnet" while testing; "sapphire_mainnet" for a real launch. */
+export const web3AuthNetwork =
+  process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK === "sapphire_mainnet" ? "sapphire_mainnet" : "sapphire_devnet";

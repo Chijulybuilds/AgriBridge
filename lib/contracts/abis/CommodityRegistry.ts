@@ -4,12 +4,30 @@ export const CommodityRegistryAbi = [
     "type": "constructor",
     "inputs": [
       {
-        "name": "admin",
+        "name": "_admin",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_config",
+        "type": "address",
+        "internalType": "contract CommodityConfig"
       }
     ],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "CUSTODY_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -26,20 +44,7 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "function",
-    "name": "POOL_ROLE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "TOKEN_MINTER_ROLE",
+    "name": "REGULATOR_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -65,10 +70,67 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "function",
-    "name": "approveCommodity",
+    "name": "addWarehouse",
     "inputs": [
       {
-        "name": "_commodityId",
+        "name": "_name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_region",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_capacityKg",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "warehouseId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "approveIntake",
+    "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_measuredKg",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "_grade",
+        "type": "uint8",
+        "internalType": "enum CommodityRegistry.Grade"
+      },
+      {
+        "name": "_evidenceHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "cancelIntake",
+    "inputs": [
+      {
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -78,110 +140,61 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "function",
-    "name": "commodities",
+    "name": "commodityOf",
     "inputs": [
       {
-        "name": "",
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
     "outputs": [
       {
-        "name": "farmer",
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "commodityToken",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
         "type": "address",
         "internalType": "address"
-      },
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "currentGrade",
+    "inputs": [
       {
-        "name": "status",
-        "type": "uint8",
-        "internalType": "enum CommodityRegistry.CommodityStatus"
-      },
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
       {
-        "name": "commodityType",
-        "type": "uint8",
-        "internalType": "enum CommodityRegistry.CommodityType"
-      },
-      {
-        "name": "grade",
+        "name": "",
         "type": "uint8",
         "internalType": "enum CommodityRegistry.Grade"
-      },
-      {
-        "name": "verifier",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "quantity",
-        "type": "uint96",
-        "internalType": "uint96"
-      },
-      {
-        "name": "harvestDate",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "registeredAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "storageEndDate",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "verificationTimestamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "rejectionReason",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "commodityCount",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "commodityTokenAddress",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "farmerCommodityIds",
+    "name": "expiresAt",
     "inputs": [
       {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "",
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -189,110 +202,15 @@ export const CommodityRegistryAbi = [
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "getCommodity",
-    "inputs": [
-      {
-        "name": "_commodityId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple",
-        "internalType": "struct CommodityRegistry.Commodity",
-        "components": [
-          {
-            "name": "farmer",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "status",
-            "type": "uint8",
-            "internalType": "enum CommodityRegistry.CommodityStatus"
-          },
-          {
-            "name": "commodityType",
-            "type": "uint8",
-            "internalType": "enum CommodityRegistry.CommodityType"
-          },
-          {
-            "name": "grade",
-            "type": "uint8",
-            "internalType": "enum CommodityRegistry.Grade"
-          },
-          {
-            "name": "verifier",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "quantity",
-            "type": "uint96",
-            "internalType": "uint96"
-          },
-          {
-            "name": "harvestDate",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "registeredAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "storageEndDate",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "verificationTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "rejectionReason",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getCommodityStatus",
-    "inputs": [
-      {
-        "name": "_commodityId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "enum CommodityRegistry.CommodityStatus"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getFarmerCommodityIds",
+    "name": "getFarmerLots",
     "inputs": [
       {
         "name": "_farmer",
@@ -305,6 +223,97 @@ export const CommodityRegistryAbi = [
         "name": "",
         "type": "uint256[]",
         "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getLot",
+    "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct CommodityRegistry.Lot",
+        "components": [
+          {
+            "name": "farmer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "status",
+            "type": "uint8",
+            "internalType": "enum CommodityRegistry.LotStatus"
+          },
+          {
+            "name": "grade",
+            "type": "uint8",
+            "internalType": "enum CommodityRegistry.Grade"
+          },
+          {
+            "name": "frozen",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "commodityId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "warehouseId",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "estimatedKg",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "measuredKg",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "harvestDate",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "requestedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "verifiedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "verifier",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "evidenceHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "rejectionReason",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -324,6 +333,57 @@ export const CommodityRegistryAbi = [
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getWarehouse",
+    "inputs": [
+      {
+        "name": "_warehouseId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct CommodityRegistry.Warehouse",
+        "components": [
+          {
+            "name": "name",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "region",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "capacityKg",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "storedKg",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "frozen",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -372,46 +432,97 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "function",
-    "name": "isApprovedForBorrowing",
-    "inputs": [
-      {
-        "name": "_commodityId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "isCommodityValid",
-    "inputs": [
-      {
-        "name": "_commodityId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "lendingPoolAddress",
+    "name": "i_config",
     "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract CommodityConfig"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isExpired",
+    "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isFrozen",
+    "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isUsable",
+    "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lotCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lotFarmer",
+    "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -420,19 +531,6 @@ export const CommodityRegistryAbi = [
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "markCollateralized",
-    "inputs": [
-      {
-        "name": "_commodityId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -456,73 +554,33 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "function",
-    "name": "pendingApprovalConfirmation",
+    "name": "recordRelease",
     "inputs": [
       {
-        "name": "",
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "registerCommodity",
-    "inputs": [
-      {
-        "name": "_commodityType",
-        "type": "uint8",
-        "internalType": "enum CommodityRegistry.CommodityType"
       },
       {
-        "name": "_quantity",
+        "name": "_kg",
         "type": "uint96",
         "internalType": "uint96"
-      },
-      {
-        "name": "_grade",
-        "type": "uint8",
-        "internalType": "enum CommodityRegistry.Grade"
-      },
-      {
-        "name": "_harvestDate",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "_storageDurationDays",
-        "type": "uint64",
-        "internalType": "uint64"
       }
     ],
-    "outputs": [
-      {
-        "name": "commodityId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
+    "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "rejectCommodity",
+    "name": "rejectIntake",
     "inputs": [
       {
-        "name": "_commodityId",
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "_rejectionReason",
+        "name": "_reason",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -546,6 +604,40 @@ export const CommodityRegistryAbi = [
       }
     ],
     "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "requestIntake",
+    "inputs": [
+      {
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_estimatedKg",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "_warehouseId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_harvestDate",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -581,12 +673,35 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "function",
-    "name": "setLendingPoolAddress",
+    "name": "setLotFrozen",
     "inputs": [
       {
-        "name": "_poolAddress",
-        "type": "address",
-        "internalType": "address"
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_frozen",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setWarehouseFrozen",
+    "inputs": [
+      {
+        "name": "_warehouseId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_frozen",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [],
@@ -620,28 +735,117 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "function",
-    "name": "updateStatus",
+    "name": "updateWarehouse",
     "inputs": [
       {
-        "name": "_commodityId",
+        "name": "_warehouseId",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "_newStatus",
-        "type": "uint8",
-        "internalType": "enum CommodityRegistry.CommodityStatus"
+        "name": "_name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_region",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_capacityKg",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "_active",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
-    "type": "event",
-    "name": "CommodityApproved",
+    "type": "function",
+    "name": "valuationFactorBps",
     "inputs": [
       {
-        "name": "commodityId",
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_timestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "valueFactorAt",
+    "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_timestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "verifier",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "warehouseCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "IntakeApproved",
+    "inputs": [
+      {
+        "name": "lotId",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
@@ -653,63 +857,7 @@ export const CommodityRegistryAbi = [
         "internalType": "address"
       },
       {
-        "name": "timestamp",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "CommodityCollateralized",
-    "inputs": [
-      {
-        "name": "commodityId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "poolAddress",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "timestamp",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "CommodityRegistered",
-    "inputs": [
-      {
-        "name": "commodityId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "farmer",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "commodityType",
-        "type": "uint8",
-        "indexed": true,
-        "internalType": "enum CommodityRegistry.CommodityType"
-      },
-      {
-        "name": "quantity",
+        "name": "measuredKg",
         "type": "uint96",
         "indexed": false,
         "internalType": "uint96"
@@ -721,26 +869,33 @@ export const CommodityRegistryAbi = [
         "internalType": "enum CommodityRegistry.Grade"
       },
       {
-        "name": "harvestDate",
-        "type": "uint64",
+        "name": "evidenceHash",
+        "type": "bytes32",
         "indexed": false,
-        "internalType": "uint64"
-      },
-      {
-        "name": "storageEndDate",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
+        "internalType": "bytes32"
       }
     ],
     "anonymous": false
   },
   {
     "type": "event",
-    "name": "CommodityRejected",
+    "name": "IntakeCancelled",
     "inputs": [
       {
-        "name": "commodityId",
+        "name": "lotId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "IntakeRejected",
+    "inputs": [
+      {
+        "name": "lotId",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
@@ -752,13 +907,50 @@ export const CommodityRegistryAbi = [
         "internalType": "address"
       },
       {
-        "name": "rejectionReason",
+        "name": "reason",
         "type": "bytes32",
         "indexed": false,
         "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "IntakeRequested",
+    "inputs": [
+      {
+        "name": "lotId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
       {
-        "name": "timestamp",
+        "name": "farmer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "commodityId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "warehouseId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "estimatedKg",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      },
+      {
+        "name": "harvestDate",
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
@@ -768,37 +960,19 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "event",
-    "name": "CommodityStatusUpdated",
+    "name": "LotFrozen",
     "inputs": [
       {
-        "name": "commodityId",
+        "name": "lotId",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
       },
       {
-        "name": "oldStatus",
-        "type": "uint8",
-        "indexed": true,
-        "internalType": "enum CommodityRegistry.CommodityStatus"
-      },
-      {
-        "name": "newStatus",
-        "type": "uint8",
-        "indexed": true,
-        "internalType": "enum CommodityRegistry.CommodityStatus"
-      },
-      {
-        "name": "updater",
-        "type": "address",
+        "name": "frozen",
+        "type": "bool",
         "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "timestamp",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
+        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -893,6 +1067,25 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "event",
+    "name": "StockReleased",
+    "inputs": [
+      {
+        "name": "lotId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "kg",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Unpaused",
     "inputs": [
       {
@@ -900,6 +1093,69 @@ export const CommodityRegistryAbi = [
         "type": "address",
         "indexed": false,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WarehouseAdded",
+    "inputs": [
+      {
+        "name": "warehouseId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "region",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "capacityKg",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WarehouseFrozen",
+    "inputs": [
+      {
+        "name": "warehouseId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "frozen",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WarehouseUpdated",
+    "inputs": [
+      {
+        "name": "warehouseId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -927,12 +1183,18 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "error",
-    "name": "CommodityRegistry__ApprovalCallFailed",
-    "inputs": []
+    "name": "CommodityRegistry__CommodityNotActive",
+    "inputs": [
+      {
+        "name": "commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
-    "name": "CommodityRegistry__CommodityNotFound",
+    "name": "CommodityRegistry__EmptyName",
     "inputs": []
   },
   {
@@ -942,17 +1204,7 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "error",
-    "name": "CommodityRegistry__InvalidFarmerAddress",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "CommodityRegistry__InvalidHarvestDate",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "CommodityRegistry__InvalidMetadataURI",
     "inputs": []
   },
   {
@@ -962,28 +1214,83 @@ export const CommodityRegistryAbi = [
   },
   {
     "type": "error",
-    "name": "CommodityRegistry__InvalidStatusTransition",
+    "name": "CommodityRegistry__InvalidStatus",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "CommodityRegistry__InvalidStorageDuration",
+    "name": "CommodityRegistry__LotNotFound",
+    "inputs": [
+      {
+        "name": "lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CommodityRegistry__MintFailed",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "CommodityRegistry__NotCommodityOwner",
+    "name": "CommodityRegistry__MissingEvidence",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "CommodityRegistry__RejectionReasonTooLong",
+    "name": "CommodityRegistry__NotLotFarmer",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommodityRegistry__OverCapacity",
+    "inputs": [
+      {
+        "name": "warehouseId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
     "name": "CommodityRegistry__TokenAddressNotSet",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommodityRegistry__VerifierAlreadySet",
+    "inputs": [
+      {
+        "name": "current",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CommodityRegistry__WarehouseNotFound",
+    "inputs": [
+      {
+        "name": "warehouseId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CommodityRegistry__WarehouseUnavailable",
+    "inputs": [
+      {
+        "name": "warehouseId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

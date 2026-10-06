@@ -9,12 +9,43 @@ export const CommodityPriceOracleAbi = [
         "internalType": "address"
       },
       {
+        "name": "_config",
+        "type": "address",
+        "internalType": "contract CommodityConfig"
+      },
+      {
         "name": "_heartbeat",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "CONFIRMATION_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -25,6 +56,19 @@ export const CommodityPriceOracleAbi = [
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAX_REPORTERS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -57,16 +101,16 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "function",
-    "name": "commodityRegistry",
-    "inputs": [],
-    "outputs": [
+    "name": "addReporter",
+    "inputs": [
       {
-        "name": "",
+        "name": "_reporter",
         "type": "address",
-        "internalType": "contract ICommodityRegistryView"
+        "internalType": "address"
       }
     ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -83,7 +127,7 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "function",
-    "name": "getCollateralValue",
+    "name": "forcePrice",
     "inputs": [
       {
         "name": "_commodityId",
@@ -91,47 +135,22 @@ export const CommodityPriceOracleAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "_quantity",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "_price",
+        "type": "uint128",
+        "internalType": "uint128"
       }
     ],
-    "outputs": [
-      {
-        "name": "usdValue",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getCommodityPrice",
-    "inputs": [
-      {
-        "name": "_commodityId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "pricePerUnit",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
     "name": "getPrice",
     "inputs": [
       {
-        "name": "_commodity",
-        "type": "uint8",
-        "internalType": "enum ICommodityPriceOracle.CommodityType"
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -153,9 +172,9 @@ export const CommodityPriceOracleAbi = [
     "name": "getPriceFresh",
     "inputs": [
       {
-        "name": "_commodity",
-        "type": "uint8",
-        "internalType": "enum ICommodityPriceOracle.CommodityType"
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -169,17 +188,27 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "function",
-    "name": "getPriceFreshData",
+    "name": "getReport",
     "inputs": [
       {
-        "name": "commodity",
-        "type": "uint8",
-        "internalType": "enum DataTypes.CommodityType"
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_reporter",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [
       {
-        "name": "answer",
+        "name": "price",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "reportedAt",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -249,6 +278,62 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "function",
+    "name": "heartbeatOf",
+    "inputs": [
+      {
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "heldPrice",
+    "inputs": [
+      {
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "price",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "since",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "i_config",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract CommodityConfig"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "i_heartbeat",
     "inputs": [],
     "outputs": [
@@ -262,30 +347,12 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "function",
-    "name": "initializeCommodity",
-    "inputs": [
-      {
-        "name": "_commodity",
-        "type": "uint8",
-        "internalType": "enum ICommodityPriceOracle.CommodityType"
-      },
-      {
-        "name": "_initialPrice",
-        "type": "uint128",
-        "internalType": "uint128"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "isFresh",
     "inputs": [
       {
-        "name": "_commodity",
-        "type": "uint8",
-        "internalType": "enum ICommodityPriceOracle.CommodityType"
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -293,6 +360,64 @@ export const CommodityPriceOracleAbi = [
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isReporter",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "localQuorum",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "localToleranceBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxMoveBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
       }
     ],
     "stateMutability": "view"
@@ -319,6 +444,19 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "function",
+    "name": "removeReporter",
+    "inputs": [
+      {
+        "name": "_reporter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "renounceRole",
     "inputs": [
       {
@@ -334,6 +472,19 @@ export const CommodityPriceOracleAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "reporters",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -355,25 +506,12 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "function",
-    "name": "setCommodityRegistry",
-    "inputs": [
-      {
-        "name": "_registry",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "setFeedStatus",
     "inputs": [
       {
-        "name": "_commodity",
-        "type": "uint8",
-        "internalType": "enum ICommodityPriceOracle.CommodityType"
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "_active",
@@ -386,15 +524,33 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "function",
+    "name": "setHeartbeat",
+    "inputs": [
+      {
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_heartbeat",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setPrice",
     "inputs": [
       {
-        "name": "_commodity",
-        "type": "uint8",
-        "internalType": "enum ICommodityPriceOracle.CommodityType"
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
-        "name": "_newPrice",
+        "name": "_price",
         "type": "uint128",
         "internalType": "uint128"
       }
@@ -407,14 +563,55 @@ export const CommodityPriceOracleAbi = [
     "name": "setPrices",
     "inputs": [
       {
-        "name": "_commodities",
-        "type": "uint8[]",
-        "internalType": "enum ICommodityPriceOracle.CommodityType[]"
+        "name": "_commodityIds",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       },
       {
         "name": "_prices",
         "type": "uint128[]",
         "internalType": "uint128[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setRiskParameters",
+    "inputs": [
+      {
+        "name": "_maxMoveBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "_localQuorum",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "_localToleranceBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "submitLocalPrice",
+    "inputs": [
+      {
+        "name": "_commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_price",
+        "type": "uint128",
+        "internalType": "uint128"
       }
     ],
     "outputs": [],
@@ -448,6 +645,75 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "event",
+    "name": "HeartbeatSet",
+    "inputs": [
+      {
+        "name": "commodityId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "heartbeat",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "LocalPriceDisputed",
+    "inputs": [
+      {
+        "name": "commodityId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "median",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "agreeingReports",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "LocalPriceReported",
+    "inputs": [
+      {
+        "name": "commodityId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "reporter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "price",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Paused",
     "inputs": [
       {
@@ -464,16 +730,47 @@ export const CommodityPriceOracleAbi = [
     "name": "PriceFeedStatusChanged",
     "inputs": [
       {
-        "name": "commodity",
-        "type": "uint8",
+        "name": "commodityId",
+        "type": "uint256",
         "indexed": true,
-        "internalType": "enum ICommodityPriceOracle.CommodityType"
+        "internalType": "uint256"
       },
       {
-        "name": "status",
+        "name": "active",
         "type": "bool",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PriceHeld",
+    "inputs": [
+      {
+        "name": "commodityId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentPrice",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "heldPrice",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "updater",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -483,15 +780,15 @@ export const CommodityPriceOracleAbi = [
     "name": "PriceUpdated",
     "inputs": [
       {
-        "name": "commodity",
-        "type": "uint8",
-        "indexed": true,
-        "internalType": "enum ICommodityPriceOracle.CommodityType"
-      },
-      {
-        "name": "newPrice",
+        "name": "commodityId",
         "type": "uint256",
         "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "price",
+        "type": "uint256",
+        "indexed": false,
         "internalType": "uint256"
       },
       {
@@ -505,6 +802,57 @@ export const CommodityPriceOracleAbi = [
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ReporterAdded",
+    "inputs": [
+      {
+        "name": "reporter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ReporterRemoved",
+    "inputs": [
+      {
+        "name": "reporter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RiskParametersSet",
+    "inputs": [
+      {
+        "name": "maxMoveBps",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "localQuorum",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      },
+      {
+        "name": "localToleranceBps",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
       }
     ],
     "anonymous": false
@@ -630,12 +978,17 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "error",
+    "name": "CommodityPriceOracle__InvalidParameters",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "CommodityPriceOracle__InvalidPrice",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "CommodityPriceOracle__InvalidTimestamp",
+    "name": "CommodityPriceOracle__NotReporter",
     "inputs": []
   },
   {
@@ -650,8 +1003,35 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "error",
-    "name": "CommodityPriceOracle__RegistryNotSet",
+    "name": "CommodityPriceOracle__ReporterExists",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommodityPriceOracle__TooManyReporters",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommodityPriceOracle__UnknownCommodity",
+    "inputs": [
+      {
+        "name": "commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CommodityPriceOracle__WrongPriceSource",
+    "inputs": [
+      {
+        "name": "commodityId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

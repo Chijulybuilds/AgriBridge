@@ -8,14 +8,9 @@
         "internalType": "address"
       },
       {
-        "name": "_registryAddress",
+        "name": "_registry",
         "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_baseURI",
-        "type": "string",
-        "internalType": "string"
+        "internalType": "contract CommodityRegistry"
       }
     ],
     "stateMutability": "nonpayable"
@@ -29,19 +24,6 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "BaseURI",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -62,6 +44,19 @@
   {
     "type": "function",
     "name": "MINTER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "PROTOCOL_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -130,7 +125,7 @@
         "internalType": "address"
       },
       {
-        "name": "_commodityId",
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -148,7 +143,7 @@
     "name": "exists",
     "inputs": [
       {
-        "name": "_tokenId",
+        "name": "id",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -231,7 +226,7 @@
       {
         "name": "",
         "type": "address",
-        "internalType": "contract ICommodityRegistry"
+        "internalType": "contract CommodityRegistry"
       }
     ],
     "stateMutability": "view"
@@ -270,7 +265,7 @@
         "internalType": "address"
       },
       {
-        "name": "_commodityId",
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -438,23 +433,10 @@
   },
   {
     "type": "function",
-    "name": "setBaseURI",
-    "inputs": [
-      {
-        "name": "_newURI",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "supportsInterface",
     "inputs": [
       {
-        "name": "interfaceId",
+        "name": "_interfaceId",
         "type": "bytes4",
         "internalType": "bytes4"
       }
@@ -472,6 +454,25 @@
     "type": "function",
     "name": "symbol",
     "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "tokenMetadata",
+    "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -525,7 +526,7 @@
     "name": "uri",
     "inputs": [
       {
-        "name": "_tokenId",
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -569,13 +570,13 @@
     "name": "CommodityTokenBurned",
     "inputs": [
       {
-        "name": "commodityId",
+        "name": "lotId",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
       },
       {
-        "name": "farmer",
+        "name": "from",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -600,7 +601,7 @@
     "name": "CommodityTokenMinted",
     "inputs": [
       {
-        "name": "commodityId",
+        "name": "lotId",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
@@ -843,11 +844,6 @@
   },
   {
     "type": "error",
-    "name": "CommodityToken__CommodityNotFound",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "CommodityToken__InvalidAddress",
     "inputs": []
   },
@@ -855,6 +851,17 @@
     "type": "error",
     "name": "CommodityToken__InvalidQuantity",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommodityToken__LotFrozen",
+    "inputs": [
+      {
+        "name": "lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
@@ -977,5 +984,21 @@
     "type": "error",
     "name": "ExpectedPause",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "StringsInsufficientHexLength",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   }
 ]

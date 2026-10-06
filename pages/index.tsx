@@ -10,6 +10,9 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { useCommodities, useLots, usePoolStats } from "../hooks/useProtocolData";
+import { kg, percentFromWad, usd } from "../lib/format";
+import type { AppRole } from "../lib/session";
 
 export default function Home() {
   const router = useRouter();
@@ -37,8 +40,8 @@ export default function Home() {
     },
     {
       icon: GlobeAltIcon,
-      title: "Global Agricultural Marketplace",
-      desc: "Farmers, cooperatives, exporters, and investors participate together on one secure blockchain-powered platform.",
+      title: "A Market for Graded Crops",
+      desc: "Graded crop is sold by the kilogram, straight from the warehouse. Lower grades go to feed makers for less, and large buyers can get bulk deals.",
     },
     {
       icon: BoltIcon,
@@ -47,9 +50,20 @@ export default function Home() {
     },
   ];
 
-  // Kept from File 1: dashboards need an authenticated wallet, so nav/hero/CTA
-  // buttons all route through /login instead of linking straight to a dashboard.
-  function handleConnect(role: "farmer" | "investor") {
+  // Live figures from the contracts; nothing on this page is made up.
+  const { stats } = usePoolStats();
+  const { lots } = useLots();
+  const { commodities } = useCommodities();
+  const storedKg = lots.reduce((sum, l) => (l.status === "Verified" ? sum + (l.supplyKg ?? 0n) : sum), 0n);
+  const liveStats = [
+    { label: "In the lending pool", value: stats ? usd(stats.totalAssets, 0) : "—" },
+    { label: "Crop in storage", value: lots.length ? kg(storedKg) : "—" },
+    { label: "Crops accepted", value: commodities.length ? String(commodities.filter((c) => c.active).length) : "—" },
+    { label: "Investors earn now", value: stats ? `${percentFromWad(stats.supplyRate)} a year` : "—" },
+  ];
+
+  // Dashboards need a signed-in account, so the buttons go through /login.
+  function handleConnect(role: AppRole) {
     setLoading(true);
     router.push(`/login?role=${role}`);
   }
@@ -283,8 +297,9 @@ export default function Home() {
                 textShadow: "0 2px 10px rgba(0,0,0,.5)",
               }}
             >
-              AgriBridge lets farmers tokenize real-world commodities and access
-              instant liquidity, while investors earn transparent returns.
+              Farmers store crops in trusted warehouses, then get cash advances
+              against them or sell them on the market. Investors fund the advances
+              and earn interest. Sign in with Google: no crypto wallet needed.
             </p>
 
             <div
@@ -330,6 +345,22 @@ export default function Home() {
               >
                 {loading ? "Connecting..." : "I'm an Investor →"}
               </button>
+
+              <button
+                onClick={() => router.push("/market")}
+                style={{
+                  padding: "14px 30px",
+                  borderRadius: "10px",
+                  border: "1px solid #ffffff",
+                  background: "transparent",
+                  color: "#ffffff",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  fontSize: "15px",
+                }}
+              >
+                Browse the market →
+              </button>
             </div>
           </div>
         </section>
@@ -352,12 +383,7 @@ export default function Home() {
               gridTemplateColumns: "repeat(4, 1fr)",
             }}
           >
-            {[
-              { label: "Total Value Locked", value: "$2.4M" },
-              { label: "Active Farmers", value: "1,240" },
-              { label: "Commodities Tokenized", value: "3,800+" },
-              { label: "Avg Investor APY", value: "9.2%" },
-            ].map((s, i) => (
+            {liveStats.map((s, i) => (
               <div
                 key={s.label}
                 style={{
@@ -613,7 +639,7 @@ export default function Home() {
               className="how-it-works-inner"
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: "1fr 1fr 1fr",
                 gap: "64px",
               }}
             >
@@ -622,38 +648,30 @@ export default function Home() {
                   label: "For Farmers",
                   color: "var(--accent-green)",
                   steps: [
-                    [
-                      "Deposit Commodity",
-                      "Store goods in a verified warehouse partner.",
-                    ],
-                    [
-                      "Tokenize Asset",
-                      "Commodity is minted as an on-chain token.",
-                    ],
-                    [
-                      "Borrow Against It",
-                      "Use tokens as collateral for a USDC loan.",
-                    ],
-                    [
-                      "Repay & Reclaim",
-                      "Repay with interest, tokens returned to you.",
-                    ],
+                    ["Deliver Your Crop", "Bring it to a partner warehouse, where it's weighed and graded."],
+                    ["It's on Record", "Your crop becomes stock in your name, one unit per kilogram."],
+                    ["Borrow or Sell", "Get a cash advance against it, or sell it on the market."],
+                    ["Repay & Reclaim", "Repay with interest and your crop comes back to you."],
                   ],
                 },
                 {
                   label: "For Investors",
                   color: "var(--accent-gold)",
                   steps: [
-                    ["Connect Wallet", "Link MetaMask or any Web3 wallet."],
-                    ["Choose a Pool", "Browse pools by APY and risk profile."],
-                    [
-                      "Deposit Funds",
-                      "Provide USDC liquidity to your chosen pool.",
-                    ],
-                    [
-                      "Earn Returns",
-                      "Earn interest as farmers borrow from your pool.",
-                    ],
+                    ["Sign In", "Continue with Google, email or phone. No crypto wallet needed."],
+                    ["See the Pool", "Live rates, what's lent out, and the crop behind every advance."],
+                    ["Invest", "Add dollars to the pool that funds farmers' advances."],
+                    ["Earn Returns", "Earn interest every second as farmers borrow."],
+                  ],
+                },
+                {
+                  label: "For Buyers",
+                  color: "var(--accent-blue)",
+                  steps: [
+                    ["Browse the Market", "Graded stock in the warehouses, by crop, grade and place."],
+                    ["Buy Any Amount", "Take part or all of a listing; bulk deals for large orders."],
+                    ["Collect or Resell", "Pick it up or have it delivered, or sell it on."],
+                    ["Feed-Grade Stock", "Expired crop at a discount, for animal feed."],
                   ],
                 },
               ].map((side) => (
@@ -772,7 +790,7 @@ export default function Home() {
               fontSize: "15px",
             }}
           >
-            Join thousands of farmers and investors already using AgriBridge.
+            Sign in with Google, email or your phone number. No crypto wallet, no seed phrase.
           </p>
           <div
             className="cta-buttons"

@@ -1,167 +1,86 @@
-import { useEffect, useState } from "react";
+import Head from "next/head";
+import Link from "next/link";
 import { useRouter } from "next/router";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount } from "wagmi";
+import { useEffect, useState } from "react";
+import { useConnection } from "wagmi";
+import { CubeIcon } from "@heroicons/react/24/outline";
 
-import { useSiweLogin } from "../hooks/useSiweLogin";
-import { useAuth } from "./_app";
-import {
-  dashboardPathFor,
-  getCurrentUser,
-  getSessionToken,
-  type SignupRole,
-} from "../lib/auth";
+import { ThemeToggle } from "../components/ThemeToggle";
+import { Segmented } from "../components/ui";
+import { SignIn } from "../components/wallet";
+import { APP_ROLES, getStoredRole, homeFor, isAppRole, storeRole, type AppRole } from "../lib/session";
 
-const card: React.CSSProperties = {
-  width: "100%",
-  maxWidth: "420px",
-  background: "var(--bg-primary)",
-  borderRadius: "28px",
-  boxShadow: "0 24px 70px rgba(17, 34, 17, 0.12)",
-  border: "1px solid var(--border)",
-  padding: "32px",
+const ROLE_HELP: Record<AppRole, string> = {
+  farmer: "Store your crop in a warehouse, get a cash advance against it, or sell it.",
+  investor: "Lend to farmers through the pool and earn interest.",
+  buyer: "Buy graded crops from the warehouses, then collect or resell them.",
 };
 
+/**
+ * Sign-in. With MetaMask Embedded Wallets, people continue with Google, email
+ * or a phone number and their account (and wallet) is created on first sign-in.
+ */
 export default function Login() {
   const router = useRouter();
-  const { isConnected } = useAccount();
-  const { signIn, isSigningIn, error } = useSiweLogin();
-  const { setProfile } = useAuth();
+  const { isConnected } = useConnection();
+  const [role, setRole] = useState<AppRole>("farmer");
 
-  const queryRole = router.query.role;
-  const role: SignupRole = queryRole === "investor" ? "investor" : "farmer";
-
-  const [restoring, setRestoring] = useState(true);
-
-  // If a valid session already exists, skip the sign-in step entirely.
+  // The role comes from the link (?role=investor) or the one used last time.
   useEffect(() => {
-    let cancelled = false;
+    if (!router.isReady) return;
+    const fromQuery = router.query.role;
+    const initial = isAppRole(fromQuery) ? fromQuery : getStoredRole();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the query string is only known after hydration
+    if (initial) setRole(initial);
+  }, [router.isReady, router.query.role]);
 
-    async function restore() {
-      if (!getSessionToken()) {
-        if (!cancelled) setRestoring(false);
-        return;
-      }
-
-      try {
-        const result = await getCurrentUser();
-        if (cancelled) return;
-        if (result?.profile) {
-          setProfile(result.profile);
-          void router.replace(dashboardPathFor(result.profile.role));
-          return;
-        }
-      } catch {
-        // Expired or rejected token: fall through and show the sign-in card.
-      }
-      if (!cancelled) setRestoring(false);
-    }
-
-    void restore();
-    return () => {
-      cancelled = true;
-    };
-  }, [router, setProfile]);
-
-  async function handleSignIn() {
-    const profile = await signIn(role);
-    if (profile) {
-      setProfile(profile);
-      void router.push(dashboardPathFor(profile.role));
-    }
-  }
+  // Once signed in, go where the person was heading, or to their role's home.
+  useEffect(() => {
+    if (!isConnected || !router.isReady) return;
+    storeRole(role);
+    const next = typeof router.query.next === "string" && router.query.next.startsWith("/") ? router.query.next : homeFor(role);
+    void router.replace(next);
+  }, [isConnected, role, router]);
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--bg-secondary)",
-        padding: "24px",
-      }}
-    >
-      <div style={card}>
-        <h1 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "4px" }}>
-          Sign in to AgriBridge
-        </h1>
-        <p
-          style={{
-            fontSize: "13px",
-            color: "var(--text-secondary)",
-            marginBottom: "24px",
-          }}
-        >
-          Connect your wallet and sign a message to continue as{" "}
-          {role === "farmer" ? "a Farmer" : "an Investor"}. Signing is free and
-          does not create a blockchain transaction.
-        </p>
+    <>
+      <Head>
+        <title>Sign in · AgriBridge</title>
+      </Head>
+      <div style={{ minHeight: "100vh", background: "var(--bg-secondary)", display: "grid", placeItems: "center", padding: 16 }}>
+        <div style={{ width: "100%", maxWidth: 440 }}>
+          <div className="spread" style={{ marginBottom: 20 }}>
+            <Link href="/" className="row" style={{ gap: 8, textDecoration: "none", color: "var(--text-primary)" }}>
+              <span style={{ width: 28, height: 28, borderRadius: 6, background: "var(--accent-green)", display: "grid", placeItems: "center" }}>
+                <CubeIcon style={{ width: 16, height: 16, color: "#fff" }} />
+              </span>
+              <strong>
+                Agri<span style={{ color: "var(--accent-green)" }}>Bridge</span>
+              </strong>
+            </Link>
+            <ThemeToggle variant="minimal" />
+          </div>
 
-        {restoring ? (
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            Restoring your session…
-          </p>
-        ) : (
-          <>
-            {error && (
-              <p
-                data-testid="login-error"
-                style={{
-                  background: "#fdecea",
-                  color: "#b71c1c",
-                  padding: "10px 12px",
-                  borderRadius: "10px",
-                  fontSize: "13px",
-                  marginBottom: "12px",
-                }}
-              >
-                {error}
-              </p>
-            )}
+          <div className="card">
+            <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Sign in</h1>
+            <p className="text-secondary" style={{ fontSize: 13, marginBottom: 18 }}>
+              Choose what you want to do first. You can switch at any time.
+            </p>
 
-            <div style={{ marginBottom: 16 }}>
-              <ConnectButton showBalance={false} />
+            <div className="field">
+              <label>I am a</label>
+              <Segmented options={APP_ROLES} value={role} onChange={setRole} testIdPrefix="role" />
+              <span className="hint">{ROLE_HELP[role]}</span>
             </div>
 
-            <button
-              onClick={handleSignIn}
-              disabled={!isConnected || isSigningIn}
-              data-testid="siwe-sign-in"
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: "12px",
-                border: "none",
-                background: isConnected ? "var(--accent-green)" : "var(--border)",
-                color: isConnected ? "#fff" : "var(--text-muted)",
-                fontSize: "14px",
-                fontWeight: 600,
-                cursor: !isConnected || isSigningIn ? "not-allowed" : "pointer",
-                opacity: isSigningIn ? 0.7 : 1,
-              }}
-            >
-              {isSigningIn
-                ? "Waiting for signature…"
-                : isConnected
-                  ? "Sign in with Ethereum"
-                  : "Connect a wallet first"}
-            </button>
-          </>
-        )}
+            <SignIn />
+          </div>
 
-        <p
-          style={{
-            fontSize: "12px",
-            color: "var(--text-muted)",
-            marginTop: "16px",
-            lineHeight: 1.5,
-          }}
-        >
-          Your first sign-in creates your account automatically. No email or
-          password is needed.
-        </p>
+          <p className="muted" style={{ textAlign: "center", marginTop: 16 }}>
+            Just looking? <Link className="link" href="/market">Browse the market</Link> without signing in.
+          </p>
+        </div>
       </div>
-    </main>
+    </>
   );
 }

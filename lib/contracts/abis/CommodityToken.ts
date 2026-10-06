@@ -9,14 +9,9 @@ export const CommodityTokenAbi = [
         "internalType": "address"
       },
       {
-        "name": "_registryAddress",
+        "name": "_registry",
         "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_baseURI",
-        "type": "string",
-        "internalType": "string"
+        "internalType": "contract CommodityRegistry"
       }
     ],
     "stateMutability": "nonpayable"
@@ -30,19 +25,6 @@ export const CommodityTokenAbi = [
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "BaseURI",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -63,6 +45,19 @@ export const CommodityTokenAbi = [
   {
     "type": "function",
     "name": "MINTER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "PROTOCOL_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -131,7 +126,7 @@ export const CommodityTokenAbi = [
         "internalType": "address"
       },
       {
-        "name": "_commodityId",
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -149,7 +144,7 @@ export const CommodityTokenAbi = [
     "name": "exists",
     "inputs": [
       {
-        "name": "_tokenId",
+        "name": "id",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -232,7 +227,7 @@ export const CommodityTokenAbi = [
       {
         "name": "",
         "type": "address",
-        "internalType": "contract ICommodityRegistry"
+        "internalType": "contract CommodityRegistry"
       }
     ],
     "stateMutability": "view"
@@ -271,7 +266,7 @@ export const CommodityTokenAbi = [
         "internalType": "address"
       },
       {
-        "name": "_commodityId",
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -439,23 +434,10 @@ export const CommodityTokenAbi = [
   },
   {
     "type": "function",
-    "name": "setBaseURI",
-    "inputs": [
-      {
-        "name": "_newURI",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "supportsInterface",
     "inputs": [
       {
-        "name": "interfaceId",
+        "name": "_interfaceId",
         "type": "bytes4",
         "internalType": "bytes4"
       }
@@ -473,6 +455,25 @@ export const CommodityTokenAbi = [
     "type": "function",
     "name": "symbol",
     "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "tokenMetadata",
+    "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -526,7 +527,7 @@ export const CommodityTokenAbi = [
     "name": "uri",
     "inputs": [
       {
-        "name": "_tokenId",
+        "name": "_lotId",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -570,13 +571,13 @@ export const CommodityTokenAbi = [
     "name": "CommodityTokenBurned",
     "inputs": [
       {
-        "name": "commodityId",
+        "name": "lotId",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
       },
       {
-        "name": "farmer",
+        "name": "from",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -601,7 +602,7 @@ export const CommodityTokenAbi = [
     "name": "CommodityTokenMinted",
     "inputs": [
       {
-        "name": "commodityId",
+        "name": "lotId",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
@@ -844,11 +845,6 @@ export const CommodityTokenAbi = [
   },
   {
     "type": "error",
-    "name": "CommodityToken__CommodityNotFound",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "CommodityToken__InvalidAddress",
     "inputs": []
   },
@@ -856,6 +852,17 @@ export const CommodityTokenAbi = [
     "type": "error",
     "name": "CommodityToken__InvalidQuantity",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommodityToken__LotFrozen",
+    "inputs": [
+      {
+        "name": "lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
@@ -978,5 +985,21 @@ export const CommodityTokenAbi = [
     "type": "error",
     "name": "ExpectedPause",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "StringsInsufficientHexLength",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   }
 ] as const;

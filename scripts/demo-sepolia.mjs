@@ -148,11 +148,14 @@ function printSettings() {
 
 /** Writes .env.local for `npm run dev`, keeping a copy of one we did not generate. */
 function writeEnvLocal() {
-  if (existsSync(ENV_FILE) && !readFileSync(ENV_FILE, "utf8").startsWith(ENV_MARKER)) {
+  const previous = existsSync(ENV_FILE) ? readFileSync(ENV_FILE, "utf8") : "";
+  if (previous && !previous.startsWith(ENV_MARKER)) {
     copyFileSync(ENV_FILE, `${ENV_FILE}.backup`);
     console.log("Saved your previous .env.local as .env.local.backup");
   }
-  writeFileSync(ENV_FILE, `${ENV_MARKER}\n${appSettings().join("\n")}\n`);
+  // Keep the sign-in settings (MetaMask Embedded Wallets client ID): they belong to the app, not the deployment.
+  const signIn = previous.split(/\r?\n/).filter((line) => /^NEXT_PUBLIC_WEB3AUTH_[A-Z_]+=/.test(line));
+  writeFileSync(ENV_FILE, `${ENV_MARKER}\n${[...appSettings(), ...signIn].join("\n")}\n`);
   console.log("Wrote .env.local: `npm run dev` now uses this Sepolia deployment.");
 }
 
