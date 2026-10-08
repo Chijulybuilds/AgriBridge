@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArchiveBoxIcon, BuildingStorefrontIcon, ChartBarIcon, TagIcon } from "@heroicons/react/24/outline";
+import { ArchiveBoxIcon, BuildingStorefrontIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, LotLabel } from "../../components/lots";
 import { BulkDealNote, BuyPanel, ListingPrice } from "../../components/market";
-import { Card, CropSeal, EmptyState, Notice, PageHeader, Skeleton, Stat } from "../../components/ui";
+import { MarketOverview, PriceAgeing, type CropStock } from "../../components/marketOverview";
+import { Card, CropSeal, EmptyState, Notice, PageHeader, Skeleton } from "../../components/ui";
 import { useCommodities, useListings, useLots, useWarehouses, type Lot } from "../../hooks/useProtocolData";
 import { GRADES } from "../../lib/contracts/config";
-import { date, kg, pricePerKg, relativeDays, shortAddress } from "../../lib/format";
+import { date, kg, relativeDays, shortAddress } from "../../lib/format";
 import { useRememberedRole } from "../../lib/session";
 
 /**
@@ -58,8 +59,22 @@ export default function Market() {
     return [...rows.values()].sort((a, b) => Number(a.commodityId - b.commodityId) || a.grade.localeCompare(b.grade));
   }, [lots, listings, lotById]);
 
-  const totalStored = stock.reduce((sum, r) => sum + r.storedKg, 0n);
+  // The overview always shows the whole market; the filters only narrow the listings.
+  const allForSale = listings.filter((l) => l.active && !l.clearance);
   const totalForSale = stock.reduce((sum, r) => sum + r.forSaleKg, 0n);
+  const valueForSale = isLoading
+    ? undefined
+    : Number(allForSale.reduce((sum, l) => sum + ((l.pricePerKg ?? 0n) * l.kgRemaining) / 10n ** 18n, 0n)) / 1e6;
+  const byCrop: CropStock[] = commodities
+    .filter((c) => c.active)
+    .map((commodity) => {
+      const rows = stock.filter((r) => r.commodityId === commodity.id);
+      return {
+        commodity,
+        storedKg: rows.reduce((sum, r) => sum + r.storedKg, 0n),
+        forSaleKg: rows.reduce((sum, r) => sum + r.forSaleKg, 0n),
+      };
+    });
 
   return (
     <AppLayout role={role} title="Market" requireWallet={false}>
@@ -85,13 +100,17 @@ export default function Market() {
         </Notice>
       )}
 
-      <div className="grid-4">
-        <Stat lead icon={TagIcon} label="For sale now" value={kg(totalForSale)} sub={`${forSale.length} listing${forSale.length === 1 ? "" : "s"}`} />
-        <Stat icon={ArchiveBoxIcon} label="In the warehouses" value={kg(totalStored)} sub="Verified and graded" />
-        {commodities.slice(0, 2).map((c) => (
-          <Stat key={c.id.toString()} icon={ChartBarIcon} label={`${c.name} price`} value={pricePerKg(c.price)} sub="Grade A, before ageing" />
-        ))}
-      </div>
+      <MarketOverview
+        valueForSale={valueForSale}
+        kgForSale={totalForSale}
+        listingCount={allForSale.length}
+        crops={byCrop}
+        warehouses={warehouses.filter((w) => w.active)}
+        selectedCrop={commodityFilter}
+        onSelectCrop={setCommodityFilter}
+        selectedWarehouse={warehouseFilter}
+        onSelectWarehouse={setWarehouseFilter}
+      />
 
       <Card title="Filter">
         <div className="grid-3" style={{ marginBottom: 0 }}>
@@ -203,6 +222,15 @@ export default function Market() {
             </table>
           </div>
         )}
+      </Card>
+
+      <div style={{ height: 28 }} />
+
+      <Card title="Prices and ageing">
+        <p className="text-secondary" style={{ marginTop: -6, marginBottom: 20, maxWidth: "68ch" }}>
+          Each crop&apos;s price for a kilogram at grade A, and what that kilogram is worth as it ages. Older stock costs less.
+        </p>
+        <PriceAgeing commodities={commodities} />
       </Card>
 
       <div style={{ height: 28 }} />

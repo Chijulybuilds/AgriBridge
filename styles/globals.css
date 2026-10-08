@@ -1365,6 +1365,311 @@ input[type="radio"] {
   display: none;
 }
 
+/* ─── Market overview ────────────────────────────────────────────────────── */
+
+/*
+ * Read like an infographic, in order of importance: what the crop for sale is worth, how much of
+ * each crop is stored and listed, how full each warehouse is, then each crop's price and ageing.
+ * Each crop draws in its own colour (--crop); everything else stays in the page's neutrals.
+ */
+.market-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.market-hero-label {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+/* The headline figure reserves its final width, so it never shifts while it counts up. */
+.market-hero-figure {
+  display: grid;
+  justify-items: start;
+  font-family: var(--font-display), "Arial Narrow", sans-serif;
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.count-reserve,
+.count-live {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+.count-reserve {
+  visibility: hidden;
+}
+
+.market-hero-sub {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.crop-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 36px 0 14px;
+}
+
+.crop-chart-head h3 {
+  font-size: 14px;
+}
+
+.crop-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.crop-legend-key {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-inline-start: 8px;
+}
+
+.crop-legend-sale {
+  background: var(--text-secondary);
+}
+
+.crop-legend-stored {
+  background: color-mix(in oklch, var(--text-secondary) 22%, transparent);
+}
+
+.crop-chart {
+  display: flex;
+  gap: 14px;
+  height: 196px;
+}
+
+/* Each crop is a button: it filters the listings to that crop. */
+.crop-bar {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  padding: 0;
+  font: inherit;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition-property: opacity;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-out);
+}
+
+.crop-bar[data-dimmed="true"] {
+  opacity: 0.4;
+}
+
+.crop-bar-share {
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.crop-bar-column {
+  display: flex;
+  align-items: flex-end;
+  min-height: 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.crop-bar-stored {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  border-radius: 8px 8px 4px 4px;
+  background: color-mix(in oklch, var(--crop) 22%, transparent);
+  overflow: hidden;
+}
+
+.crop-bar-sale {
+  width: 100%;
+  background: var(--crop);
+}
+
+.crop-bar-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crop-bar[aria-pressed="true"] .crop-bar-name {
+  color: var(--text-primary);
+}
+
+.crop-bar[aria-pressed="true"] .crop-bar-stored {
+  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--crop);
+}
+
+/* The exact figures, on hover or keyboard focus. */
+.crop-bar-tip {
+  position: absolute;
+  bottom: calc(100% - 18px);
+  left: 50%;
+  translate: -50% 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--text-primary);
+  color: var(--bg-card);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 2;
+  transition-property: opacity;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-out);
+}
+
+.crop-bar:hover .crop-bar-tip,
+.crop-bar:focus-visible .crop-bar-tip {
+  opacity: 1;
+}
+
+.fill-list {
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.fill-row {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin-inline: -12px;
+  box-sizing: content-box;
+  font: inherit;
+  font-size: 14px;
+  text-align: start;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition-property: background-color, opacity;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-out);
+}
+
+.fill-row:hover {
+  background: var(--bg-card-hover);
+}
+
+.fill-row[aria-pressed="true"] {
+  background: var(--brand-soft);
+}
+
+.fill-row[data-dimmed="true"] {
+  opacity: 0.5;
+}
+
+.fill-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.fill-bar {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+.fill-bar[data-high="true"] {
+  background: var(--warn);
+}
+
+.price-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.price-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.price-card-figure {
+  margin-top: 14px;
+  font-family: var(--font-display), "Arial Narrow", sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ageing-curve {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.ageing-area {
+  fill: color-mix(in oklch, var(--crop) 12%, transparent);
+}
+
+.ageing-line {
+  fill: none;
+  stroke: var(--crop);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ageing-tick {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--text-muted);
+}
+
+@media (max-width: 1024px) {
+  .market-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .market-hero-figure {
+    font-size: 48px;
+  }
+
+  .crop-chart {
+    gap: 8px;
+    height: 168px;
+  }
+}
+
 /* ─── Motion ─────────────────────────────────────────────────────────────── */
 
 /*
@@ -1448,6 +1753,22 @@ input[type="radio"] {
     animation: value-changed calc(var(--dur-quick) * 12) var(--ease-out);
   }
 
+  /* The market overview is revealed in order of importance: the figure counts up (in code), the
+     crop bars rise from the baseline, the warehouse fills slide in, then the shares settle on top. */
+  .crop-bar-stored {
+    transform-origin: bottom;
+    animation: grow-up var(--dur-slow) var(--ease-out) calc(var(--stagger) * 2) backwards;
+  }
+
+  .fill-bar {
+    transform-origin: left;
+    animation: grow-right var(--dur-slow) var(--ease-out) calc(var(--stagger) * 2) backwards;
+  }
+
+  .crop-bar-share {
+    animation: rise-in var(--dur-standard) var(--ease-out) calc(var(--stagger) * 3 + var(--dur-standard)) backwards;
+  }
+
   /* Value bars grow from the baseline together, like a reading settling on a scale. */
   .timeline-bar {
     transform-origin: bottom;
@@ -1485,6 +1806,12 @@ input[type="radio"] {
 @keyframes grow-up {
   from {
     scale: 1 0;
+  }
+}
+
+@keyframes grow-right {
+  from {
+    scale: 0 1;
   }
 }
 

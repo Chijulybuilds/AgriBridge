@@ -316,13 +316,18 @@ const CROP_COLOURS: Record<string, string> = {
   soybeans: "oklch(0.52 0.1 135)",
 };
 
+/** A crop's own colour, for its seal and for its share of a chart. */
+export function cropColour(name: string | undefined): string {
+  return CROP_COLOURS[(name ?? "").toLowerCase()] ?? "oklch(0.45 0.05 158)";
+}
+
 export function CropSeal({ name, size = 34 }: { name: string | undefined; size?: number }) {
   const key = (name ?? "").toLowerCase();
   return (
     <span
       className="crop-seal"
       aria-hidden="true"
-      style={{ width: size, height: size, fontSize: size * 0.48, background: CROP_COLOURS[key] ?? "oklch(0.45 0.05 158)" }}
+      style={{ width: size, height: size, fontSize: size * 0.48, background: cropColour(key) }}
     >
       {(name ?? "?").charAt(0)}
     </span>
