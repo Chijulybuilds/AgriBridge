@@ -4,7 +4,10 @@ import { useRouter } from "next/router";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, m } from "motion/react";
 
-/** The phone menu: arrives at the slow duration, leaves faster on the exit curve (globals.css). */
+/**
+ * The phone menu: a short slide with a fade rather than its full width (which would cross most of a
+ * phone screen); arrives at the slow duration, leaves faster on the exit curve (globals.css).
+ */
 const DRAWER_IN = { type: "spring", duration: 0.36, bounce: 0 } as const;
 const DRAWER_OUT = { duration: 0.24, ease: [0.3, 0, 1, 1] } as const;
 import { useConnection } from "wagmi";
@@ -140,9 +143,9 @@ export default function AppLayout({
                 aria-modal="true"
                 aria-label="Menu"
                 style={{ boxShadow: "var(--shadow-lg)" }}
-                initial={{ x: "-100%" }}
-                animate={{ x: 0, transition: DRAWER_IN }}
-                exit={{ x: "-100%", transition: DRAWER_OUT }}
+                initial={{ x: -32, opacity: 0 }}
+                animate={{ x: 0, opacity: 1, transition: DRAWER_IN }}
+                exit={{ x: -32, opacity: 0, transition: DRAWER_OUT }}
               >
                 <Sidebar role={role} onNavigate={() => setMenuOpen(false)} closable />
               </m.aside>

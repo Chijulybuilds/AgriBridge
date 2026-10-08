@@ -146,7 +146,8 @@
  *   turns linearly, the placeholder shimmer eases in and out).
  * - Timing: every duration is a multiple of 120ms (quick 120, standard 240, slow 360, hero 480).
  * - Entrance: one family only, a rise of at most 8px with a fade (16px on the landing page).
- * - Stagger: 60ms between grouped items, in reading order, capped at four steps.
+ * - Stagger: 60ms between grouped items, in reading order, capped at three steps, so a page
+ *   used every day is fully in place within 420ms.
  * - Intensity: no overshoot, press scale 0.96, a failed action nudges 4px once.
  * - Restraint: motion explains a change and then holds still. Nothing loops except loading.
  *   Exactly one hero moment, the receipt being stamped on the landing page.
@@ -1411,7 +1412,7 @@ input[type="radio"] {
 @media (prefers-reduced-motion: no-preference) {
   /* A page arrives in reading order: title, figures, then the work. */
   .app-content > * {
-    animation: rise-in var(--dur-slow) var(--ease-out) backwards;
+    animation: rise-in var(--dur-standard) var(--ease-out) backwards;
   }
 
   .app-content > :nth-child(2) {
@@ -1422,12 +1423,8 @@ input[type="radio"] {
     animation-delay: calc(var(--stagger) * 2);
   }
 
-  .app-content > :nth-child(4) {
+  .app-content > :nth-child(n + 4) {
     animation-delay: calc(var(--stagger) * 3);
-  }
-
-  .app-content > :nth-child(n + 5) {
-    animation-delay: calc(var(--stagger) * 4);
   }
 
   /* A tab's panel and a transaction's status arrive with the same short rise. */
