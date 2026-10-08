@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useConnection } from "wagmi";
+import { ArchiveBoxIcon, BanknotesIcon, ClockIcon, ScaleIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, LotState, lotName, ValueTimeline } from "../../components/lots";
-import { Card, EmptyState, Notice, PageHeader, Stat } from "../../components/ui";
+import { Card, CropSeal, EmptyState, Notice, PageHeader, Skeleton, Stat } from "../../components/ui";
 import { lotValue, useCommodities, useLoans, useLots, useWarehouses, type Lot } from "../../hooks/useProtocolData";
 import { date, kg, relativeDays, SECONDS_PER_DAY, usd, useNow } from "../../lib/format";
 import { useRememberedRole } from "../../lib/session";
@@ -35,14 +36,15 @@ export default function MyStock() {
   return (
     <AppLayout role={role} title="My stock">
       <PageHeader
+        eyebrow="Your stock"
         title="My stock"
         subtitle="Crop you own in the warehouses, delivered or bought. One unit is one kilogram, and its value falls slowly as it ages."
       />
 
       <div className="grid-4">
-        <Stat label="Worth today" value={usd(total)} testId="stock-value" />
-        <Stat label="Kilograms held" value={kg(totalKg)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} />
-        <Stat label="Expiring within 30 days" value={String(expiring.length)} sub="Sell or collect these first" />
+        <Stat icon={BanknotesIcon} label="Worth today" value={usd(total)} testId="stock-value" />
+        <Stat icon={ScaleIcon} tone="blue" label="Kilograms held" value={kg(totalKg)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} />
+        <Stat icon={ClockIcon} tone="gold" label="Expiring within 30 days" value={String(expiring.length)} sub="Sell or collect these first" />
       </div>
 
       {expiring.length > 0 && (
@@ -53,11 +55,23 @@ export default function MyStock() {
 
       <Card title="Lots" testId="stock">
         {isLoading ? (
-          <EmptyState>Loading…</EmptyState>
+          <Skeleton rows={4} />
         ) : held.length === 0 ? (
-          <EmptyState>
-            Nothing here yet. <Link className="link" href="/farmer/deliver">Deliver a crop</Link> or{" "}
-            <Link className="link" href="/market">buy on the market</Link>.
+          <EmptyState
+            icon={ArchiveBoxIcon}
+            title="Nothing in storage yet"
+            action={
+              <div className="row" style={{ justifyContent: "center" }}>
+                <Link className="btn btn-small" href="/farmer/deliver">
+                  Deliver a crop
+                </Link>
+                <Link className="btn btn-secondary btn-small" href="/market">
+                  Buy on the market
+                </Link>
+              </div>
+            }
+          >
+            Crop you deliver or buy shows up here, ready to borrow against, sell or collect.
           </EmptyState>
         ) : (
           <div className="table-scroll">
@@ -79,6 +93,7 @@ export default function MyStock() {
                     key={lot.id.toString()}
                     lot={lot}
                     name={lotName(lot, commodities)}
+                    crop={commodities.get(lot.commodityId)?.name}
                     warehouse={warehouses.get(lot.warehouseId)?.name}
                     value={lotValue(lot, commodities.get(lot.commodityId), lot.balanceKg)}
                     pledged={pledged.get(lot.id)}
@@ -99,6 +114,7 @@ export default function MyStock() {
 function StockRow({
   lot,
   name,
+  crop,
   warehouse,
   value,
   pledged,
@@ -108,6 +124,7 @@ function StockRow({
 }: {
   lot: Lot;
   name: string;
+  crop?: string;
   warehouse?: string;
   value?: bigint;
   pledged?: bigint;
@@ -119,10 +136,15 @@ function StockRow({
     <>
       <tr>
         <td>
-          <strong>{name}</strong>
-          <div className="row" style={{ gap: 6, marginTop: 2 }}>
-            <LotState lot={lot} />
-          </div>
+          <span className="row" style={{ gap: 11, flexWrap: "nowrap" }}>
+            <CropSeal name={crop} size={32} />
+            <span>
+              <strong style={{ whiteSpace: "nowrap" }}>{name}</strong>
+              <span className="row" style={{ gap: 6, marginTop: 3 }}>
+                <LotState lot={lot} />
+              </span>
+            </span>
+          </span>
         </td>
         <td>
           <GradeBadge grade={lot.currentGrade} />

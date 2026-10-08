@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { useEffect, useState, type FormEvent } from "react";
 import { useConnection } from "wagmi";
+import { ClipboardDocumentListIcon, TruckIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../../components/layout/AppLayout";
 import { lotName } from "../../components/lots";
@@ -10,7 +11,7 @@ import { useCommodities, useLots, useStorageFee, useUsdc, useWarehouses, useWith
 import { useTx } from "../../hooks/useTx";
 import { WarehouseDeskAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
-import { date, kg, kgNumber, parseKg, parseUsd, usd, usdPerKg } from "../../lib/format";
+import { date, kg, kgInput, parseKgUpTo, parseUsd, usd, usdPerKg } from "../../lib/format";
 import { useRememberedRole } from "../../lib/session";
 
 type Method = "pickup" | "delivery";
@@ -40,7 +41,7 @@ export default function Collect() {
 
   const lot = collectable.find((l) => l.id.toString() === lotId);
   const commodity = lot ? commodities.get(lot.commodityId) : undefined;
-  const kgAmount = parseKg(quantity);
+  const kgAmount = lot ? parseKgUpTo(quantity, lot.balanceKg) : undefined;
   const { data: storageFee } = useStorageFee(lot?.id, kgAmount);
   const deliveryBudget = method === "delivery" ? (parseUsd(budget) ?? 0n) : 0n;
 
@@ -51,7 +52,7 @@ export default function Collect() {
     if (!pick) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- defaults depend on data that arrives after mount
     setLotId(pick.id.toString());
-    setQuantity(String(kgNumber(pick.balanceKg)));
+    setQuantity(kgInput(pick.balanceKg));
   }, [collectable, lotId, router.query.lot]);
 
   async function submit(event: FormEvent) {
@@ -86,6 +87,7 @@ export default function Collect() {
   return (
     <AppLayout role={role} title="Collect">
       <PageHeader
+        eyebrow="Your stock"
         title="Collect from the warehouse"
         subtitle="Take your goods out of storage: pick them up yourself, or have the warehouse deliver them. Storage is paid when you collect."
       />
@@ -96,7 +98,9 @@ export default function Collect() {
       <div className="grid-2">
         <Card title="Ask to collect">
           {collectable.length === 0 ? (
-            <EmptyState>You have no stock to collect.</EmptyState>
+            <EmptyState icon={TruckIcon} title="Nothing to collect">
+              Stock you hold in a warehouse can be picked up or delivered from here.
+            </EmptyState>
           ) : (
             <form onSubmit={submit} noValidate>
               <div className="field">
@@ -156,7 +160,7 @@ export default function Collect() {
 
         <Card title="My requests">
           {requests.length === 0 ? (
-            <EmptyState>No requests yet.</EmptyState>
+            <EmptyState icon={ClipboardDocumentListIcon}>No requests yet.</EmptyState>
           ) : (
             <table className="table">
               <tbody>

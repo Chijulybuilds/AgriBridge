@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ArchiveBoxIcon, BuildingStorefrontIcon, ChartBarIcon, TagIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../../components/layout/AppLayout";
-import { GradeBadge, lotName } from "../../components/lots";
+import { GradeBadge, LotLabel } from "../../components/lots";
 import { BulkDealNote, BuyPanel, ListingPrice } from "../../components/market";
-import { Card, EmptyState, Notice, PageHeader, Stat } from "../../components/ui";
+import { Card, CropSeal, EmptyState, Notice, PageHeader, Skeleton, Stat } from "../../components/ui";
 import { useCommodities, useListings, useLots, useWarehouses, type Lot } from "../../hooks/useProtocolData";
 import { GRADES } from "../../lib/contracts/config";
 import { date, kg, pricePerKg, relativeDays, shortAddress } from "../../lib/format";
@@ -63,6 +64,7 @@ export default function Market() {
   return (
     <AppLayout role={role} title="Market" requireWallet={false}>
       <PageHeader
+        eyebrow="Buy and sell"
         title="Market"
         subtitle="Graded crop stored in our warehouses, sold by the kilogram. Lower grades cost less, which suits feed makers. Buy, then collect it or resell it."
         actions={
@@ -84,10 +86,10 @@ export default function Market() {
       )}
 
       <div className="grid-4">
-        <Stat label="In the warehouses" value={kg(totalStored)} sub="Verified and graded" />
-        <Stat label="For sale now" value={kg(totalForSale)} sub={`${forSale.length} listing${forSale.length === 1 ? "" : "s"}`} />
+        <Stat icon={ArchiveBoxIcon} label="In the warehouses" value={kg(totalStored)} sub="Verified and graded" />
+        <Stat icon={TagIcon} tone="gold" label="For sale now" value={kg(totalForSale)} sub={`${forSale.length} listing${forSale.length === 1 ? "" : "s"}`} />
         {commodities.slice(0, 2).map((c) => (
-          <Stat key={c.id.toString()} label={`${c.name} price`} value={pricePerKg(c.price)} sub="Grade A, before ageing" />
+          <Stat key={c.id.toString()} icon={ChartBarIcon} tone="blue" label={`${c.name} price`} value={pricePerKg(c.price)} sub="Grade A, before ageing" />
         ))}
       </div>
 
@@ -124,9 +126,11 @@ export default function Market() {
 
       <Card title="For sale" testId="listings">
         {isLoading ? (
-          <EmptyState>Loading…</EmptyState>
+          <Skeleton rows={4} />
         ) : forSale.length === 0 ? (
-          <EmptyState>Nothing for sale matches. Check back soon, or change the filters.</EmptyState>
+          <EmptyState icon={BuildingStorefrontIcon} title="Nothing for sale matches">
+            Check back soon, or change the filters. Farmers list straight from their stock.
+          </EmptyState>
         ) : (
           <div className="table-scroll">
             <table className="table">
@@ -151,8 +155,11 @@ export default function Market() {
                       cells={
                         <>
                           <td>
-                            <strong>{lotName(lot, commodityById)}</strong>
-                            <div className="muted">Seller {shortAddress(listing.seller)}</div>
+                            <LotLabel
+                              lot={lot}
+                              commodities={commodityById}
+                              sub={<span style={{ whiteSpace: "nowrap" }}>Seller {shortAddress(listing.seller)}</span>}
+                            />
                           </td>
                           <td>
                             <GradeBadge grade={lot.currentGrade} />
@@ -202,7 +209,7 @@ export default function Market() {
 
       <Card title="Stock in the warehouses" testId="stock-overview">
         {stock.length === 0 ? (
-          <EmptyState>No verified stock yet.</EmptyState>
+          <EmptyState icon={ArchiveBoxIcon}>No verified stock yet.</EmptyState>
         ) : (
           <table className="table">
             <thead>
@@ -217,7 +224,12 @@ export default function Market() {
             <tbody>
               {stock.map((row) => (
                 <tr key={`${row.commodityId}-${row.grade}-${row.warehouseId}`}>
-                  <td>{commodityById.get(row.commodityId)?.name}</td>
+                  <td>
+                    <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
+                      <CropSeal name={commodityById.get(row.commodityId)?.name} size={26} />
+                      <strong>{commodityById.get(row.commodityId)?.name}</strong>
+                    </span>
+                  </td>
                   <td>
                     <GradeBadge grade={row.grade} />
                   </td>

@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { keccak256, toHex, type Hex } from "viem";
+import { InboxArrowDownIcon } from "@heroicons/react/24/outline";
 
-import { useCommodities, useLots, useWarehouses, type Lot } from "../../hooks/useProtocolData";
+import { useCommodities, useLots, useWarehouses, type Commodity, type Lot } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { CommodityRegistryAbi } from "../../lib/contracts/abis";
 import { contracts, GRADES } from "../../lib/contracts/config";
-import { date, kg, kgNumber, parseKg, shortAddress, textToBytes32 } from "../../lib/format";
-import { lotName } from "../lots";
+import { date, kg, kgInput, parseKg, shortAddress, textToBytes32 } from "../../lib/format";
+import { LotLabel } from "../lots";
 import { TxStatus } from "../TxStatus";
-import { Card, EmptyState, Notice } from "../ui";
+import { Card, EmptyState, Notice, Skeleton } from "../ui";
 
 /**
  * Deliveries waiting at the warehouses. The Safe records what was actually
@@ -24,13 +25,13 @@ export function IntakeTab() {
   return (
     <Card title={`Waiting for weighing and grading (${pending.length})`} testId="verifier-intake">
       {isLoading ? (
-        <EmptyState>Loading…</EmptyState>
+        <Skeleton rows={3} />
       ) : pending.length === 0 ? (
-        <EmptyState>No deliveries waiting.</EmptyState>
+        <EmptyState icon={InboxArrowDownIcon}>No deliveries waiting. New bookings from farmers appear here.</EmptyState>
       ) : (
         <div className="stack">
           {pending.map((lot) => (
-            <IntakeItem key={lot.id.toString()} lot={lot} name={lotName(lot, commodities)} warehouse={warehouses.get(lot.warehouseId)?.name} />
+            <IntakeItem key={lot.id.toString()} lot={lot} commodities={commodities} warehouse={warehouses.get(lot.warehouseId)?.name} />
           ))}
         </div>
       )}
@@ -38,9 +39,9 @@ export function IntakeTab() {
   );
 }
 
-function IntakeItem({ lot, name, warehouse }: { lot: Lot; name: string; warehouse?: string }) {
+function IntakeItem({ lot, commodities, warehouse }: { lot: Lot; commodities: Map<bigint, Commodity>; warehouse?: string }) {
   const tx = useTx();
-  const [measured, setMeasured] = useState(String(kgNumber(lot.estimatedKg)));
+  const [measured, setMeasured] = useState(kgInput(lot.estimatedKg));
   const [grade, setGrade] = useState(0);
   const [evidence, setEvidence] = useState<Hex>();
   const [evidenceLabel, setEvidenceLabel] = useState("");
@@ -83,14 +84,13 @@ function IntakeItem({ lot, name, warehouse }: { lot: Lot; name: string; warehous
   }
 
   return (
-    <div className="card" style={{ padding: 14 }} data-testid={`intake-${lot.id}`}>
-      <div className="spread" style={{ marginBottom: 10 }}>
-        <div>
-          <strong>{name}</strong>
-          <div className="muted">
-            {warehouse} · farmer {shortAddress(lot.farmer)} · about {kg(lot.estimatedKg)} · harvested {date(lot.harvestDate)} · booked {date(lot.requestedAt)}
-          </div>
-        </div>
+    <div className="card-sunken" data-testid={`intake-${lot.id}`}>
+      <div style={{ marginBottom: 14 }}>
+        <LotLabel
+          lot={lot}
+          commodities={commodities}
+          sub={`${warehouse} · farmer ${shortAddress(lot.farmer)} · about ${kg(lot.estimatedKg)} · harvested ${date(lot.harvestDate)} · booked ${date(lot.requestedAt)}`}
+        />
       </div>
       <div className="grid-3" style={{ marginBottom: 6, alignItems: "start" }}>
         <div className="field">

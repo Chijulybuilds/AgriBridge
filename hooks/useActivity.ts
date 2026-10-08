@@ -20,6 +20,8 @@ export type ActivityItem = {
   blockNumber: bigint;
   logIndex: number;
   timestamp?: number;
+  /** The contract event behind the line, such as "LoanOpened". */
+  event: string;
   text: string;
 };
 
@@ -40,7 +42,8 @@ const blockTimes = new Map<bigint, number>();
 export async function scanLogs(
   fetchers: Array<(range: { fromBlock: bigint; toBlock: bigint }) => Promise<unknown[]>>,
 ): Promise<DecodedLog[]> {
-  const latest = await publicClient.getBlockNumber();
+  // Uncached: viem reuses a block number for a polling interval, which would miss the block a transaction just landed in.
+  const latest = await publicClient.getBlockNumber({ cacheTime: 0 });
   const first = DEPLOY_BLOCK ?? (latest > FALLBACK_LOOKBACK ? latest - FALLBACK_LOOKBACK : 0n);
   const logs: DecodedLog[] = [];
   for (let from = first; from <= latest; from += CHUNK) {
@@ -145,7 +148,14 @@ export function useActivity() {
       for (const log of logs) {
         const text = describe(log, commodityNames);
         if (!text) continue;
-        items.push({ key: `${log.transactionHash}-${log.logIndex}`, txHash: log.transactionHash, blockNumber: log.blockNumber, logIndex: log.logIndex, text });
+        items.push({
+          key: `${log.transactionHash}-${log.logIndex}`,
+          txHash: log.transactionHash,
+          blockNumber: log.blockNumber,
+          logIndex: log.logIndex,
+          event: log.eventName,
+          text,
+        });
         if (items.length >= MAX_ITEMS) break;
       }
       return withTimes(items);

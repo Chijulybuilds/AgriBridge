@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useConnection } from "wagmi";
+import { BanknotesIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, lotName } from "../../components/lots";
@@ -15,10 +16,10 @@ import {
   date,
   isoDay,
   kg,
-  kgNumber,
+  kgInput,
   maturityTimestamp,
   nowSeconds,
-  parseKg,
+  parseKgUpTo,
   parseUsd,
   percentFromBps,
   percentFromWad,
@@ -60,12 +61,12 @@ export default function Advance() {
     if (!pick) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- defaults depend on data that arrives after mount
     setLotId(pick.id.toString());
-    setQuantity(String(kgNumber(pick.balanceKg)));
+    setQuantity(kgInput(pick.balanceKg));
   }, [eligible, lotId, router.query.lot]);
 
   const minDay = isoDay(nowSeconds() + 2 * SECONDS_PER_DAY);
   const maxDay = lot?.expiresAt ? isoDay(Number(lot.expiresAt) - (MATURITY_BUFFER_DAYS + 1) * SECONDS_PER_DAY) : undefined;
-  const kgAmount = parseKg(quantity);
+  const kgAmount = lot ? parseKgUpTo(quantity, lot.balanceKg) : undefined;
   const maturity = endDay ? maturityTimestamp(endDay) : undefined;
   const { data: maxBorrow } = useMaxBorrow(lot?.id, kgAmount, maturity);
   const advance = parseUsd(amount);
@@ -103,6 +104,7 @@ export default function Advance() {
   return (
     <AppLayout role="farmer" title="Get an advance">
       <PageHeader
+        eyebrow="Farmer"
         title="Get an advance"
         subtitle="Borrow dollars against crop in storage. The crop stays in the warehouse as security and comes back to you when you repay."
       />
@@ -112,9 +114,16 @@ export default function Advance() {
 
       {eligible.length === 0 ? (
         <Card>
-          <EmptyState>
-            You have no free verified crop to borrow against. <Link className="link" href="/farmer/deliver">Deliver a crop</Link>; once
-            the warehouse has weighed and graded it, you can borrow here.
+          <EmptyState
+            icon={BanknotesIcon}
+            title="Nothing free to borrow against"
+            action={
+              <Link className="btn btn-small" href="/farmer/deliver">
+                Deliver a crop
+              </Link>
+            }
+          >
+            Once the warehouse has weighed and graded your crop, you can borrow against it here.
           </EmptyState>
         </Card>
       ) : (

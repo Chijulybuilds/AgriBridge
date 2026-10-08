@@ -5,11 +5,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useConnection } from "wagmi";
 import {
   ArchiveBoxIcon,
-  ArrowsRightLeftIcon,
   BanknotesIcon,
   Bars3Icon,
   BuildingStorefrontIcon,
-  ChartBarIcon,
+  ChartBarSquareIcon,
   CubeIcon,
   DocumentTextIcon,
   HomeIcon,
@@ -19,6 +18,7 @@ import {
   Squares2X2Icon,
   TagIcon,
   TruckIcon,
+  WalletIcon,
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
@@ -27,6 +27,7 @@ import { usd } from "../../lib/format";
 import { APP_ROLES, storeRole, type AppRole } from "../../lib/session";
 import { useHasRegistryRole, useUsdc } from "../../hooks/useProtocolData";
 import { DemoFaucet } from "../DemoFaucet";
+import { Logo, LogoMark } from "../Logo";
 import { NetworkGuard } from "../NetworkGuard";
 import { RequireWallet } from "../RequireWallet";
 import { ThemeToggle } from "../ThemeToggle";
@@ -58,15 +59,9 @@ const NAV: Record<AppRole, NavItem[]> = {
   ],
 };
 
-const ACCENT: Record<AppRole, { color: string; bg: string }> = {
-  farmer: { color: "var(--accent-green)", bg: "var(--accent-green-bg)" },
-  investor: { color: "var(--accent-gold)", bg: "var(--accent-gold-bg)" },
-  buyer: { color: "var(--accent-blue)", bg: "var(--accent-blue-bg)" },
-};
-
 /**
  * The signed-in app: a sidebar for the person's current role (farmer, investor
- * or buyer), a switch to the other roles, and a top bar with their balance.
+ * or buyer) with a switch between them, and a top bar with their balance.
  * Pages that anyone may see (the market) pass `requireWallet={false}`.
  */
 export default function AppLayout({
@@ -99,41 +94,46 @@ export default function AppLayout({
       <Head>
         <title>{`${title} · AgriBridge`}</title>
       </Head>
-      <style>{`
-        @media (max-width: 768px) {
-          .mobile-overlay { display: ${menuOpen ? "block" : "none"} !important; }
-          .mobile-sidebar { display: ${menuOpen ? "flex" : "none"} !important; }
-        }
-      `}</style>
       <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-primary)" }}>
-        <aside className="desktop-sidebar" style={sidebarStyle}>
-          <Sidebar role={role} onNavigate={() => setMenuOpen(false)} />
-        </aside>
-        <div className="mobile-overlay" onClick={() => setMenuOpen(false)} style={overlayStyle} />
-        <aside className="mobile-sidebar" style={{ ...sidebarStyle, display: "none", zIndex: 50, width: 240 }}>
+        <aside className="app-sidebar desktop-sidebar">
           <Sidebar role={role} onNavigate={() => setMenuOpen(false)} />
         </aside>
 
-        <div className="main-content" style={{ marginLeft: 220, flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <header style={headerStyle}>
-            <button
-              className="mobile-topbar-menu"
-              onClick={() => setMenuOpen(true)}
-              aria-label="Open menu"
-              style={{ display: "none", background: "none", border: "none", cursor: "pointer", color: "var(--text-secondary)" }}
-            >
-              <Bars3Icon style={{ width: 20, height: 20 }} />
+        {menuOpen && (
+          <>
+            <div
+              onClick={() => setMenuOpen(false)}
+              style={{ position: "fixed", inset: 0, background: "rgba(10, 20, 14, 0.45)", zIndex: 40 }}
+            />
+            <aside className="app-sidebar" style={{ zIndex: 50, boxShadow: "var(--shadow-lg)" }}>
+              <Sidebar role={role} onNavigate={() => setMenuOpen(false)} closable />
+            </aside>
+          </>
+        )}
+
+        <div className="app-main">
+          <header className="app-header">
+            <button className="icon-btn mobile-topbar-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu">
+              <Bars3Icon style={{ width: 19, height: 19 }} />
             </button>
-            <div className="row" style={{ marginLeft: "auto" }}>
+            <Link href="/" className="mobile-topbar-brand" aria-label="AgriBridge home">
+              <LogoMark size={30} />
+            </Link>
+            <div className="row" style={{ marginLeft: "auto", gap: 8, flexWrap: "nowrap" }}>
               <DemoFaucet />
               {isConnected && (
-                <span className="muted hide-mobile" data-testid="usdc-balance">
-                  Balance <strong style={{ color: "var(--text-primary)" }}>{usd(balance)}</strong>
+                <span className="chip hide-mobile" data-testid="usdc-balance" title="Your dollars (USDC)">
+                  <WalletIcon style={{ width: 15, height: 15, color: "var(--accent-green)" }} />
+                  <span className="num">{usd(balance)}</span>
                 </span>
               )}
-              <ThemeToggle variant="minimal" />
+              <ThemeToggle />
               {isConnected ? (
-                <span className="badge badge-muted" data-testid="account">
+                <span className="chip" data-testid="account">
+                  <span
+                    aria-hidden="true"
+                    style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-green-light)" }}
+                  />
                   <AccountName />
                 </span>
               ) : (
@@ -143,20 +143,17 @@ export default function AppLayout({
               )}
             </div>
           </header>
-          <main style={{ padding: "24px 20px", flex: 1 }}>
-            {requireWallet ? <RequireWallet>{body}</RequireWallet> : body}
-          </main>
+          <main className="app-content">{requireWallet ? <RequireWallet>{body}</RequireWallet> : body}</main>
         </div>
       </div>
     </>
   );
 }
 
-function Sidebar({ role, onNavigate }: { role: AppRole; onNavigate: () => void }) {
+function Sidebar({ role, onNavigate, closable }: { role: AppRole; onNavigate: () => void; closable?: boolean }) {
   const router = useRouter();
   const { address, isConnected } = useConnection();
   const { hasRole: isRegulator } = useHasRegistryRole(REGULATOR_ROLE, address);
-  const accent = ACCENT[role];
   const nav = [
     ...NAV[role],
     { label: "Activity", icon: QueueListIcon, href: "/activity" },
@@ -164,136 +161,81 @@ function Sidebar({ role, onNavigate }: { role: AppRole; onNavigate: () => void }
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div className="spread" style={{ padding: "0 20px", height: 56, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-        <Link href="/" className="row" style={{ gap: 8, textDecoration: "none", color: "var(--text-primary)" }}>
-          <span style={logoStyle}>
-            <CubeIcon style={{ width: 16, height: 16, color: "#fff" }} />
-          </span>
-          <strong>
-            Agri<span style={{ color: "var(--accent-green)" }}>Bridge</span>
-          </strong>
-        </Link>
-        <button className="mobile-close-btn" onClick={onNavigate} aria-label="Close menu" style={closeStyle}>
-          <XMarkIcon style={{ width: 20, height: 20 }} />
-        </button>
+    <>
+      <div className="spread" style={{ padding: "0 18px", height: 64, flexShrink: 0 }}>
+        <Logo size={30} />
+        {closable && (
+          <button className="icon-btn" onClick={onNavigate} aria-label="Close menu">
+            <XMarkIcon style={{ width: 18, height: 18 }} />
+          </button>
+        )}
       </div>
 
-      <div style={{ padding: "16px 20px 8px" }}>
-        <span className="badge" style={{ background: accent.bg, color: accent.color, textTransform: "uppercase", letterSpacing: 0.8 }}>
-          {APP_ROLES.find((r) => r.id === role)?.label}
-        </span>
+      {/* Everyone can play every role; this switches which tools are shown. */}
+      <div style={{ padding: "4px 14px 14px" }}>
+        <div className="segmented" style={{ display: "flex" }} role="navigation" aria-label="Role">
+          {APP_ROLES.map((r) => (
+            <Link
+              key={r.id}
+              href={r.home}
+              onClick={onNavigate}
+              data-testid={`switch-to-${r.id}`}
+              aria-current={r.id === role ? "true" : undefined}
+              style={{
+                flex: 1,
+                textAlign: "center",
+                padding: "7px 0",
+                borderRadius: 8,
+                fontSize: 12.5,
+                fontWeight: 700,
+                textDecoration: "none",
+                color: r.id === role ? "var(--accent-green)" : "var(--text-secondary)",
+                background: r.id === role ? "var(--bg-card)" : "transparent",
+                boxShadow: r.id === role ? "var(--shadow-sm)" : "none",
+              }}
+            >
+              {r.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
-      <nav style={{ padding: "8px 12px", flex: 1, overflowY: "auto" }}>
+      <nav style={{ padding: "0 12px", flex: 1, overflowY: "auto" }}>
         {nav.map((item) => {
-          const active = router.pathname === item.href;
           const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={onNavigate}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "8px 10px",
-                borderRadius: 6,
-                marginBottom: 2,
-                fontSize: 13,
-                fontWeight: active ? 600 : 400,
-                background: active ? accent.bg : "transparent",
-                color: active ? accent.color : "var(--text-secondary)",
-                borderLeft: `2px solid ${active ? accent.color : "transparent"}`,
-                textDecoration: "none",
-              }}
+              className="nav-item"
+              aria-current={router.pathname === item.href ? "page" : undefined}
             >
-              <Icon style={{ width: 16, height: 16, flexShrink: 0 }} />
+              <Icon />
               {item.label}
             </Link>
           );
         })}
       </nav>
 
-      <div style={{ padding: 12, borderTop: "1px solid var(--border)", flexShrink: 0 }}>
-        {APP_ROLES.filter((r) => r.id !== role).map((other) => (
-          <Link key={other.id} href={other.home} onClick={onNavigate} style={footerLinkStyle} data-testid={`switch-to-${other.id}`}>
-            <ArrowsRightLeftIcon style={{ width: 14, height: 14 }} />
-            Switch to {other.label}
-          </Link>
-        ))}
-        <Link href="/" style={footerLinkStyle}>
-          <HomeIcon style={{ width: 14, height: 14 }} />
-          Home
-        </Link>
-        <Link href="/market" style={footerLinkStyle}>
-          <ChartBarIcon style={{ width: 14, height: 14 }} />
+      <div style={{ padding: 14, borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+        <Link href="/market" className="nav-item" onClick={onNavigate}>
+          <ChartBarSquareIcon />
           Prices and stock
         </Link>
-        {isConnected && <SignOut className="link" />}
+        <Link href="/" className="nav-item" onClick={onNavigate}>
+          <HomeIcon />
+          Home
+        </Link>
+        {isConnected && (
+          <div className="card-sunken spread" style={{ marginTop: 10, padding: "10px 12px" }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+              <AccountName />
+            </span>
+            <SignOut className="link" />
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }
-
-const sidebarStyle: React.CSSProperties = {
-  width: 220,
-  flexShrink: 0,
-  borderRight: "1px solid var(--border)",
-  background: "var(--bg-secondary)",
-  position: "fixed",
-  top: 0,
-  left: 0,
-  bottom: 0,
-  flexDirection: "column",
-};
-
-const overlayStyle: React.CSSProperties = {
-  display: "none",
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.3)",
-  zIndex: 40,
-};
-
-const headerStyle: React.CSSProperties = {
-  height: 56,
-  borderBottom: "1px solid var(--border)",
-  background: "var(--bg-secondary)",
-  display: "flex",
-  alignItems: "center",
-  padding: "0 20px",
-  gap: 12,
-  position: "sticky",
-  top: 0,
-  zIndex: 30,
-};
-
-const logoStyle: React.CSSProperties = {
-  width: 28,
-  height: 28,
-  borderRadius: 6,
-  background: "var(--accent-green)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const closeStyle: React.CSSProperties = {
-  display: "none",
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  color: "var(--text-muted)",
-};
-
-const footerLinkStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  fontSize: 12,
-  color: "var(--text-muted)",
-  padding: "7px 10px",
-  textDecoration: "none",
-};

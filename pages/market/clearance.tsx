@@ -1,9 +1,10 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useConnection } from "wagmi";
+import { CheckBadgeIcon, TagIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../../components/layout/AppLayout";
-import { lotName } from "../../components/lots";
+import { LotLabel, lotName } from "../../components/lots";
 import { BuyPanel, ListingPrice } from "../../components/market";
 import { TxStatus } from "../../components/TxStatus";
 import { Card, EmptyState, KeyValue, Notice, PageHeader } from "../../components/ui";
@@ -11,7 +12,7 @@ import { useClearanceQuote, useCommodities, useListings, useLots, useMarketSetti
 import { useTx } from "../../hooks/useTx";
 import { MarketplaceAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
-import { kg, kgNumber, parseKg, percentFromBps, usd } from "../../lib/format";
+import { kg, kgInput, parseKgUpTo, percentFromBps, usd } from "../../lib/format";
 import { useRememberedRole } from "../../lib/session";
 
 /**
@@ -39,7 +40,7 @@ export default function Clearance() {
   const [lotId, setLotId] = useState("");
   const [quantity, setQuantity] = useState("");
   const lot = expired.find((l) => l.id.toString() === lotId);
-  const kgAmount = parseKg(quantity);
+  const kgAmount = lot ? parseKgUpTo(quantity, lot.balanceKg) : undefined;
   const { data: payout } = useClearanceQuote(lot?.id, kgAmount);
   const fundTooLow = payout !== undefined && settings !== undefined && payout > settings.clearanceFund;
 
@@ -49,7 +50,7 @@ export default function Clearance() {
     const pick = expired.find((l) => l.id.toString() === wanted) ?? expired[0];
     // eslint-disable-next-line react-hooks/set-state-in-effect -- defaults depend on data that arrives after mount
     setLotId(pick.id.toString());
-    setQuantity(String(kgNumber(pick.balanceKg)));
+    setQuantity(kgInput(pick.balanceKg));
   }, [expired, lotId, router.query.lot]);
 
   async function sell() {
@@ -68,6 +69,7 @@ export default function Clearance() {
   return (
     <AppLayout role={role} title="Expired stock" requireWallet={false}>
       <PageHeader
+        eyebrow="Market"
         title="Expired stock"
         subtitle="Crop past its shelf life can't be borrowed against or sold as food grade. AgriBridge buys it below its value and resells it for animal feed."
       />
@@ -83,7 +85,9 @@ export default function Clearance() {
       {isConnected && (
         <Card title="Sell expired stock to AgriBridge">
           {expired.length === 0 ? (
-            <EmptyState>You have no expired stock.</EmptyState>
+            <EmptyState icon={CheckBadgeIcon} title="You have no expired stock">
+              Nothing you hold is past its shelf life. If some ever is, you can sell it to AgriBridge here.
+            </EmptyState>
           ) : (
             <div className="grid-2" style={{ marginBottom: 0 }}>
               <div>
@@ -120,7 +124,9 @@ export default function Clearance() {
 
       <Card title="Feed-grade stock for sale">
         {clearanceListings.length === 0 ? (
-          <EmptyState>None right now.</EmptyState>
+          <EmptyState icon={TagIcon} title="None right now">
+            AgriBridge lists the expired stock it buys here, at a low fixed price, for buyers such as animal-feed makers.
+          </EmptyState>
         ) : (
           <table className="table">
             <thead>
@@ -141,7 +147,7 @@ export default function Clearance() {
                     key={listing.id.toString()}
                     cells={
                       <>
-                        <td>{listingLot ? lotName(listingLot, commodities) : `Lot ${listing.lotId}`}</td>
+                        <td>{listingLot ? <LotLabel lot={listingLot} commodities={commodities} sub="Feed grade" /> : `Lot ${listing.lotId}`}</td>
                         <td>{listingLot ? warehouses.get(listingLot.warehouseId)?.name : "—"}</td>
                         <td>{kg(listing.kgRemaining)}</td>
                         <td>

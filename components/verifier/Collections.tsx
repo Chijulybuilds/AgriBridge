@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { ClockIcon, TruckIcon } from "@heroicons/react/24/outline";
 
 import { useCommodities, useLots, useWarehouses, useWithdrawalRequests, type WithdrawalRequest } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { WarehouseDeskAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
 import { date, kg, parseUsd, shortAddress, textToBytes32, usd } from "../../lib/format";
-import { lotName } from "../lots";
+import { LotLabel, lotName } from "../lots";
 import { TxStatus } from "../TxStatus";
 import { Card, EmptyState, StatusBadge } from "../ui";
 
@@ -28,17 +29,23 @@ export function CollectionsTab() {
     <div className="stack">
       <Card title={`Waiting to leave the warehouse (${pending.length})`}>
         {pending.length === 0 ? (
-          <EmptyState>No collection requests waiting.</EmptyState>
+          <EmptyState icon={TruckIcon}>No collection requests waiting.</EmptyState>
         ) : (
           <div className="stack">
             {pending.map((r) => {
               const lot = lotById.get(r.lotId);
+              const warehouse = lot ? warehouses.get(lot.warehouseId)?.name : undefined;
               return (
                 <CollectionItem
                   key={r.id.toString()}
                   request={r}
-                  name={lot ? lotName(lot, commodities) : `Lot ${r.lotId}`}
-                  warehouse={lot ? warehouses.get(lot.warehouseId)?.name : undefined}
+                  label={
+                    <LotLabel
+                      lot={lot ?? { id: r.lotId, commodityId: 0n }}
+                      commodities={commodities}
+                      sub={`${kg(r.kg)} from ${warehouse ?? "the warehouse"} · for ${shortAddress(r.holder)} · asked ${date(r.requestedAt)}`}
+                    />
+                  }
                 />
               );
             })}
@@ -47,13 +54,16 @@ export function CollectionsTab() {
       </Card>
       <Card title="Recently handled">
         {done.length === 0 ? (
-          <EmptyState>Nothing yet.</EmptyState>
+          <EmptyState icon={ClockIcon}>Nothing yet.</EmptyState>
         ) : (
           <table className="table">
             <tbody>
               {done.map((r) => (
                 <tr key={r.id.toString()}>
-                  <td>Request {r.id.toString()}</td>
+                  <td>
+                    <strong>Request {r.id.toString()}</strong>
+                    <div className="muted">{lotName(lotById.get(r.lotId) ?? { id: r.lotId, commodityId: 0n }, commodities)}</div>
+                  </td>
                   <td>{kg(r.kg)}</td>
                   <td>{date(r.requestedAt)}</td>
                   <td>
@@ -69,7 +79,7 @@ export function CollectionsTab() {
   );
 }
 
-function CollectionItem({ request, name, warehouse }: { request: WithdrawalRequest; name: string; warehouse?: string }) {
+function CollectionItem({ request, label }: { request: WithdrawalRequest; label: ReactNode }) {
   const tx = useTx();
   const delivery = request.deliveryBudget > 0n;
   const [fee, setFee] = useState("");
@@ -104,11 +114,13 @@ function CollectionItem({ request, name, warehouse }: { request: WithdrawalReque
   }
 
   return (
-    <div className="card" style={{ padding: 14 }}>
-      <strong>{name}</strong>
-      <div className="muted" style={{ marginBottom: 10 }}>
-        {kg(request.kg)} from {warehouse} · for {shortAddress(request.holder)} · asked {date(request.requestedAt)} · storage paid{" "}
-        {usd(request.storageFee)} · {delivery ? `delivery, budget ${usd(request.deliveryBudget)}` : "pickup"}
+    <div className="card-sunken">
+      <div className="spread" style={{ marginBottom: 14, flexWrap: "wrap", alignItems: "flex-start" }}>
+        {label}
+        <span className="row" style={{ gap: 6 }}>
+          <span className="badge badge-blue">{delivery ? `Delivery, budget ${usd(request.deliveryBudget)}` : "Pickup"}</span>
+          <span className="badge badge-muted badge-plain">Storage paid {usd(request.storageFee)}</span>
+        </span>
       </div>
       <div className="row">
         {delivery && (

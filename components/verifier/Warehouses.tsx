@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BuildingOffice2Icon } from "@heroicons/react/24/outline";
 
 import { useWarehouses, type Warehouse } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
@@ -17,7 +18,7 @@ export function WarehousesTab() {
     <div className="stack">
       <Card title="Warehouses">
         {warehouses.length === 0 ? (
-          <EmptyState>No warehouses yet.</EmptyState>
+          <EmptyState icon={BuildingOffice2Icon}>No warehouses yet.</EmptyState>
         ) : (
           <div className="stack">
             {warehouses.map((w) => (
@@ -69,12 +70,17 @@ function WarehouseEditor({ warehouse }: { warehouse?: Warehouse }) {
   }
 
   return (
-    <div className={warehouse ? "card" : undefined} style={warehouse ? { padding: 14 } : undefined}>
+    <div className={warehouse ? "card-sunken" : undefined}>
       {warehouse && (
-        <div className="spread" style={{ marginBottom: 8 }}>
-          <strong>
-            {warehouse.name} <span className="muted">· warehouse {warehouse.id.toString()}</span>
-          </strong>
+        <div className="spread" style={{ marginBottom: 12, flexWrap: "wrap" }}>
+          <span className="row" style={{ gap: 11, flexWrap: "nowrap" }}>
+            <span className={`stat-icon ${warehouse.frozen ? "tone-red" : "tone-blue"}`}>
+              <BuildingOffice2Icon />
+            </span>
+            <strong>
+              {warehouse.name} <span className="muted">· warehouse {warehouse.id.toString()}</span>
+            </strong>
+          </span>
           <span className="row" style={{ gap: 6 }}>
             {warehouse.frozen && <Badge tone="red">Frozen by the regulator</Badge>}
             <span className="muted">

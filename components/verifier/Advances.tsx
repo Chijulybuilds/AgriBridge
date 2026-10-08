@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { ArchiveBoxIcon, BanknotesIcon, BellAlertIcon, DocumentTextIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 
 import { lotValue, useCommodities, useLoans, useLots, usePoolStats } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
@@ -7,7 +8,7 @@ import { LendingPoolAbi, LiquidationKeeperAbi } from "../../lib/contracts/abis";
 import { contracts, VERIFIER_SAFE } from "../../lib/contracts/config";
 import { publicClient } from "../../lib/chain";
 import { date, kg, pricePerKg, relativeDays, shortAddress, usd } from "../../lib/format";
-import { loanHealth, lotName } from "../lots";
+import { loanHealth, LotLabel, lotName } from "../lots";
 import { TxStatus } from "../TxStatus";
 import { Badge, Card, EmptyState, Notice, Stat } from "../ui";
 
@@ -57,10 +58,10 @@ export function AdvancesTab() {
   return (
     <div className="stack">
       <div className="grid-4" style={{ marginBottom: 0 }}>
-        <Stat label="Open advances" value={String(loans.length)} />
-        <Stat label="Owed to the pool" value={usd(stats?.totalDebt)} />
-        <Stat label="Loss cushion" value={usd(stats?.reserves)} />
-        <Stat label="Due for settlement" value={due ? "Yes" : "None"} />
+        <Stat icon={DocumentTextIcon} tone="blue" label="Open advances" value={String(loans.length)} />
+        <Stat icon={BanknotesIcon} tone="gold" label="Owed to the pool" value={usd(stats?.totalDebt)} />
+        <Stat icon={ShieldCheckIcon} label="Loss cushion" value={usd(stats?.reserves)} />
+        <Stat icon={BellAlertIcon} tone={due ? "red" : "green"} label="Due for settlement" value={due ? "Yes" : "None"} />
       </div>
 
       <Card
@@ -73,7 +74,7 @@ export function AdvancesTab() {
       >
         <TxStatus tx={tx} success="Settled." />
         {loans.length === 0 ? (
-          <EmptyState>No open advances.</EmptyState>
+          <EmptyState icon={DocumentTextIcon}>No open advances.</EmptyState>
         ) : (
           <div className="table-scroll">
             <table className="table">
@@ -96,7 +97,7 @@ export function AdvancesTab() {
                   return (
                     <tr key={loan.id.toString()}>
                       <td>
-                        {loan.id.toString()} · {lot ? lotName(lot, commodities) : `lot ${loan.lotId}`}
+                        <LotLabel lot={lot ?? { id: loan.lotId, commodityId: 0n }} commodities={commodities} sub={`Advance ${loan.id}`} />
                       </td>
                       <td>{shortAddress(loan.borrower)}</td>
                       <td>{kg(loan.collateralKg)}</td>
@@ -120,7 +121,7 @@ export function AdvancesTab() {
 
       <Card title="Crop the pool took in settled advances">
         {!inventory || inventory.length === 0 ? (
-          <EmptyState>None.</EmptyState>
+          <EmptyState icon={ArchiveBoxIcon}>None. Crop the pool takes when it settles an advance waits here until it is released.</EmptyState>
         ) : (
           <div className="stack">
             {inventory.map(({ lot, kg: amount }) => (

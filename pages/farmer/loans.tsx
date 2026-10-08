@@ -2,11 +2,12 @@ import Link from "next/link";
 import { useState } from "react";
 import { maxUint256 } from "viem";
 import { useConnection } from "wagmi";
+import { DocumentTextIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../../components/layout/AppLayout";
 import { loanHealth, lotName } from "../../components/lots";
 import { TxStatus } from "../../components/TxStatus";
-import { Badge, Card, EmptyState, KeyValue, Notice, PageHeader, StatusBadge } from "../../components/ui";
+import { Badge, Card, EmptyState, KeyValue, Notice, PageHeader, Skeleton, StatusBadge } from "../../components/ui";
 import { useCommodities, useLoans, useLots, useUsdc, type Loan } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { LendingPoolAbi } from "../../lib/contracts/abis";
@@ -29,6 +30,7 @@ export default function MyAdvances() {
   return (
     <AppLayout role="farmer" title="My advances">
       <PageHeader
+        eyebrow="Farmer"
         title="My advances"
         subtitle="Repay before the end date to get your crop back. Interest builds up every second, so repaying early costs less."
         actions={<Link className="btn" href="/farmer/advance">New advance</Link>}
@@ -41,10 +43,14 @@ export default function MyAdvances() {
       )}
 
       {isLoading ? (
-        <EmptyState>Loading…</EmptyState>
+        <Card>
+          <Skeleton rows={4} />
+        </Card>
       ) : loans.length === 0 ? (
         <Card>
-          <EmptyState>No advances yet.</EmptyState>
+          <EmptyState icon={DocumentTextIcon} title="No advances yet">
+            Advances you take against your crop appear here, with what you owe and how safe each one is.
+          </EmptyState>
         </Card>
       ) : (
         <div className="stack">

@@ -6,7 +6,7 @@ import { useMarketSettings, useQuote, useUsdc, type Listing } from "../hooks/use
 import { useTx } from "../hooks/useTx";
 import { MarketplaceAbi } from "../lib/contracts/abis";
 import { contracts, PriceMode } from "../lib/contracts/config";
-import { kg, kgNumber, parseKg, percentFromBps, usd, usdPerKg } from "../lib/format";
+import { kg, kgInput, parseKgUpTo, percentFromBps, usd, usdPerKg } from "../lib/format";
 import { TxStatus } from "./TxStatus";
 
 /** "$5.73/kg", plus "follows the market (98%)" for listings priced off the reference value. */
@@ -41,8 +41,8 @@ export function BuyPanel({ listing, onBought }: { listing: Listing; onBought?: (
   const { balance } = useUsdc(address);
   const { settings } = useMarketSettings();
   const tx = useTx();
-  const [quantity, setQuantity] = useState(String(kgNumber(listing.kgRemaining)));
-  const kgAmount = parseKg(quantity);
+  const [quantity, setQuantity] = useState(kgInput(listing.kgRemaining));
+  const kgAmount = parseKgUpTo(quantity, listing.kgRemaining);
   const tooMuch = kgAmount !== undefined && kgAmount > listing.kgRemaining;
   const { data: cost } = useQuote(listing.id, tooMuch ? undefined : kgAmount);
   const dealApplies = listing.bulkDiscountBps > 0n && kgAmount !== undefined && kgAmount >= listing.bulkMinKg;
@@ -71,7 +71,7 @@ export function BuyPanel({ listing, onBought }: { listing: Listing; onBought?: (
   }
 
   return (
-    <div className="card" style={{ background: "var(--bg-secondary)", padding: 14 }} data-testid={`buy-panel-${listing.id}`}>
+    <div className="card-sunken" data-testid={`buy-panel-${listing.id}`}>
       <div className="field" style={{ marginBottom: 8 }}>
         <label htmlFor={`kg-${listing.id}`}>Kilograms (up to {kg(listing.kgRemaining)})</label>
         <input id={`kg-${listing.id}`} className="input" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />

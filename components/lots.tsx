@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { referenceValuePerKg, useLotTimeline, type Commodity, type Loan, type Lot } from "../hooks/useProtocolData";
 import { WAD } from "../lib/contracts/config";
 import { date, nowSeconds, SECONDS_PER_DAY, usd } from "../lib/format";
-import { Badge, StatusBadge, Timeline } from "./ui";
+import { Badge, CropSeal, StatusBadge, Timeline } from "./ui";
 
 /** How safe an advance is, in words: healthy, worth watching, or at risk of being sold. */
 export function loanHealth(loan: Loan): { label: string; tone: "green" | "gold" | "red" | "muted" } {
@@ -18,6 +18,27 @@ export function loanHealth(loan: Loan): { label: string; tone: "green" | "gold" 
 /** "Cocoa · lot 3" */
 export function lotName(lot: Pick<Lot, "id" | "commodityId">, commodities: Map<bigint, Commodity>): string {
   return `${commodities.get(lot.commodityId)?.name ?? "Crop"} · lot ${lot.id}`;
+}
+
+/** A lot as lists show it: the crop's seal, its name, and a line underneath. */
+export function LotLabel({
+  lot,
+  commodities,
+  sub,
+}: {
+  lot: Pick<Lot, "id" | "commodityId">;
+  commodities: Map<bigint, Commodity>;
+  sub?: React.ReactNode;
+}) {
+  return (
+    <span className="row" style={{ gap: 11, flexWrap: "nowrap" }}>
+      <CropSeal name={commodities.get(lot.commodityId)?.name} size={32} />
+      <span style={{ minWidth: 0 }}>
+        <strong style={{ display: "block", whiteSpace: "nowrap" }}>{lotName(lot, commodities)}</strong>
+        {sub && <span className="muted">{sub}</span>}
+      </span>
+    </span>
+  );
 }
 
 export function GradeBadge({ grade }: { grade: string | undefined }) {

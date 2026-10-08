@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useConnection } from "wagmi";
+import { BuildingStorefrontIcon, TagIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../../components/layout/AppLayout";
-import { GradeBadge, lotName } from "../../components/lots";
+import { GradeBadge, LotLabel, lotName } from "../../components/lots";
 import { BulkDealNote, ListingPrice } from "../../components/market";
 import { TxStatus } from "../../components/TxStatus";
 import { Card, EmptyState, KeyValue, Notice, PageHeader, Segmented } from "../../components/ui";
@@ -18,7 +20,7 @@ import {
 import { useTx } from "../../hooks/useTx";
 import { MarketplaceAbi } from "../../lib/contracts/abis";
 import { contracts, PriceMode } from "../../lib/contracts/config";
-import { date, kg, kgNumber, parseKg, parsePercentToBps, parseUsd, percentFromBps, usdPerKg } from "../../lib/format";
+import { date, kg, kgInput, parseKg, parseKgUpTo, parsePercentToBps, parseUsd, percentFromBps, usdPerKg } from "../../lib/format";
 import { useRememberedRole } from "../../lib/session";
 
 type Pricing = "market" | "fixed";
@@ -139,14 +141,14 @@ export default function Sell() {
     if (!pick) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- defaults depend on data that arrives after mount
     setLotId(pick.id.toString());
-    setQuantity(String(kgNumber(pick.balanceKg)));
+    setQuantity(kgInput(pick.balanceKg));
   }, [sellable, lotId, router.query.lot]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setFormError(null);
-    const kgAmount = parseKg(quantity);
     if (!lot) return setFormError("Choose what to sell.");
+    const kgAmount = parseKgUpTo(quantity, lot.balanceKg);
     if (!kgAmount || kgAmount > lot.balanceKg) return setFormError(`Enter up to ${kg(lot.balanceKg)}.`);
     const result = terms.read();
     if ("error" in result) return setFormError(result.error);
@@ -166,6 +168,7 @@ export default function Sell() {
   return (
     <AppLayout role={role} title="Sell">
       <PageHeader
+        eyebrow="Market"
         title="Sell"
         subtitle="Put your crop on the market. Buyers can take any part of it. Selling early gets more, since the crop's value falls as it ages."
       />
@@ -176,7 +179,17 @@ export default function Sell() {
       <div className="grid-2">
         <Card title="New listing">
           {sellable.length === 0 ? (
-            <EmptyState>You have no verified stock to sell.</EmptyState>
+            <EmptyState
+              icon={TagIcon}
+              title="Nothing to sell yet"
+              action={
+                <Link className="btn btn-small" href="/farmer/deliver">
+                  Deliver a crop
+                </Link>
+              }
+            >
+              You have no verified stock to sell. Crop shows up here once the warehouse has weighed and graded it, or after you buy on the market.
+            </EmptyState>
           ) : (
             <form onSubmit={submit} noValidate>
               <div className="field">
@@ -220,11 +233,21 @@ export default function Sell() {
 
       <Card title="My listings">
         {mine.length === 0 ? (
-          <EmptyState>No open listings.</EmptyState>
+          <EmptyState icon={BuildingStorefrontIcon}>No open listings. What you list shows here, where you can change its price or take it down.</EmptyState>
         ) : (
           <div className="stack">
             {mine.map((listing) => (
-              <MyListing key={listing.id.toString()} listing={listing} name={lotName(lots.find((l) => l.id === listing.lotId) ?? { id: listing.lotId, commodityId: 0n }, commodities)} />
+              <MyListing
+                key={listing.id.toString()}
+                listing={listing}
+                label={
+                  <LotLabel
+                    lot={lots.find((l) => l.id === listing.lotId) ?? { id: listing.lotId, commodityId: 0n }}
+                    commodities={commodities}
+                    sub={`${kg(listing.kgRemaining)} left · listing ${listing.id}`}
+                  />
+                }
+              />
             ))}
           </div>
         )}
@@ -233,7 +256,7 @@ export default function Sell() {
   );
 }
 
-function MyListing({ listing, name }: { listing: Listing; name: string }) {
+function MyListing({ listing, label }: { listing: Listing; label: ReactNode }) {
   const tx = useTx();
   const [editing, setEditing] = useState(false);
   const terms = useTerms(listing.mode === PriceMode.Fixed ? "fixed" : "market");
@@ -263,14 +286,13 @@ function MyListing({ listing, name }: { listing: Listing; name: string }) {
   }
 
   return (
-    <div className="card" style={{ padding: 14 }}>
-      <div className="spread">
+    <div className="card-sunken">
+      <div className="spread" style={{ flexWrap: "wrap" }}>
         <div>
-          <strong>{name}</strong>
-          <div className="muted">
-            {kg(listing.kgRemaining)} left · listing {listing.id.toString()}
+          {label}
+          <div style={{ marginLeft: 43 }}>
+            <BulkDealNote listing={listing} />
           </div>
-          <BulkDealNote listing={listing} />
         </div>
         <ListingPrice listing={listing} />
         <div className="row">

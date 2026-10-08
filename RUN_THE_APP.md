@@ -122,8 +122,10 @@ Vercel → Settings → Environment Variables) and redeploy.
 
 ## 4. The verifier page
 
-`/verifier` is linked from nowhere, kept out of search engines, and opens only for the Safe; any
-other wallet sees "page not found". The contracts accept verifier actions from the Safe alone.
+`/verifier` is linked from nowhere, kept out of search engines, and opens only for the Safe. A Safe
+owner who connects their own wallet gets a short screen with a button that opens the page inside
+Safe{Wallet}; any other wallet sees "page not found". The contracts accept verifier actions from the
+Safe alone.
 
 To use it, each Safe owner opens [Safe{Wallet}](https://app.safe.global) on Sepolia, then **Apps →
 My custom apps → Add custom Safe App** with `https://<your site>/verifier`. While developing, use

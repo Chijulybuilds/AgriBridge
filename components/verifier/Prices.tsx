@@ -7,7 +7,7 @@ import { CommodityPriceOracleAbi } from "../../lib/contracts/abis";
 import { contracts, PRICE_DECIMALS, PRICE_SOURCES } from "../../lib/contracts/config";
 import { date, pricePerKg } from "../../lib/format";
 import { TxStatus } from "../TxStatus";
-import { Badge, Card, Notice } from "../ui";
+import { Badge, Card, CropSeal, Notice } from "../ui";
 
 /**
  * Set prices. The festival demo runs no live price feed: prices are set at
@@ -20,23 +20,25 @@ export function PricesTab() {
   return (
     <Card title="Prices (US$ per kg, Grade A, before the basis cut)">
       <Notice>Prices here are set by the Safe. Advances and the market use them straight away.</Notice>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Crop</th>
-            <th>Source</th>
-            <th>Price</th>
-            <th>Set</th>
-            <th>Status</th>
-            <th>New price</th>
-          </tr>
-        </thead>
-        <tbody>
-          {commodities.map((c) => (
-            <PriceRow key={c.id.toString()} commodity={c} />
-          ))}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Crop</th>
+              <th>Source</th>
+              <th>Price</th>
+              <th>Set</th>
+              <th>Status</th>
+              <th>New price</th>
+            </tr>
+          </thead>
+          <tbody>
+            {commodities.map((c) => (
+              <PriceRow key={c.id.toString()} commodity={c} />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Card>
   );
 }
@@ -67,7 +69,10 @@ function PriceRow({ commodity }: { commodity: Commodity }) {
   return (
     <tr>
       <td>
-        <strong>{commodity.name}</strong>
+        <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
+          <CropSeal name={commodity.name} size={26} />
+          <strong>{commodity.name}</strong>
+        </span>
       </td>
       <td className="muted">{PRICE_SOURCES[commodity.priceSource]}</td>
       <td>{pricePerKg(commodity.price)}</td>

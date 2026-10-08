@@ -1,7 +1,8 @@
 import { useConnection } from "wagmi";
+import { ArchiveBoxIcon, BuildingOffice2Icon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../components/layout/AppLayout";
-import { GradeBadge, LotState, lotName } from "../components/lots";
+import { GradeBadge, LotLabel, LotState } from "../components/lots";
 import { TxStatus } from "../components/TxStatus";
 import { Badge, Card, EmptyState, Notice, PageHeader } from "../components/ui";
 import { useCommodities, useHasRegistryRole, useLots, useWarehouses } from "../hooks/useProtocolData";
@@ -49,7 +50,11 @@ export default function Regulator() {
 
   return (
     <AppLayout role={role} title="Regulator">
-      <PageHeader title="Regulator" subtitle="Freeze stock under investigation. Frozen stock can't be borrowed against, sold, moved or collected." />
+      <PageHeader
+        eyebrow="Oversight"
+        title="Regulator"
+        subtitle="Freeze stock under investigation. Frozen stock can't be borrowed against, sold, moved or collected."
+      />
 
       {!isLoading && !hasRole && (
         <Notice tone="warn">This wallet doesn&apos;t have the regulator role, so the buttons won&apos;t work. The verifier Safe grants it.</Notice>
@@ -58,15 +63,22 @@ export default function Regulator() {
 
       <Card title="Warehouses">
         {warehouses.length === 0 ? (
-          <EmptyState>No warehouses.</EmptyState>
+          <EmptyState icon={BuildingOffice2Icon}>No warehouses.</EmptyState>
         ) : (
           <table className="table">
             <tbody>
               {warehouses.map((w) => (
                 <tr key={w.id.toString()}>
                   <td>
-                    <strong>{w.name}</strong>
-                    <div className="muted">{w.region}</div>
+                    <span className="row" style={{ gap: 11, flexWrap: "nowrap" }}>
+                      <span className={`stat-icon ${w.frozen ? "tone-red" : "tone-blue"}`}>
+                        <BuildingOffice2Icon />
+                      </span>
+                      <span>
+                        <strong>{w.name}</strong>
+                        <div className="muted">{w.region}</div>
+                      </span>
+                    </span>
                   </td>
                   <td>{kg(w.storedKg)} stored</td>
                   <td>{w.frozen ? <Badge tone="red">Frozen</Badge> : <Badge tone="green">Open</Badge>}</td>
@@ -86,7 +98,7 @@ export default function Regulator() {
 
       <Card title="Lots in storage">
         {verified.length === 0 ? (
-          <EmptyState>No stock in storage.</EmptyState>
+          <EmptyState icon={ArchiveBoxIcon}>No stock in storage.</EmptyState>
         ) : (
           <div className="table-scroll">
             <table className="table">
@@ -104,7 +116,9 @@ export default function Regulator() {
               <tbody>
                 {verified.map((lot) => (
                   <tr key={lot.id.toString()}>
-                    <td>{lotName(lot, commodities)}</td>
+                    <td>
+                      <LotLabel lot={lot} commodities={commodities} />
+                    </td>
                     <td>
                       <GradeBadge grade={lot.currentGrade} />
                     </td>

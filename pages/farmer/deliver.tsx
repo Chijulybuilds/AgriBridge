@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { useConnection } from "wagmi";
 
+import { TruckIcon } from "@heroicons/react/24/outline";
+
 import AppLayout from "../../components/layout/AppLayout";
-import { GradeBadge, lotName } from "../../components/lots";
+import { GradeBadge, LotLabel } from "../../components/lots";
 import { TxStatus } from "../../components/TxStatus";
 import { Card, EmptyState, PageHeader, StatusBadge } from "../../components/ui";
 import { useCommodities, useLots, useWarehouses } from "../../hooks/useProtocolData";
@@ -77,6 +79,7 @@ export default function Deliver() {
   return (
     <AppLayout role="farmer" title="Deliver a crop">
       <PageHeader
+        eyebrow="Farmer"
         title="Deliver a crop"
         subtitle="Tell us what you're bringing. At the warehouse it's weighed and graded, and then it appears in My stock, ready to borrow against or sell."
       />
@@ -139,7 +142,9 @@ export default function Deliver() {
 
       <Card title="My deliveries" testId="deliveries">
         {mine.length === 0 ? (
-          <EmptyState>No deliveries yet.</EmptyState>
+          <EmptyState icon={TruckIcon} title="No deliveries yet">
+            Your bookings appear here, with the weight and grade once the warehouse has checked them.
+          </EmptyState>
         ) : (
           <div className="table-scroll">
             <table className="table">
@@ -157,7 +162,7 @@ export default function Deliver() {
                 {mine.map((lot) => (
                   <tr key={lot.id.toString()}>
                     <td>
-                      <strong>{lotName(lot, commodityById)}</strong>
+                      <LotLabel lot={lot} commodities={commodityById} />
                     </td>
                     <td>{warehouseById.get(lot.warehouseId)?.name}</td>
                     <td>

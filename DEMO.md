@@ -50,7 +50,7 @@ the signed inspection report (its fingerprint is stored on-chain, not the file).
 the second owner confirms in Safe{Wallet}.
 
 > Say: only this Safe can verify; the contract itself refuses anyone else. The page isn't linked
-> anywhere, and for any other wallet it looks like a missing page.
+> anywhere, and for anyone but the Safe and its owners it looks like a missing page.
 
 ### 3. The crop is now stock in the farmer's name
 **Farmer → My stock:** 1,000 kg of Grade A cocoa, its value today, and **Value over time**: how

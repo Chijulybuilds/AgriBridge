@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { ArchiveBoxIcon, TagIcon } from "@heroicons/react/24/outline";
 
 import { useClearanceInventory, useCommodities, useListings, useLots, useMarketSettings, type Lot } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { ERC20Abi, MarketplaceAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
 import { kg, parseKg, parseUsd, percentFromBps, usd, usdPerKg } from "../../lib/format";
-import { lotName } from "../lots";
+import { LotLabel } from "../lots";
 import { TxStatus } from "../TxStatus";
 import { Card, EmptyState } from "../ui";
 
@@ -29,26 +30,39 @@ export function ClearanceTab() {
 
       <Card title="Bought through clearance, not yet listed">
         {held.length === 0 ? (
-          <EmptyState>Nothing to list.</EmptyState>
+          <EmptyState icon={ArchiveBoxIcon}>Nothing to list. Expired stock that holders sell to AgriBridge shows up here.</EmptyState>
         ) : (
           <div className="stack">
-            {held.map((lot) => (
-              <ListClearance key={lot.id.toString()} lot={lot} name={lotName(lot, commodities)} available={inventory!.get(lot.id)!} />
-            ))}
+            {held.map((lot) => {
+              const available = inventory!.get(lot.id)!;
+              return (
+                <ListClearance
+                  key={lot.id.toString()}
+                  lot={lot}
+                  label={<LotLabel lot={lot} commodities={commodities} sub={`${kg(available)} bought`} />}
+                  available={available}
+                />
+              );
+            })}
           </div>
         )}
       </Card>
 
       <Card title="Listed for feed buyers">
         {open.length === 0 ? (
-          <EmptyState>No clearance listings.</EmptyState>
+          <EmptyState icon={TagIcon}>No clearance listings.</EmptyState>
         ) : (
           <table className="table">
             <tbody>
-              {open.map((listing) => {
-                const lot = lots.find((l) => l.id === listing.lotId);
-                return <ClearanceListing key={listing.id.toString()} id={listing.id} name={lot ? lotName(lot, commodities) : `Lot ${listing.lotId}`} kgLeft={listing.kgRemaining} price={listing.price} />;
-              })}
+              {open.map((listing) => (
+                <ClearanceListing
+                  key={listing.id.toString()}
+                  id={listing.id}
+                  label={<LotLabel lot={lots.find((l) => l.id === listing.lotId) ?? { id: listing.lotId, commodityId: 0n }} commodities={commodities} />}
+                  kgLeft={listing.kgRemaining}
+                  price={listing.price}
+                />
+              ))}
             </tbody>
           </table>
         )}
@@ -95,7 +109,7 @@ function FundCard({ balance, discountBps }: { balance?: bigint; discountBps?: bi
   );
 }
 
-function ListClearance({ lot, name, available }: { lot: Lot; name: string; available: bigint }) {
+function ListClearance({ lot, label, available }: { lot: Lot; label: ReactNode; available: bigint }) {
   const tx = useTx();
   const [amount, setAmount] = useState("");
   const [price, setPrice] = useState("");
@@ -115,11 +129,9 @@ function ListClearance({ lot, name, available }: { lot: Lot; name: string; avail
   }
 
   return (
-    <div>
+    <div className="card-sunken">
       <div className="row">
-        <span style={{ minWidth: 200 }}>
-          <strong>{name}</strong> · {kg(available)}
-        </span>
+        <span style={{ minWidth: 220 }}>{label}</span>
         <input className="input" style={{ maxWidth: 140 }} placeholder={`kg (all ${kg(available)})`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <input className="input" style={{ maxWidth: 140 }} placeholder="US$ per kg" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
         <button className="btn btn-small" disabled={tx.isBusy || !parseUsd(price)} onClick={() => void list()}>
@@ -131,11 +143,11 @@ function ListClearance({ lot, name, available }: { lot: Lot; name: string; avail
   );
 }
 
-function ClearanceListing({ id, name, kgLeft, price }: { id: bigint; name: string; kgLeft: bigint; price: bigint }) {
+function ClearanceListing({ id, label, kgLeft, price }: { id: bigint; label: ReactNode; kgLeft: bigint; price: bigint }) {
   const tx = useTx();
   return (
     <tr>
-      <td>{name}</td>
+      <td>{label}</td>
       <td>{kg(kgLeft)} left</td>
       <td>{usdPerKg(price)}</td>
       <td>

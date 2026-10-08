@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useConnection } from "wagmi";
+import { ArrowTrendingUpIcon, BuildingLibraryIcon, ClockIcon, ShieldCheckIcon, WalletIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../../components/layout/AppLayout";
 import { TxStatus } from "../../components/TxStatus";
@@ -31,7 +32,8 @@ export default function InvestorOverview() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const invested = (history ?? []).reduce((sum, m) => (m.kind === "Invested" ? sum + m.amount : sum - m.amount), 0n);
-  const earned = position && history ? position.value - invested : undefined;
+  // Without any history yet (e.g. still loading), the whole position would look like earnings.
+  const earned = position && history?.length ? position.value - invested : undefined;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -66,15 +68,16 @@ export default function InvestorOverview() {
   return (
     <AppLayout role="investor" title="Investor">
       <PageHeader
+        eyebrow="Investor"
         title="Investor overview"
         subtitle="Your money is lent to farmers against crop held in warehouses. Interest is added every second; 80% goes to investors and 20% builds a cushion that absorbs losses first."
       />
 
       <div className="grid-4">
-        <Stat label="Your money in the pool" value={usd(position?.value)} sub={earned !== undefined ? `${usd(earned)} earned so far` : undefined} testId="position" />
-        <Stat label="Investors earn now" value={stats ? `${percentFromWad(stats.supplyRate)} a year` : "—"} sub="Changes with how much is lent out" />
-        <Stat label="Pool size" value={usd(stats?.totalAssets)} sub={stats ? `${percentFromWad(stats.utilization, 0)} lent to farmers` : undefined} />
-        <Stat label="Loss cushion" value={usd(stats?.reserves)} sub="Covers bad debt before investors" />
+        <Stat icon={WalletIcon} tone="gold" label="Your money in the pool" value={usd(position?.value)} sub={earned !== undefined ? `${usd(earned)} earned so far` : undefined} testId="position" />
+        <Stat icon={ArrowTrendingUpIcon} label="Investors earn now" value={stats ? `${percentFromWad(stats.supplyRate)} a year` : "—"} sub="Changes with how much is lent out" />
+        <Stat icon={BuildingLibraryIcon} tone="blue" label="Pool size" value={usd(stats?.totalAssets)} sub={stats ? `${percentFromWad(stats.utilization, 0)} lent to farmers` : undefined} />
+        <Stat icon={ShieldCheckIcon} label="Loss cushion" value={usd(stats?.reserves)} sub="Covers bad debt before investors" />
       </div>
 
       <div className="grid-2">
@@ -132,7 +135,9 @@ export default function InvestorOverview() {
 
       <Card title="Your history">
         {!history || history.length === 0 ? (
-          <EmptyState>No position yet. Your investments and withdrawals will show here.</EmptyState>
+          <EmptyState icon={ClockIcon} title="No position yet">
+            Your investments and withdrawals will show here.
+          </EmptyState>
         ) : (
           <table className="table">
             <tbody>

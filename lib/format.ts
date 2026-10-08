@@ -30,9 +30,21 @@ export function kg(value: bigint | undefined): string {
   return `${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })} kg`;
 }
 
-/** Plain number of kilograms, for form defaults. */
-export function kgNumber(value: bigint | undefined): number {
-  return value === undefined ? 0 : Number(formatUnits(value, KG_DECIMALS));
+/**
+ * Kilograms as a form shows them: at most two decimals, rounded down so it never
+ * offers more than there is ("5.88", not "5.882350588235294").
+ */
+export function kgInput(value: bigint): string {
+  const step = 10n ** BigInt(KG_DECIMALS - 2);
+  return formatUnits((value / step) * step, KG_DECIMALS);
+}
+
+/**
+ * Kilograms typed into a form that offers up to `all`. Leaving the offered
+ * amount as it is means all of it, exactly, so no crumb is left behind.
+ */
+export function parseKgUpTo(input: string, all: bigint): bigint | undefined {
+  return input.trim() === kgInput(all) ? all : parseKg(input);
 }
 
 /** "$5.85/kg" from an 8-decimal oracle price. */
