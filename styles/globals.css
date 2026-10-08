@@ -150,8 +150,9 @@
  *   Page sections cap at three steps, so a page used every day is in place within 420ms; a
  *   chart's bars run left to right at the same rhythm, and labels land just after their bar.
  * - Intensity: no overshoot, press scale 0.96, a failed action nudges 4px once.
- * - Restraint: motion explains a change and then holds still. Nothing loops except loading.
- *   Exactly one hero moment, the receipt being stamped on the landing page.
+ * - Restraint: motion explains a change and then holds still. Nothing loops except loading, and
+ *   the landing receipt's slow float (paused with the hero's pause button). Exactly one hero
+ *   moment, the receipt being stamped on the landing page.
  */
 :root {
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
@@ -1386,15 +1387,18 @@ input[type="radio"] {
   margin-bottom: 10px;
 }
 
-/* The headline figure reserves its final width, so it never shifts while it counts up. */
 .market-hero-figure {
-  display: grid;
-  justify-items: start;
   font-family: var(--font-display), "Arial Narrow", sans-serif;
   font-size: 64px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0.01em;
+}
+
+/* A counting figure (components/CountUp.tsx) reserves its final width, so nothing shifts while it counts. */
+.count-up {
+  display: inline-grid;
+  justify-items: start;
 }
 
 .count-reserve,

@@ -1,6 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { m, useMotionTemplate, useMotionValue, useReducedMotion, useSpring, useTransform } from "motion/react";
 import {
   ArrowRightIcon,
   BuildingLibraryIcon,
@@ -13,6 +14,7 @@ import {
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 
+import { CountUp } from "../components/CountUp";
 import { Logo } from "../components/Logo";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { CropSeal } from "../components/ui";
@@ -75,7 +77,8 @@ export default function Home() {
     { label: "Investors earn now", value: stats ? `${percentFromWad(stats.supplyRate)} a year` : "—" },
   ];
 
-  // The field video plays only for people who haven't asked for less motion, and can always be paused.
+  // The field video (and the receipt's slow float) plays only for people who haven't asked for less
+  // motion, and one button pauses both.
   const video = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   useEffect(() => {
@@ -132,7 +135,7 @@ export default function Home() {
 
       <main id="content" tabIndex={-1} style={{ outline: "none" }}>
         {/* HERO: the receipt is the thesis. */}
-        <section className="landing-hero" aria-labelledby="hero-title">
+        <section className="landing-hero" aria-labelledby="hero-title" data-motion={playing ? "on" : "paused"}>
           <video ref={video} className="landing-hero-video" muted loop playsInline preload="metadata" aria-hidden="true">
             <source src="/videos/3826309911-preview.mp4" type="video/mp4" />
           </video>
@@ -164,7 +167,7 @@ export default function Home() {
 
             <Receipt />
           </div>
-          <button type="button" className="landing-video-toggle" onClick={toggleVideo} aria-label={playing ? "Pause the background video" : "Play the background video"}>
+          <button type="button" className="landing-video-toggle" onClick={toggleVideo} aria-label={playing ? "Pause the background motion" : "Play the background motion"}>
             {playing ? <PauseIcon aria-hidden="true" /> : <PlayIcon aria-hidden="true" />}
           </button>
         </section>
@@ -374,8 +377,8 @@ export default function Home() {
         /*
          * The page's one hero moment, told in beats with a rest between each (times on the 120ms grid):
          * the receipt arrives (0), its rows are printed (240, 60ms apart), it is stamped (840; the one
-         * fast strike, and the paper gives a little under it at 1080), then the money it unlocks
-         * appears in the stub (1440).
+         * fast strike, and the paper gives a little under it at 1080), then the advance it unlocks
+         * counts up in the stub (1440–2160).
          */
         @media (prefers-reduced-motion: no-preference) {
           .receipt { animation: receipt-in var(--dur-hero) var(--ease-out) both, receipt-thump var(--dur-standard) var(--ease-out) 1080ms; }
@@ -385,6 +388,12 @@ export default function Home() {
           .receipt-rows div:nth-child(3) { animation-delay: calc(240ms + var(--stagger) * 2); }
           .stamp { animation: stamp-in var(--dur-hero) cubic-bezier(0.2, 0.9, 0.3, 1) 840ms both; }
           .receipt-stub strong { animation: print-in var(--dur-slow) var(--ease-out) 1440ms backwards; }
+          /* Once the story is told (2160ms), the receipt floats slowly: the page's only ambient loop. */
+          .receipt-stage { animation: receipt-float 6000ms ease-in-out 2400ms infinite alternate; }
+          .landing-hero[data-motion="paused"] .receipt-stage { animation-play-state: paused; }
+        }
+        @keyframes receipt-float {
+          to { translate: 0 -8px; }
         }
         @keyframes receipt-in {
           from { opacity: 0; translate: 0 16px; }
@@ -444,56 +453,86 @@ export default function Home() {
   );
 }
 
-/** An example warehouse receipt: what a farmer gets when the warehouse weighs and grades their crop. */
+/**
+ * An example warehouse receipt: what a farmer gets when the warehouse weighs and grades their crop.
+ * It is the page's one hero moment: printed, stamped, then the advance counts up (CSS and CountUp).
+ * Afterwards it floats slowly over the field, and tilts a little toward a mouse pointer, its shadow
+ * falling the other way, like paper held up to the light.
+ */
 function Receipt() {
+  const reduce = useReducedMotion();
+  const pointerX = useMotionValue(0);
+  const pointerY = useMotionValue(0);
+  const x = useSpring(pointerX, { stiffness: 150, damping: 20 });
+  const y = useSpring(pointerY, { stiffness: 150, damping: 20 });
+  const rotateY = useTransform(x, [-0.5, 0.5], [-5, 5]);
+  const rotateX = useTransform(y, [-0.5, 0.5], [4, -4]);
+  const shadowX = useTransform(x, [-0.5, 0.5], [14, -14]);
+  const boxShadow = useMotionTemplate`${shadowX}px 30px 60px -24px oklch(0 0 0 / 0.65), 0 2px 8px oklch(0 0 0 / 0.25)`;
+
+  function tilt(event: PointerEvent<HTMLDivElement>) {
+    if (reduce || event.pointerType !== "mouse") return;
+    const box = event.currentTarget.getBoundingClientRect();
+    pointerX.set((event.clientX - box.left) / box.width - 0.5);
+    pointerY.set((event.clientY - box.top) / box.height - 0.5);
+  }
+  function settle() {
+    pointerX.set(0);
+    pointerY.set(0);
+  }
+
   return (
-    <figure className="receipt" aria-labelledby="receipt-caption">
-      <figcaption id="receipt-caption" className="receipt-example">
-        Example
-      </figcaption>
-      <div className="receipt-top">
-        <span className="receipt-title">Warehouse receipt</span>
-        <span className="receipt-no">No. 0231</span>
-      </div>
-      <div className="receipt-crop">
-        <CropSeal name="Cocoa" size={40} />
-        <div className="receipt-crop-text">
-          <strong>Cocoa beans</strong>
-          <span>Ibadan warehouse · weighed and graded today</span>
+    <m.div className="receipt-stage" style={{ rotateX, rotateY, transformPerspective: 1000 }} onPointerMove={tilt} onPointerLeave={settle}>
+      <m.figure className="receipt" aria-labelledby="receipt-caption" style={{ boxShadow }}>
+        <figcaption id="receipt-caption" className="receipt-example">
+          Example
+        </figcaption>
+        <div className="receipt-top">
+          <span className="receipt-title">Warehouse receipt</span>
+          <span className="receipt-no">No. 0231</span>
         </div>
-      </div>
-      <div className="receipt-rows-wrap">
-        <dl className="receipt-rows">
+        <div className="receipt-crop">
+          <CropSeal name="Cocoa" size={40} />
+          <div className="receipt-crop-text">
+            <strong>Cocoa beans</strong>
+            <span>Ibadan warehouse · weighed and graded today</span>
+          </div>
+        </div>
+        <div className="receipt-rows-wrap">
+          <dl className="receipt-rows">
+            <div>
+              <dt>Net weight</dt>
+              <dd>1,000 kg</dd>
+            </div>
+            <div>
+              <dt>Grade</dt>
+              <dd>A</dd>
+            </div>
+            <div>
+              <dt>Worth today</dt>
+              <dd>$4,972</dd>
+            </div>
+          </dl>
+          <div className="stamp" aria-hidden="true">
+            <span className="stamp-big">Verified</span>
+            <span className="stamp-small">Grade A · Ibadan</span>
+          </div>
+        </div>
+        <div className="receipt-stub">
           <div>
-            <dt>Net weight</dt>
-            <dd>1,000 kg</dd>
+            <span>Advance available</span>
+            <strong>
+              <CountUp value={2279} format={(v) => `$${Math.round(v).toLocaleString("en-US")}`} delay={1.44} />
+            </strong>
+            <span>repay within 60 days</span>
           </div>
           <div>
-            <dt>Grade</dt>
-            <dd>A</dd>
+            <span>Or sell it on the market</span>
+            <strong>$4.97</strong>
+            <span>per kg, from today</span>
           </div>
-          <div>
-            <dt>Worth today</dt>
-            <dd>$4,972</dd>
-          </div>
-        </dl>
-        <div className="stamp" aria-hidden="true">
-          <span className="stamp-big">Verified</span>
-          <span className="stamp-small">Grade A · Ibadan</span>
         </div>
-      </div>
-      <div className="receipt-stub">
-        <div>
-          <span>Advance available</span>
-          <strong>$2,279</strong>
-          <span>repay within 60 days</span>
-        </div>
-        <div>
-          <span>Or sell it on the market</span>
-          <strong>$4.97</strong>
-          <span>per kg, from today</span>
-        </div>
-      </div>
-    </figure>
+      </m.figure>
+    </m.div>
   );
 }

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { animate, m, useReducedMotion } from "motion/react";
+import type { CSSProperties } from "react";
+import { m } from "motion/react";
 
+import { CountUp } from "./CountUp";
 import { cropColour, CropSeal } from "./ui";
 import type { Commodity, Warehouse } from "../hooks/useProtocolData";
 import { kg, percentFromBps, pricePerKg } from "../lib/format";
@@ -44,7 +45,9 @@ export function MarketOverview({
         <h2 id="for-sale-title" className="market-hero-label">
           Crop for sale now
         </h2>
-        <CountUp value={valueForSale} />
+        <p className="market-hero-figure" data-testid="market-value">
+          <CountUp value={valueForSale} format={dollars} />
+        </p>
         <p className="market-hero-sub">
           {kg(kgForSale)} in {listingCount} listing{listingCount === 1 ? "" : "s"}, out of {kg(storedKg)} in the warehouses
         </p>
@@ -147,44 +150,7 @@ function barHeight(value: bigint, max: bigint): number {
   return Math.max(4, Number((value * 10_000n) / max) / 100);
 }
 
-/**
- * The headline figure. It counts up once when the market first loads, so the eye lands on it
- * first; later changes show at once (and are not animated again). The final value reserves its
- * width, so the layout never shifts while it counts.
- */
-function CountUp({ value }: { value: number | undefined }) {
-  const reduce = useReducedMotion();
-  const [shown, setShown] = useState<number>();
-  const counted = useRef(false);
-
-  useEffect(() => {
-    if (value === undefined) return;
-    if (counted.current || reduce || value === 0) {
-      counted.current = true;
-      setShown(value);
-      return;
-    }
-    counted.current = true;
-    const controls = animate(0, value, { duration: 0.72, ease: [0.2, 0, 0, 1], onUpdate: setShown });
-    return () => controls.stop();
-  }, [value, reduce]);
-
-  const final = dollars(value);
-  return (
-    <p className="market-hero-figure" data-testid="market-value">
-      <span className="count-reserve" aria-hidden="true">
-        {final}
-      </span>
-      <span className="count-live" aria-hidden="true">
-        {shown === undefined ? final : dollars(shown)}
-      </span>
-      <span className="visually-hidden">{final}</span>
-    </p>
-  );
-}
-
-function dollars(value: number | undefined): string {
-  if (value === undefined) return "—";
+function dollars(value: number): string {
   return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
