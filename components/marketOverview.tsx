@@ -60,7 +60,7 @@ export function MarketOverview({
           <p className="muted">No verified crop in the warehouses yet.</p>
         ) : (
           <div className="crop-chart" role="group" aria-labelledby="by-crop-title">
-            {crops.map(({ commodity, storedKg: stored, forSaleKg }) => {
+            {crops.map(({ commodity, storedKg: stored, forSaleKg }, i) => {
               const id = commodity.id.toString();
               const share = stored > 0n ? Number((forSaleKg * BPS) / stored) : 0;
               const selected = selectedCrop === id;
@@ -73,7 +73,7 @@ export function MarketOverview({
                   data-dimmed={selectedCrop !== "" && !selected}
                   onClick={() => onSelectCrop(selected ? "" : id)}
                   aria-label={`${commodity.name}: ${kg(stored)} stored, ${kg(forSaleKg)} for sale. ${selected ? "Show all crops" : `Show only ${commodity.name}`}`}
-                  style={{ "--crop": cropColour(commodity.name) } as CSSProperties}
+                  style={{ "--crop": cropColour(commodity.name), "--i": i } as CSSProperties}
                 >
                   <span className="crop-bar-share" aria-hidden="true">
                     {stored > 0n ? percentFromBps(share) : "–"}
@@ -104,12 +104,12 @@ export function MarketOverview({
           <p className="muted">No warehouses yet.</p>
         ) : (
           <ul className="fill-list">
-            {warehouses.map((w) => {
+            {warehouses.map((w, i) => {
               const id = w.id.toString();
               const full = w.capacityKg > 0n ? Number((w.storedKg * BPS) / w.capacityKg) : 0;
               const selected = selectedWarehouse === id;
               return (
-                <li key={id}>
+                <li key={id} style={{ "--i": i } as CSSProperties}>
                   <button
                     type="button"
                     className="fill-row"
@@ -198,7 +198,7 @@ export function PriceAgeing({ commodities }: { commodities: Commodity[] }) {
   if (priced.length === 0) return <p className="muted">Prices appear once they are set.</p>;
   return (
     <ul className="price-grid">
-      {priced.map((c) => (
+      {priced.map((c, i) => (
         <li key={c.id.toString()} className="price-card" style={{ "--crop": cropColour(c.name) } as CSSProperties}>
           <div className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
             <CropSeal name={c.name} size={26} />
@@ -208,7 +208,7 @@ export function PriceAgeing({ commodities }: { commodities: Commodity[] }) {
           <p className="muted" style={{ marginBottom: 14 }}>
             Grade A today
           </p>
-          <AgeingCurve commodity={c} />
+          <AgeingCurve commodity={c} column={i % 3} />
           <p className="hint" style={{ marginTop: 10 }}>
             Worth {percentFromBps(c.gradeBFactorBps)} at grade B (day {c.daysToGradeB}), {percentFromBps(c.gradeCFactorBps)} at grade C
             (day {c.daysToGradeC}). Expires on day {c.daysToExpiry}.
@@ -219,8 +219,11 @@ export function PriceAgeing({ commodities }: { commodities: Commodity[] }) {
   );
 }
 
-/** The decay schedule as a line: it draws itself once, when the card scrolls into view. */
-function AgeingCurve({ commodity: c }: { commodity: Commodity }) {
+/**
+ * The decay schedule as a line: it draws itself once, when the card scrolls into view. Cards in a
+ * row draw left to right, 60ms apart (--stagger), so a row never moves all at once.
+ */
+function AgeingCurve({ commodity: c, column }: { commodity: Commodity; column: number }) {
   const W = 240;
   const H = 64;
   const end = Math.max(c.daysToExpiry, c.daysToGradeC, 1);
@@ -245,7 +248,7 @@ function AgeingCurve({ commodity: c }: { commodity: Commodity }) {
         initial={{ pathLength: 0 }}
         whileInView={{ pathLength: 1 }}
         viewport={{ once: true, amount: 0.4 }}
-        transition={{ duration: 0.72, ease: [0.2, 0, 0, 1] }}
+        transition={{ duration: 0.72, ease: [0.2, 0, 0, 1], delay: column * 0.06 }}
       />
       {(
         [

@@ -146,8 +146,9 @@
  *   turns linearly, the placeholder shimmer eases in and out).
  * - Timing: every duration is a multiple of 120ms (quick 120, standard 240, slow 360, hero 480).
  * - Entrance: one family only, a rise of at most 8px with a fade (16px on the landing page).
- * - Stagger: 60ms between grouped items, in reading order, capped at three steps, so a page
- *   used every day is fully in place within 420ms.
+ * - Stagger: 60ms between grouped items, in reading order; a group never appears all at once.
+ *   Page sections cap at three steps, so a page used every day is in place within 420ms; a
+ *   chart's bars run left to right at the same rhythm, and labels land just after their bar.
  * - Intensity: no overshoot, press scale 0.96, a failed action nudges 4px once.
  * - Restraint: motion explains a change and then holds still. Nothing loops except loading.
  *   Exactly one hero moment, the receipt being stamped on the landing page.
@@ -1754,19 +1755,21 @@ input[type="radio"] {
   }
 
   /* The market overview is revealed in order of importance: the figure counts up (in code), the
-     crop bars rise from the baseline, the warehouse fills slide in, then the shares settle on top. */
+     crop bars rise left to right and the warehouse fills slide in top to bottom (--i is each one's
+     place), and each share label settles just after its own bar has landed. */
   .crop-bar-stored {
     transform-origin: bottom;
-    animation: grow-up var(--dur-slow) var(--ease-out) calc(var(--stagger) * 2) backwards;
+    animation: grow-up var(--dur-slow) var(--ease-out) calc(var(--stagger) * (2 + var(--i, 0))) backwards;
   }
 
   .fill-bar {
     transform-origin: left;
-    animation: grow-right var(--dur-slow) var(--ease-out) calc(var(--stagger) * 2) backwards;
+    animation: grow-right var(--dur-slow) var(--ease-out) calc(var(--stagger) * (2 + var(--i, 0))) backwards;
   }
 
   .crop-bar-share {
-    animation: rise-in var(--dur-standard) var(--ease-out) calc(var(--stagger) * 3 + var(--dur-standard)) backwards;
+    animation: rise-in var(--dur-standard) var(--ease-out) calc(var(--stagger) * (2 + var(--i, 0)) + var(--dur-standard))
+      backwards;
   }
 
   /* Value bars grow from the baseline together, like a reading settling on a scale. */
