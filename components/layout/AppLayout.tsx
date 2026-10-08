@@ -3,6 +3,10 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, m } from "motion/react";
+
+/** The phone menu: arrives at the slow duration, leaves faster on the exit curve (globals.css). */
+const DRAWER_IN = { type: "spring", duration: 0.36, bounce: 0 } as const;
+const DRAWER_OUT = { duration: 0.24, ease: [0.3, 0, 1, 1] } as const;
 import { useConnection } from "wagmi";
 import {
   ArchiveBoxIcon,
@@ -126,8 +130,8 @@ export default function AppLayout({
                 className="drawer-backdrop"
                 onClick={() => setMenuOpen(false)}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                animate={{ opacity: 1, transition: DRAWER_IN }}
+                exit={{ opacity: 0, transition: DRAWER_OUT }}
               />
               <m.aside
                 ref={drawer}
@@ -137,8 +141,8 @@ export default function AppLayout({
                 aria-label="Menu"
                 style={{ boxShadow: "var(--shadow-lg)" }}
                 initial={{ x: "-100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "-100%" }}
+                animate={{ x: 0, transition: DRAWER_IN }}
+                exit={{ x: "-100%", transition: DRAWER_OUT }}
               >
                 <Sidebar role={role} onNavigate={() => setMenuOpen(false)} closable />
               </m.aside>

@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ComponentType, type CSSProperties, type KeyboardEvent, type ReactNode, type SVGProps } from "react";
+import { useId, useRef, useState, type ComponentType, type KeyboardEvent, type ReactNode, type SVGProps } from "react";
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
@@ -286,12 +286,12 @@ export function Timeline({ points, format }: {
   return (
     <div>
       <div className="timeline">
-        {points.map((point, i) => (
+        {points.map((point) => (
           <div
             key={point.label}
             className="timeline-bar"
             title={`${point.label}: ${format(point.value)}`}
-            style={{ height: `${Math.max(3, (point.value / max) * 100)}%`, "--i": i } as CSSProperties}
+            style={{ height: `${Math.max(3, (point.value / max) * 100)}%` }}
           />
         ))}
       </div>

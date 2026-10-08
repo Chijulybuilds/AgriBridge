@@ -372,17 +372,19 @@ export default function Home() {
         .receipt-example { position: absolute; top: -12px; left: 22px; padding: 3px 10px; border-radius: 999px; background: var(--maize); color: var(--on-maize);
           font-size: 11.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
         /*
-         * The receipt tells the story once: it is printed row by row, stamped (the paper gives a little
-         * under the stamp), and then the money it unlocks appears in the stub.
+         * The page's one hero moment, told in beats with a rest between each (times on the 120ms grid):
+         * the receipt arrives (0), its rows are printed (240, 60ms apart), it is stamped (840; the one
+         * fast strike, and the paper gives a little under it at 1080), then the money it unlocks
+         * appears in the stub (1440).
          */
         @media (prefers-reduced-motion: no-preference) {
-          .receipt { animation: receipt-in 520ms var(--ease-out) both, receipt-thump 200ms var(--ease-out) 860ms; }
-          .receipt-rows div { animation: print-in 320ms var(--ease-out) backwards; }
-          .receipt-rows div:nth-child(1) { animation-delay: 260ms; }
-          .receipt-rows div:nth-child(2) { animation-delay: 340ms; }
-          .receipt-rows div:nth-child(3) { animation-delay: 420ms; }
-          .stamp { animation: stamp-in 460ms cubic-bezier(0.2, 0.9, 0.3, 1) 650ms both; }
-          .receipt-stub strong { animation: print-in 360ms var(--ease-out) 1080ms backwards; }
+          .receipt { animation: receipt-in var(--dur-hero) var(--ease-out) both, receipt-thump var(--dur-standard) var(--ease-out) 1080ms; }
+          .receipt-rows div { animation: print-in var(--dur-slow) var(--ease-out) backwards; }
+          .receipt-rows div:nth-child(1) { animation-delay: 240ms; }
+          .receipt-rows div:nth-child(2) { animation-delay: calc(240ms + var(--stagger)); }
+          .receipt-rows div:nth-child(3) { animation-delay: calc(240ms + var(--stagger) * 2); }
+          .stamp { animation: stamp-in var(--dur-hero) cubic-bezier(0.2, 0.9, 0.3, 1) 840ms both; }
+          .receipt-stub strong { animation: print-in var(--dur-slow) var(--ease-out) 1440ms backwards; }
         }
         @keyframes receipt-in {
           from { opacity: 0; translate: 0 16px; }

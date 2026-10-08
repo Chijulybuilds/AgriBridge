@@ -39,10 +39,10 @@ const sans = Atkinson_Hyperlegible_Next({
 
 /**
  * Motion (motion.dev) runs the few animations CSS can't: indicators that slide between tabs, and
- * exits. One spring for all of them, with no bounce, matching --ease-out in globals.css; it
- * switches itself off when the person has asked for reduced motion.
+ * exits. One spring for all of them, with no bounce and the standard duration (--dur-standard in
+ * globals.css); it switches itself off when the person has asked for reduced motion.
  */
-const SPRING = { type: "spring", duration: 0.32, bounce: 0 } as const;
+const SPRING = { type: "spring", duration: 0.24, bounce: 0 } as const;
 
 /**
  * Two separate wallet setups: the hidden /verifier page talks only to the

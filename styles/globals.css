@@ -139,14 +139,26 @@
 }
 
 /*
- * Motion settles like grain on a weighbridge: it decelerates into place and never bounces.
- * One curve for nearly everything, three durations, one entrance (a short rise with a fade).
+ * Motion language: calm and precise ("Corporate"). Motion settles like grain on a weighbridge:
+ * it decelerates into place and never bounces.
+ * - Curves: --ease-out for everything that arrives or responds; --ease-in only for exits.
+ *   Exceptions: the landing stamp's fast strike (used once), and loading loops (the spinner
+ *   turns linearly, the placeholder shimmer eases in and out).
+ * - Timing: every duration is a multiple of 120ms (quick 120, standard 240, slow 360, hero 480).
+ * - Entrance: one family only, a rise of at most 8px with a fade (16px on the landing page).
+ * - Stagger: 60ms between grouped items, in reading order, capped at four steps.
+ * - Intensity: no overshoot, press scale 0.96, a failed action nudges 4px once.
+ * - Restraint: motion explains a change and then holds still. Nothing loops except loading.
+ *   Exactly one hero moment, the receipt being stamped on the landing page.
  */
 :root {
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.3, 0, 1, 1);
   --dur-quick: 120ms;
-  --dur-standard: 220ms;
+  --dur-standard: 240ms;
   --dur-slow: 360ms;
+  --dur-hero: 480ms;
+  --stagger: 60ms;
 }
 
 /* ─── Base ──────────────────────────────────────────────────────────────── */
@@ -1055,7 +1067,7 @@ input[type="radio"] {
   border-radius: 8px;
   background: linear-gradient(90deg, var(--bg-sunken) 0%, var(--border) 50%, var(--bg-sunken) 100%);
   background-size: 200% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
+  animation: shimmer calc(var(--dur-quick) * 12) ease-in-out infinite;
 }
 
 @keyframes shimmer {
@@ -1073,7 +1085,7 @@ input[type="radio"] {
   border-radius: 50%;
   border: 2px solid currentColor;
   border-right-color: transparent;
-  animation: spin 0.7s linear infinite;
+  animation: spin calc(var(--dur-quick) * 6) linear infinite;
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -1403,19 +1415,19 @@ input[type="radio"] {
   }
 
   .app-content > :nth-child(2) {
-    animation-delay: 50ms;
+    animation-delay: var(--stagger);
   }
 
   .app-content > :nth-child(3) {
-    animation-delay: 100ms;
+    animation-delay: calc(var(--stagger) * 2);
   }
 
   .app-content > :nth-child(4) {
-    animation-delay: 150ms;
+    animation-delay: calc(var(--stagger) * 3);
   }
 
   .app-content > :nth-child(n + 5) {
-    animation-delay: 200ms;
+    animation-delay: calc(var(--stagger) * 4);
   }
 
   /* A tab's panel and a transaction's status arrive with the same short rise. */
@@ -1427,7 +1439,7 @@ input[type="radio"] {
   /* A failed transaction or a form error gives one small, firm nudge: look here. */
   .tx-notice.notice-danger,
   .form-error {
-    animation: nudge 320ms var(--ease-out);
+    animation: nudge var(--dur-slow) var(--ease-out);
   }
 
   /* Each new status icon (spinner, tick, cross) resolves into place. */
@@ -1436,14 +1448,13 @@ input[type="radio"] {
   }
 
   .value-changed {
-    animation: value-changed 1400ms var(--ease-out);
+    animation: value-changed calc(var(--dur-quick) * 12) var(--ease-out);
   }
 
-  /* Value bars grow from the baseline, left to right, like a reading on a scale. */
+  /* Value bars grow from the baseline together, like a reading settling on a scale. */
   .timeline-bar {
     transform-origin: bottom;
     animation: grow-up var(--dur-slow) var(--ease-out) backwards;
-    animation-delay: calc(var(--i, 0) * 18ms);
   }
 }
 
