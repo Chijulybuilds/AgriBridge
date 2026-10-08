@@ -1,4 +1,4 @@
-import { useRef, type ComponentType, type KeyboardEvent, type ReactNode, type SVGProps } from "react";
+import { useRef, useState, type ComponentType, type CSSProperties, type KeyboardEvent, type ReactNode, type SVGProps } from "react";
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
@@ -55,6 +55,8 @@ export function Card({ title, children, actions, testId }: {
 /**
  * One figure in a page's row of figures. `lead` makes the figure that matters most on the page
  * larger; `alert` colours it red, and is kept for things that need action (advances at risk).
+ * When a figure changes after a transaction or a refresh, it is marked for a moment so the eye
+ * finds what moved; a figure appearing for the first time is not.
  */
 export function Stat({
   label,
@@ -73,6 +75,7 @@ export function Stat({
   alert?: boolean;
   testId?: string;
 }) {
+  const changes = useChangeCount(value);
   return (
     <div className={`stat${lead ? " stat-lead" : ""}${alert ? " stat-alert" : ""}`}>
       <div className="stat-label">
@@ -80,11 +83,25 @@ export function Stat({
         {label}
       </div>
       <div className="stat-value" data-testid={testId}>
-        {value}
+        <span key={changes} className={changes ? "value-changed" : undefined}>
+          {value}
+        </span>
       </div>
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
   );
+}
+
+/** Counts changes to a displayed figure, ignoring placeholders such as "—" while it loads. */
+function useChangeCount(value: ReactNode) {
+  const text = typeof value === "string" || typeof value === "number" ? String(value) : undefined;
+  const [seen, setSeen] = useState(text);
+  const [changes, setChanges] = useState(0);
+  if (text !== seen) {
+    setSeen(text);
+    if (seen !== undefined && text !== undefined && /\d/.test(seen) && /\d/.test(text)) setChanges(changes + 1);
+  }
+  return changes;
 }
 
 export function Badge({ tone = "muted", children, plain }: { tone?: Tone; children: ReactNode; plain?: boolean }) {
@@ -222,7 +239,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label }: {
 /** The content a tab shows, labelled by that tab. */
 export function TabPanel({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <div role="tabpanel" id={`panel-${id}`} aria-labelledby={`tab-${id}`}>
+    <div key={id} role="tabpanel" id={`panel-${id}`} aria-labelledby={`tab-${id}`}>
       {children}
     </div>
   );
@@ -263,12 +280,12 @@ export function Timeline({ points, format }: {
   return (
     <div>
       <div className="timeline">
-        {points.map((point) => (
+        {points.map((point, i) => (
           <div
             key={point.label}
             className="timeline-bar"
             title={`${point.label}: ${format(point.value)}`}
-            style={{ height: `${Math.max(3, (point.value / max) * 100)}%` }}
+            style={{ height: `${Math.max(3, (point.value / max) * 100)}%`, "--i": i } as CSSProperties}
           />
         ))}
       </div>
@@ -299,7 +316,7 @@ export function CropSeal({ name, size = 34 }: { name: string | undefined; size?:
     <span
       className="crop-seal"
       aria-hidden="true"
-      style={{ width: size, height: size, fontSize: size * 0.48, background: CROP_COLOURS[key] ?? "oklch(0.45 0.05 272)" }}
+      style={{ width: size, height: size, fontSize: size * 0.48, background: CROP_COLOURS[key] ?? "oklch(0.45 0.05 158)" }}
     >
       {(name ?? "?").charAt(0)}
     </span>

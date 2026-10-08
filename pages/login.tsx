@@ -128,7 +128,7 @@ export default function Login() {
         .role-card {
           display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border-radius: 14px; cursor: pointer;
           background: var(--bg-card); border: 1px solid var(--border-light); font: inherit; color: var(--text-primary);
-          transition-property: border-color, background-color; transition-duration: 0.15s; transition-timing-function: ease-out;
+          transition-property: border-color, background-color; transition-duration: var(--dur-quick); transition-timing-function: var(--ease-out);
         }
         .role-card:hover { border-color: var(--line-input); }
         .role-card:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand); }

@@ -121,7 +121,7 @@ export default function AppLayout({
         {menuOpen && (
           <>
             <div className="drawer-backdrop" onClick={() => setMenuOpen(false)} />
-            <aside ref={drawer} className="app-sidebar" role="dialog" aria-modal="true" aria-label="Menu" style={{ boxShadow: "var(--shadow-lg)" }}>
+            <aside ref={drawer} className="app-sidebar drawer" role="dialog" aria-modal="true" aria-label="Menu" style={{ boxShadow: "var(--shadow-lg)" }}>
               <Sidebar role={role} onNavigate={() => setMenuOpen(false)} closable />
             </aside>
           </>

@@ -4,9 +4,9 @@ import type { CSSProperties } from "react";
 type Tone = "default" | "onDark";
 
 /**
- * The AgriBridge mark: a maize cob in its husk, on an indigo tile. The kernel rows are cut in the
+ * The AgriBridge mark: a maize cob in its husk, on a green tile. The kernel rows are cut in the
  * tile's colour. Colours come from --logo-tile, --logo-cob and --logo-leaf (styles/globals.css),
- * so the mark adapts to light, dark and indigo panels.
+ * so the mark adapts to light, dark and green panels.
  */
 export function LogoMark({ size = 30, tone = "default" }: { size?: number; tone?: Tone }) {
   const onDark = tone === "onDark" ? ({ "--logo-tile": "var(--sidebar-raised)" } as CSSProperties) : undefined;

@@ -4,7 +4,7 @@
  * AgriBridge design system: "warehouse receipt".
  *
  * The farmer's crop becomes a stamped warehouse receipt, and the receipt becomes money.
- * - Colour: adire indigo (the brand and every primary action), maize (the one bright accent),
+ * - Colour: field green (the brand and every primary action), maize (the one bright accent),
  *   and leaf green, amber and laterite red kept strictly for status. Every text pair is
  *   checked to at least 4.5:1 in both themes.
  * - Type: Big Shoulders, the condensed face of warehouse signage and weighbridge readouts,
@@ -17,37 +17,41 @@
 [data-theme="light"] {
   color-scheme: light;
 
-  /* Surfaces: cotton washed in indigo, not cream. */
-  --bg-primary: oklch(0.968 0.007 268);
-  --bg-secondary: oklch(0.948 0.01 268);
-  --bg-card: oklch(0.995 0.002 268);
-  --bg-card-hover: oklch(0.978 0.006 268);
-  --bg-sunken: oklch(0.952 0.009 268);
-  --border: oklch(0.9 0.013 268);
-  --border-light: oklch(0.82 0.018 268);
-  --line-input: oklch(0.6 0.02 268);
+  /* Surfaces: linen with a trace of green, not cream. */
+  --bg-primary: oklch(0.968 0.005 158);
+  --bg-secondary: oklch(0.948 0.007 158);
+  --bg-card: oklch(0.995 0.002 158);
+  --bg-card-hover: oklch(0.978 0.005 158);
+  --bg-sunken: oklch(0.952 0.007 158);
+  --border: oklch(0.9 0.01 158);
+  --border-light: oklch(0.82 0.013 158);
+  --line-input: oklch(0.6 0.015 158);
 
-  /* Ink: indigo-dyed thread rather than black. */
-  --text-primary: oklch(0.235 0.045 272);
-  --text-secondary: oklch(0.415 0.035 270);
-  --text-muted: oklch(0.505 0.03 270);
+  /* Ink: a deep green-black rather than pure black. */
+  --text-primary: oklch(0.235 0.034 158);
+  --text-secondary: oklch(0.415 0.026 158);
+  --text-muted: oklch(0.505 0.022 158);
 
-  /* Adire indigo: the brand, links, primary actions and focus. */
-  --brand: oklch(0.365 0.13 272);
-  --brand-strong: oklch(0.305 0.125 272);
-  --brand-soft: oklch(0.935 0.03 272);
-  --on-brand: oklch(0.985 0.005 272);
-  --focus: oklch(0.5 0.19 275);
+  /* Field green: the brand, links, primary actions and focus. */
+  --brand: oklch(0.43 0.1 158);
+  --brand-strong: oklch(0.36 0.085 158);
+  --brand-soft: oklch(0.94 0.035 158);
+  --on-brand: oklch(0.985 0.006 158);
+
+  /* Slate blue: information that needs no action, kept apart from green (healthy). */
+  --info: oklch(0.45 0.08 250);
+  --info-soft: oklch(0.945 0.02 250);
+  --focus: oklch(0.5 0.11 158);
 
   /* Maize: the single bright accent. Dark ink on it in both themes. */
   --maize: oklch(0.835 0.165 86);
   --maize-strong: oklch(0.79 0.165 82);
   --maize-soft: oklch(0.955 0.05 90);
-  --on-maize: oklch(0.235 0.045 272);
+  --on-maize: oklch(0.235 0.034 158);
 
   /* Status, and only status. */
-  --ok: oklch(0.47 0.12 150);
-  --ok-soft: oklch(0.945 0.04 152);
+  --ok: oklch(0.47 0.12 140);
+  --ok-soft: oklch(0.945 0.045 135);
   --warn: oklch(0.49 0.105 70);
   --warn-soft: oklch(0.955 0.045 88);
   --danger: oklch(0.5 0.17 29);
@@ -55,81 +59,94 @@
   --danger-fill: oklch(0.52 0.18 29);
   --on-danger: oklch(0.99 0.004 30);
 
-  /* The sidebar: a panel of indigo cloth. */
-  --sidebar-bg: oklch(0.27 0.075 272);
-  --sidebar-raised: oklch(0.35 0.085 272);
-  --sidebar-hover: oklch(0.31 0.08 272);
-  --sidebar-sunken: oklch(0.22 0.065 272);
-  --sidebar-line: oklch(0.36 0.07 272);
-  --sidebar-line-strong: oklch(0.45 0.07 272);
-  --sidebar-ink: oklch(0.95 0.012 272);
-  --sidebar-ink-2: oklch(0.8 0.035 272);
+  /* The sidebar: a deep green panel, like a field at dusk. */
+  --sidebar-bg: oklch(0.3 0.06 158);
+  --sidebar-raised: oklch(0.38 0.068 158);
+  --sidebar-hover: oklch(0.34 0.064 158);
+  --sidebar-sunken: oklch(0.25 0.052 158);
+  --sidebar-line: oklch(0.39 0.056 158);
+  --sidebar-line-strong: oklch(0.48 0.056 158);
+  --sidebar-ink: oklch(0.96 0.012 158);
+  --sidebar-ink-2: oklch(0.83 0.035 158);
 
-  /* The logo: a maize cob in its husk on an indigo tile. */
+  /* The logo: a maize cob in its husk on a green tile. */
   --logo-tile: var(--brand);
   --logo-cob: var(--maize);
-  --logo-leaf: oklch(0.72 0.15 145);
+  --logo-leaf: oklch(0.82 0.15 128);
 
-  --shadow-sm: 0 1px 2px oklch(0.235 0.045 272 / 0.06);
-  --shadow-md: 0 1px 2px oklch(0.235 0.045 272 / 0.05), 0 12px 28px -14px oklch(0.235 0.045 272 / 0.25);
-  --shadow-lg: 0 2px 4px oklch(0.235 0.045 272 / 0.06), 0 26px 50px -20px oklch(0.235 0.045 272 / 0.35);
-  --nav-bg: oklch(0.968 0.007 268 / 0.86);
+  --shadow-sm: 0 1px 2px oklch(0.235 0.034 158 / 0.06);
+  --shadow-md: 0 1px 2px oklch(0.235 0.034 158 / 0.05), 0 12px 28px -14px oklch(0.235 0.034 158 / 0.25);
+  --shadow-lg: 0 2px 4px oklch(0.235 0.034 158 / 0.06), 0 26px 50px -20px oklch(0.235 0.034 158 / 0.35);
+  --nav-bg: oklch(0.968 0.005 158 / 0.86);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* Indigo night. */
-  --bg-primary: oklch(0.175 0.03 272);
-  --bg-secondary: oklch(0.2 0.033 272);
-  --bg-card: oklch(0.215 0.035 272);
-  --bg-card-hover: oklch(0.245 0.038 272);
-  --bg-sunken: oklch(0.16 0.028 272);
-  --border: oklch(0.3 0.035 272);
-  --border-light: oklch(0.38 0.04 272);
-  --line-input: oklch(0.52 0.04 272);
+  /* Night over the fields. */
+  --bg-primary: oklch(0.175 0.022 158);
+  --bg-secondary: oklch(0.2 0.025 158);
+  --bg-card: oklch(0.215 0.026 158);
+  --bg-card-hover: oklch(0.245 0.028 158);
+  --bg-sunken: oklch(0.16 0.021 158);
+  --border: oklch(0.3 0.026 158);
+  --border-light: oklch(0.38 0.03 158);
+  --line-input: oklch(0.52 0.03 158);
 
-  --text-primary: oklch(0.955 0.008 272);
-  --text-secondary: oklch(0.82 0.02 272);
-  --text-muted: oklch(0.72 0.025 272);
+  --text-primary: oklch(0.955 0.006 158);
+  --text-secondary: oklch(0.82 0.015 158);
+  --text-muted: oklch(0.72 0.019 158);
 
-  --brand: oklch(0.78 0.11 276);
-  --brand-strong: oklch(0.84 0.075 276);
-  --brand-soft: oklch(0.29 0.06 274);
-  --on-brand: oklch(0.2 0.04 272);
+  --brand: oklch(0.8 0.12 158);
+  --brand-strong: oklch(0.87 0.08 158);
+  --brand-soft: oklch(0.3 0.05 158);
+  --on-brand: oklch(0.2 0.03 158);
+  --info: oklch(0.8 0.07 250);
+  --info-soft: oklch(0.29 0.04 250);
   --focus: oklch(0.85 0.16 88);
 
   --maize: oklch(0.85 0.16 88);
   --maize-strong: oklch(0.89 0.14 90);
   --maize-soft: oklch(0.3 0.05 85);
-  --on-maize: oklch(0.2 0.04 272);
+  --on-maize: oklch(0.2 0.03 158);
 
-  --ok: oklch(0.8 0.13 152);
-  --ok-soft: oklch(0.29 0.05 152);
+  --ok: oklch(0.82 0.14 140);
+  --ok-soft: oklch(0.3 0.05 140);
   --warn: oklch(0.85 0.13 85);
   --warn-soft: oklch(0.3 0.05 80);
   --danger: oklch(0.74 0.14 30);
   --danger-soft: oklch(0.3 0.06 30);
   --danger-fill: oklch(0.66 0.16 30);
-  --on-danger: oklch(0.2 0.04 272);
+  --on-danger: oklch(0.2 0.03 158);
 
-  --sidebar-bg: oklch(0.15 0.03 272);
-  --sidebar-raised: oklch(0.24 0.05 272);
-  --sidebar-hover: oklch(0.2 0.04 272);
-  --sidebar-sunken: oklch(0.12 0.025 272);
-  --sidebar-line: oklch(0.26 0.04 272);
-  --sidebar-line-strong: oklch(0.34 0.045 272);
-  --sidebar-ink: oklch(0.95 0.012 272);
-  --sidebar-ink-2: oklch(0.78 0.03 272);
+  --sidebar-bg: oklch(0.16 0.025 158);
+  --sidebar-raised: oklch(0.25 0.04 158);
+  --sidebar-hover: oklch(0.21 0.032 158);
+  --sidebar-sunken: oklch(0.13 0.02 158);
+  --sidebar-line: oklch(0.26 0.03 158);
+  --sidebar-line-strong: oklch(0.34 0.034 158);
+  --sidebar-ink: oklch(0.95 0.009 158);
+  --sidebar-ink-2: oklch(0.78 0.022 158);
 
-  --logo-tile: oklch(0.32 0.08 272);
+  --logo-tile: oklch(0.36 0.07 158);
   --logo-cob: var(--maize);
-  --logo-leaf: oklch(0.74 0.15 145);
+  --logo-leaf: oklch(0.84 0.15 128);
 
   --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.35);
   --shadow-md: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 30px -14px oklch(0 0 0 / 0.6);
   --shadow-lg: 0 2px 4px oklch(0 0 0 / 0.3), 0 28px 56px -22px oklch(0 0 0 / 0.7);
-  --nav-bg: oklch(0.175 0.03 272 / 0.86);
+  --nav-bg: oklch(0.175 0.022 158 / 0.86);
+}
+
+/*
+ * Motion settles like grain on a weighbridge: it decelerates into place and never bounces.
+ * One curve for nearly everything, three durations, one entrance (a short rise with a fade).
+ */
+:root {
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --dur-quick: 120ms;
+  --dur-standard: 220ms;
+  --dur-slow: 360ms;
 }
 
 /* ─── Base ──────────────────────────────────────────────────────────────── */
@@ -380,17 +397,27 @@ code {
  * (.stat-lead); colour on a figure means only one thing: look here (.stat-alert).
  */
 .grid-4:has(> .stat) {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 26px 30px;
-  gap: 28px 36px;
-  align-items: end;
+  gap: 28px 40px;
 }
 
+/*
+ * Figures share the row equally but never shrink below their own width, so a long figure
+ * moves the next one down to a new line instead of running into it.
+ */
 .stat {
-  min-width: 0;
+  flex: 1 1 0;
+  min-width: min-content;
+}
+
+.stat-value {
+  white-space: nowrap;
 }
 
 .stat-label {
@@ -449,7 +476,7 @@ code {
   height: 17px;
 }
 
-/* Tones carry meaning: green is healthy, amber needs attention soon, red is at risk, indigo informs. */
+/* Tones carry meaning: green is healthy, amber needs attention soon, red is at risk, slate blue informs. */
 .tone-green {
   background: var(--ok-soft);
   color: var(--ok);
@@ -461,8 +488,8 @@ code {
 }
 
 .tone-blue {
-  background: var(--brand-soft);
-  color: var(--brand);
+  background: var(--info-soft);
+  color: var(--info);
 }
 
 .tone-red {
@@ -492,8 +519,8 @@ code {
   color: var(--on-brand);
   box-shadow: var(--shadow-sm);
   transition-property: background-color, border-color, color, scale;
-  transition-duration: 0.15s;
-  transition-timing-function: ease-out;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-out);
 }
 
 .btn:hover:not(:disabled) {
@@ -616,8 +643,8 @@ code {
   font: inherit;
   font-size: 15px;
   transition-property: border-color, background-color;
-  transition-duration: 0.15s;
-  transition-timing-function: ease-out;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-out);
 }
 
 .input::placeholder {
@@ -710,6 +737,13 @@ input[type="radio"] {
   border: none;
   border-radius: 9px;
   cursor: pointer;
+  transition-property: background-color, color, box-shadow, scale;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-out);
+}
+
+.segmented button:active {
+  scale: 0.96;
 }
 
 .segmented button:hover,
@@ -755,8 +789,8 @@ input[type="radio"] {
 }
 
 .badge-blue {
-  background: var(--brand-soft);
-  color: var(--brand);
+  background: var(--info-soft);
+  color: var(--info);
 }
 
 .badge-muted {
@@ -840,6 +874,10 @@ input[type="radio"] {
   padding-left: 0;
 }
 
+.table tbody tr {
+  transition: background-color var(--dur-quick) var(--ease-out);
+}
+
 .table tbody tr:hover {
   background: var(--bg-card-hover);
 }
@@ -892,6 +930,9 @@ input[type="radio"] {
   margin-bottom: -1px;
   cursor: pointer;
   white-space: nowrap;
+  transition-property: color, border-color;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-out);
 }
 
 .tab:hover {
@@ -915,8 +956,8 @@ input[type="radio"] {
   border-radius: 12px;
   font-size: 14px;
   margin-bottom: 16px;
-  background: var(--brand-soft);
-  color: var(--brand);
+  background: var(--info-soft);
+  color: var(--info);
   border: 1px solid color-mix(in oklch, currentColor 20%, transparent);
 }
 
@@ -1106,7 +1147,7 @@ input[type="radio"] {
 /* ─── App shell ──────────────────────────────────────────────────────────── */
 
 /*
- * Indigo islands (the sidebar, and a page's one call to action) redefine the tokens,
+ * Green islands (the sidebar, and a page's one call to action) redefine the tokens,
  * so everything inside adapts: light ink, and maize where the brand colour would be.
  */
 .app-sidebar,
@@ -1256,8 +1297,8 @@ input[type="radio"] {
   color: var(--text-secondary);
   cursor: pointer;
   transition-property: color, border-color, scale;
-  transition-duration: 0.15s;
-  transition-timing-function: ease-out;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-out);
 }
 
 .icon-btn:hover {
@@ -1273,12 +1314,167 @@ input[type="radio"] {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: oklch(0.15 0.03 272 / 0.5);
+  background: oklch(0.15 0.022 158 / 0.5);
 }
 
 .mobile-topbar-menu,
 .mobile-topbar-brand {
   display: none;
+}
+
+/* ─── Motion ─────────────────────────────────────────────────────────────── */
+
+/*
+ * Things move only to explain a change: a page arriving, a figure that just changed, a
+ * transaction moving on, a menu opening. Nothing loops except loading placeholders, and all
+ * of it is off under prefers-reduced-motion.
+ */
+
+/* The theme button swaps sun and moon by cross-fade; the html attribute picks the icon before paint. */
+.theme-toggle > svg {
+  grid-area: 1 / 1;
+  width: 17px;
+  height: 17px;
+  transition-property: opacity, scale, filter;
+  transition-duration: var(--dur-standard);
+  transition-timing-function: var(--ease-out);
+}
+
+.theme-toggle .icon-sun,
+[data-theme="dark"] .theme-toggle .icon-moon {
+  opacity: 0;
+  scale: 0.25;
+  filter: blur(4px);
+}
+
+[data-theme="dark"] .theme-toggle .icon-sun {
+  opacity: 1;
+  scale: 1;
+  filter: none;
+}
+
+.notice-icon {
+  display: grid;
+  flex-shrink: 0;
+}
+
+/* A figure that has just changed is marked in maize for a moment, then settles. */
+.value-changed {
+  border-radius: 6px;
+  margin-inline: -6px;
+  padding-inline: 6px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* A page arrives in reading order: title, figures, then the work. */
+  .app-content > * {
+    animation: rise-in var(--dur-slow) var(--ease-out) backwards;
+  }
+
+  .app-content > :nth-child(2) {
+    animation-delay: 50ms;
+  }
+
+  .app-content > :nth-child(3) {
+    animation-delay: 100ms;
+  }
+
+  .app-content > :nth-child(4) {
+    animation-delay: 150ms;
+  }
+
+  .app-content > :nth-child(n + 5) {
+    animation-delay: 200ms;
+  }
+
+  /* The phone menu slides in from the edge it lives on. */
+  .drawer {
+    animation: drawer-in var(--dur-slow) var(--ease-out);
+  }
+
+  .drawer-backdrop {
+    animation: fade-in var(--dur-standard) var(--ease-out);
+  }
+
+  /* A tab's panel and a transaction's status arrive with the same short rise. */
+  [role="tabpanel"],
+  .tx-notice {
+    animation: rise-in var(--dur-standard) var(--ease-out) backwards;
+  }
+
+  /* A failed transaction or a form error gives one small, firm nudge: look here. */
+  .tx-notice.notice-danger,
+  .form-error {
+    animation: nudge 320ms var(--ease-out);
+  }
+
+  /* Each new status icon (spinner, tick, cross) resolves into place. */
+  .notice-icon {
+    animation: icon-in var(--dur-standard) var(--ease-out);
+  }
+
+  .value-changed {
+    animation: value-changed 1400ms var(--ease-out);
+  }
+
+  /* Value bars grow from the baseline, left to right, like a reading on a scale. */
+  .timeline-bar {
+    transform-origin: bottom;
+    animation: grow-up var(--dur-slow) var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 18ms);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    opacity: 0;
+    translate: -24px 0;
+  }
+}
+
+@keyframes nudge {
+  20% {
+    translate: -4px 0;
+  }
+  45% {
+    translate: 4px 0;
+  }
+  70% {
+    translate: -2px 0;
+  }
+}
+
+@keyframes icon-in {
+  from {
+    opacity: 0;
+    scale: 0.25;
+    filter: blur(4px);
+  }
+}
+
+@keyframes grow-up {
+  from {
+    scale: 1 0;
+  }
+}
+
+@keyframes value-changed {
+  from {
+    background-color: var(--maize-soft);
+  }
 }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
@@ -1330,13 +1526,12 @@ input[type="radio"] {
 
   /* On phones the figure that matters most gets its own row. */
   .grid-4:has(> .stat) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 22px;
-    gap: 24px 20px;
+    gap: 24px 28px;
   }
 
   .stat-lead {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
   }
 
   .stat-value {

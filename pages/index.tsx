@@ -324,22 +324,22 @@ export default function Home() {
         .landing-links a { color: var(--text-secondary); text-decoration: none; font-weight: 700; font-size: 14.5px; }
         .landing-links a:hover { color: var(--text-primary); }
 
-        .landing-hero { position: relative; overflow: hidden; background: oklch(0.2 0.05 272); color: oklch(0.97 0.01 272); }
+        .landing-hero { position: relative; overflow: hidden; background: oklch(0.2 0.05 158); color: oklch(0.97 0.007 158); }
         .landing-hero-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
         .landing-hero-shade { position: absolute; inset: 0;
-          background: linear-gradient(100deg, oklch(0.17 0.05 272 / 0.95) 0%, oklch(0.17 0.05 272 / 0.84) 48%, oklch(0.17 0.05 272 / 0.5) 100%); }
+          background: linear-gradient(100deg, oklch(0.17 0.05 158 / 0.95) 0%, oklch(0.17 0.05 158 / 0.84) 48%, oklch(0.17 0.05 158 / 0.5) 100%); }
         .landing-hero-grid { position: relative; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 64px; align-items: center; padding-top: 104px; padding-bottom: 112px; }
         .landing-title { font-size: clamp(52px, 6.2vw, 88px); font-weight: 800; line-height: 0.9; letter-spacing: 0; color: inherit; margin: 10px 0 24px; }
-        .landing-lede { font-size: 18px; line-height: 1.6; color: oklch(0.88 0.02 272); max-width: 560px; }
-        .landing-ghost { background: oklch(1 0 0 / 0.08); color: oklch(0.97 0.01 272); border-color: oklch(1 0 0 / 0.32); box-shadow: none; }
+        .landing-lede { font-size: 18px; line-height: 1.6; color: oklch(0.88 0.015 158); max-width: 560px; }
+        .landing-ghost { background: oklch(1 0 0 / 0.08); color: oklch(0.97 0.007 158); border-color: oklch(1 0 0 / 0.32); box-shadow: none; }
         .landing-ghost:hover:not(:disabled) { background: oklch(1 0 0 / 0.16); }
         .landing-hero .btn:focus-visible, .landing-video-toggle:focus-visible, .landing-cta .btn:focus-visible { outline-color: var(--maize); }
         .landing-video-toggle { position: absolute; right: 20px; bottom: 20px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%;
-          background: oklch(0.17 0.05 272 / 0.6); color: oklch(0.97 0.01 272); border: 1px solid oklch(1 0 0 / 0.3); cursor: pointer; }
+          background: oklch(0.17 0.05 158 / 0.6); color: oklch(0.97 0.007 158); border: 1px solid oklch(1 0 0 / 0.3); cursor: pointer; }
         .landing-video-toggle svg { width: 18px; height: 18px; }
 
         /* The warehouse receipt: the one memorable object on the page. Paper in both themes. */
-        .receipt { --paper: oklch(0.975 0.012 85); --paper-2: oklch(0.95 0.02 85); --paper-ink: oklch(0.25 0.04 272); --paper-ink-2: oklch(0.45 0.03 272);
+        .receipt { --paper: oklch(0.975 0.012 85); --paper-2: oklch(0.95 0.02 85); --paper-ink: oklch(0.25 0.03 158); --paper-ink-2: oklch(0.45 0.022 158);
           --paper-line: oklch(0.82 0.025 85); --stamp-ink: oklch(0.44 0.17 288);
           position: relative; margin: 0; padding: 24px 26px 0; border-radius: 6px 6px 12px 12px; background: var(--paper); color: var(--paper-ink);
           box-shadow: 0 30px 60px -24px oklch(0 0 0 / 0.65), 0 2px 8px oklch(0 0 0 / 0.25); rotate: 1.5deg; font-variant-numeric: tabular-nums; }
@@ -364,15 +364,45 @@ export default function Home() {
         .stamp-small { font-size: 11.5px; font-weight: 700; }
         .receipt-stub { position: relative; margin: 20px -26px 0; padding: 18px 26px 22px; background: var(--paper-2); border-top: 2px dashed var(--paper-line);
           border-radius: 0 0 12px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-        .receipt-stub::before, .receipt-stub::after { content: ""; position: absolute; top: -9px; width: 16px; height: 16px; border-radius: 50%; background: oklch(0.2 0.05 272); }
+        .receipt-stub::before, .receipt-stub::after { content: ""; position: absolute; top: -9px; width: 16px; height: 16px; border-radius: 50%; background: oklch(0.2 0.05 158); }
         .receipt-stub::before { left: -8px; }
         .receipt-stub::after { right: -8px; }
         .receipt-stub span { display: block; font-size: 13px; color: var(--paper-ink-2); }
         .receipt-stub strong { display: block; margin: 4px 0 2px; font-family: var(--font-display), "Arial Narrow", sans-serif; font-size: 34px; font-weight: 800; line-height: 1; }
         .receipt-example { position: absolute; top: -12px; left: 22px; padding: 3px 10px; border-radius: 999px; background: var(--maize); color: var(--on-maize);
           font-size: 11.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+        /*
+         * The receipt tells the story once: it is printed row by row, stamped (the paper gives a little
+         * under the stamp), and then the money it unlocks appears in the stub.
+         */
         @media (prefers-reduced-motion: no-preference) {
+          .receipt { animation: receipt-in 520ms var(--ease-out) both, receipt-thump 200ms var(--ease-out) 860ms; }
+          .receipt-rows div { animation: print-in 320ms var(--ease-out) backwards; }
+          .receipt-rows div:nth-child(1) { animation-delay: 260ms; }
+          .receipt-rows div:nth-child(2) { animation-delay: 340ms; }
+          .receipt-rows div:nth-child(3) { animation-delay: 420ms; }
           .stamp { animation: stamp-in 460ms cubic-bezier(0.2, 0.9, 0.3, 1) 650ms both; }
+          .receipt-stub strong { animation: print-in 360ms var(--ease-out) 1080ms backwards; }
+        }
+        @keyframes receipt-in {
+          from { opacity: 0; translate: 0 16px; }
+        }
+        @keyframes print-in {
+          from { opacity: 0; translate: 0 4px; }
+        }
+        @keyframes receipt-thump {
+          40% { translate: 0 2px; }
+        }
+        /* Further down, each section's heading and items rise into place as they scroll into view. */
+        @supports (animation-timeline: view()) {
+          @media (prefers-reduced-motion: no-preference) {
+            .landing-h2, .landing-steps > *, .landing-features > *, .landing-crops > * {
+              animation: scroll-rise var(--ease-out) both; animation-timeline: view(); animation-range: entry 0% entry 60%;
+            }
+          }
+        }
+        @keyframes scroll-rise {
+          from { opacity: 0; translate: 0 16px; }
         }
         @keyframes stamp-in {
           from { opacity: 0; scale: 1.7; rotate: -20deg; }

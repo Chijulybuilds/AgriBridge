@@ -52,8 +52,11 @@ function TxNotice({ tx, success }: { tx: Pick<Tx, "state" | "hash" | "error" | "
   const explorer = tx.state === "proposed" ? undefined : activeChain.blockExplorers?.default.url;
 
   return (
-    <div className={`notice ${tone}`} data-testid="tx-status" data-status={tx.state} data-step={tx.step} style={{ marginTop: 12 }}>
-      {icon}
+    <div className={`notice tx-notice ${tone}`} data-testid="tx-status" data-status={tx.state} data-step={tx.step} style={{ marginTop: 12 }}>
+      {/* Keyed by state, so each new icon resolves into place. */}
+      <span key={tx.state} className="notice-icon" aria-hidden="true">
+        {icon}
+      </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div>{label}</div>
         {tx.hash && explorer && (
