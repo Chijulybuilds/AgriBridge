@@ -229,8 +229,8 @@ export default function Home() {
             </h2>
             <div className="landing-features">
               {PROTECTIONS.map((p) => (
-                <div key={p.title} className="card" style={{ padding: 24 }}>
-                  <span className="stat-icon tone-blue" style={{ marginBottom: 16 }}>
+                <div key={p.title}>
+                  <span className="stat-icon tone-blue" style={{ marginBottom: 14 }}>
                     <p.icon aria-hidden="true" />
                   </span>
                   <h3 style={{ fontSize: 16.5, marginBottom: 6 }}>{p.title}</h3>
@@ -387,7 +387,9 @@ export default function Home() {
         .landing-section { padding: 88px 0; }
         .landing-band { background-color: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
         .landing-h2 { font-size: clamp(36px, 4.6vw, 58px); font-weight: 800; line-height: 0.95; margin: 4px 0 36px; max-width: 760px; }
-        .landing-steps, .landing-features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+        .landing-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        /* The protections are an open grid, not boxes: space alone groups them. */
+        .landing-features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 44px 56px; }
         .landing-crops { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
         .landing-step-role { font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 20px; }
         .landing-step-num { width: 30px; height: 30px; border-radius: 50%; border: 2px solid; display: grid; place-items: center; flex-shrink: 0;

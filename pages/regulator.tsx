@@ -94,7 +94,7 @@ export default function Regulator() {
         )}
       </Card>
 
-      <div style={{ height: 16 }} />
+      <div style={{ height: 28 }} />
 
       <Card title="Lots in storage">
         {verified.length === 0 ? (

@@ -52,30 +52,32 @@ export function Card({ title, children, actions, testId }: {
   );
 }
 
+/**
+ * One figure in a page's row of figures. `lead` makes the figure that matters most on the page
+ * larger; `alert` colours it red, and is kept for things that need action (advances at risk).
+ */
 export function Stat({
   label,
   value,
   sub,
   icon: IconComponent,
-  tone = "green",
+  lead,
+  alert,
   testId,
 }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   icon?: Icon;
-  tone?: Exclude<Tone, "muted">;
+  lead?: boolean;
+  alert?: boolean;
   testId?: string;
 }) {
   return (
-    <div className="card stat">
-      <div className="stat-head">
-        {IconComponent && (
-          <span className={`stat-icon tone-${tone}`}>
-            <IconComponent />
-          </span>
-        )}
-        <span className="stat-label">{label}</span>
+    <div className={`stat${lead ? " stat-lead" : ""}${alert ? " stat-alert" : ""}`}>
+      <div className="stat-label">
+        {IconComponent && <IconComponent aria-hidden="true" />}
+        {label}
       </div>
       <div className="stat-value" data-testid={testId}>
         {value}

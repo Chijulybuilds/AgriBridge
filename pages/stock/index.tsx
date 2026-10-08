@@ -42,9 +42,9 @@ export default function MyStock() {
       />
 
       <div className="grid-4">
-        <Stat icon={BanknotesIcon} label="Worth today" value={usd(total)} testId="stock-value" />
-        <Stat icon={ScaleIcon} tone="blue" label="Kilograms held" value={kg(totalKg)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} />
-        <Stat icon={ClockIcon} tone="gold" label="Expiring within 30 days" value={String(expiring.length)} sub="Sell or collect these first" />
+        <Stat lead icon={BanknotesIcon} label="Worth today" value={usd(total)} testId="stock-value" />
+        <Stat icon={ScaleIcon} label="Kilograms held" value={kg(totalKg)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} />
+        <Stat icon={ClockIcon} label="Expiring within 30 days" value={String(expiring.length)} sub="Sell or collect these first" />
       </div>
 
       {expiring.length > 0 && (

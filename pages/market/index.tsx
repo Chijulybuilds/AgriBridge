@@ -86,10 +86,10 @@ export default function Market() {
       )}
 
       <div className="grid-4">
+        <Stat lead icon={TagIcon} label="For sale now" value={kg(totalForSale)} sub={`${forSale.length} listing${forSale.length === 1 ? "" : "s"}`} />
         <Stat icon={ArchiveBoxIcon} label="In the warehouses" value={kg(totalStored)} sub="Verified and graded" />
-        <Stat icon={TagIcon} tone="gold" label="For sale now" value={kg(totalForSale)} sub={`${forSale.length} listing${forSale.length === 1 ? "" : "s"}`} />
         {commodities.slice(0, 2).map((c) => (
-          <Stat key={c.id.toString()} icon={ChartBarIcon} tone="blue" label={`${c.name} price`} value={pricePerKg(c.price)} sub="Grade A, before ageing" />
+          <Stat key={c.id.toString()} icon={ChartBarIcon} label={`${c.name} price`} value={pricePerKg(c.price)} sub="Grade A, before ageing" />
         ))}
       </div>
 
@@ -122,7 +122,7 @@ export default function Market() {
         </div>
       </Card>
 
-      <div style={{ height: 16 }} />
+      <div style={{ height: 28 }} />
 
       <Card title="For sale" testId="listings">
         {isLoading ? (
@@ -205,7 +205,7 @@ export default function Market() {
         )}
       </Card>
 
-      <div style={{ height: 16 }} />
+      <div style={{ height: 28 }} />
 
       <Card title="Stock in the warehouses" testId="stock-overview">
         {stock.length === 0 ? (

@@ -1,39 +1,43 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 
 type Tone = "default" | "onDark";
 
-/** The AgriBridge mark: a crate seen at an angle. Indigo normally; maize on dark panels. */
+/**
+ * The AgriBridge mark: a maize cob in its husk, on an indigo tile. The kernel rows are cut in the
+ * tile's colour. Colours come from --logo-tile, --logo-cob and --logo-leaf (styles/globals.css),
+ * so the mark adapts to light, dark and indigo panels.
+ */
 export function LogoMark({ size = 30, tone = "default" }: { size?: number; tone?: Tone }) {
-  const fill = tone === "onDark" ? "var(--maize)" : "var(--brand)";
-  const stroke = tone === "onDark" ? "var(--on-maize)" : "var(--on-brand)";
+  const onDark = tone === "onDark" ? ({ "--logo-tile": "var(--sidebar-raised)" } as CSSProperties) : undefined;
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <rect width="64" height="64" rx="14" fill={fill} />
-      <path d="M32 13 49 22.5v19L32 51 15 41.5v-19L32 13Z" fill="none" stroke={stroke} strokeWidth="3.6" strokeLinejoin="round" />
-      <path d="M15 22.5 32 32l17-9.5M32 32v19" fill="none" stroke={stroke} strokeWidth="3.6" strokeLinejoin="round" />
+    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" style={{ flexShrink: 0, ...onDark }}>
+      <rect width="64" height="64" rx="15" fill="var(--logo-tile)" />
+      <path d="M32 9c6 0 9.5 7 9.5 17v12c0 6-4 10-9.5 10s-9.5-4-9.5-10V26c0-10 3.5-17 9.5-17Z" fill="var(--logo-cob)" />
+      <path d="M21 17h22M21 23h22M21 29h22M21 35h22M21 41h22M32 11v37" stroke="var(--logo-tile)" strokeWidth="2.2" />
+      <path d="M32 56c-10-4-16-12-17-26 5 8 10 14 17 17Z" fill="var(--logo-leaf)" />
+      <path d="M32 56c10-4 16-12 17-26-5 8-10 14-17 17Z" fill="var(--logo-leaf)" />
     </svg>
   );
 }
 
-/** Mark and wordmark, linking home. The wordmark is stencilled, like the crate it names. */
+/** Mark and wordmark, linking home. */
 export function Logo({ size = 30, href = "/", tone = "default" }: { size?: number; href?: string; tone?: Tone }) {
-  const ink = tone === "onDark" ? "oklch(0.97 0.01 272)" : "var(--text-primary)";
-  const accent = tone === "onDark" ? "var(--maize)" : "var(--brand)";
+  const ink = tone === "onDark" ? "var(--sidebar-ink)" : "var(--text-primary)";
   return (
     <Link href={href} className="row" style={{ gap: 10, textDecoration: "none", color: ink, flexWrap: "nowrap" }}>
       <LogoMark size={size} tone={tone} />
       <span
         style={{
-          fontFamily: "var(--font-stencil), 'Arial Narrow', sans-serif",
-          fontSize: size * 0.8,
+          fontFamily: "var(--font-display), 'Arial Narrow', sans-serif",
+          fontSize: size * 0.82,
           fontWeight: 800,
-          letterSpacing: "0.04em",
+          letterSpacing: "0.01em",
           lineHeight: 1,
-          textTransform: "uppercase",
           color: ink,
         }}
       >
-        Agri<span style={{ color: accent }}>Bridge</span>
+        AgriBridge
       </span>
     </Link>
   );

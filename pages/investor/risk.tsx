@@ -38,9 +38,9 @@ export default function Risk() {
       />
 
       <div className="grid-4">
-        <Stat icon={DocumentTextIcon} tone="blue" label="Active advances" value={String(loans.length)} sub={`${usd(totalDebt)} owed`} />
-        <Stat icon={ScaleIcon} tone="gold" label="Average loan-to-value" value={averageLtv !== undefined ? percentFromBps(averageLtv, 1) : "—"} sub="Settled at 80%" />
-        <Stat icon={ExclamationTriangleIcon} tone="red" label="At risk or overdue" value={String(atRisk.length)} />
+        <Stat lead alert={atRisk.length > 0} icon={ExclamationTriangleIcon} label="At risk or overdue" value={String(atRisk.length)} />
+        <Stat icon={DocumentTextIcon} label="Active advances" value={String(loans.length)} sub={`${usd(totalDebt)} owed`} />
+        <Stat icon={ScaleIcon} label="Average loan-to-value" value={averageLtv !== undefined ? percentFromBps(averageLtv, 1) : "—"} sub="Settled at 80%" />
         <Stat icon={ShieldCheckIcon} label="Loss cushion" value={usd(stats?.reserves)} sub={stats ? `${percentFromWad(stats.utilization, 0)} of the pool lent out` : undefined} />
       </div>
 
@@ -90,7 +90,7 @@ export default function Risk() {
         )}
       </Card>
 
-      <div style={{ height: 16 }} />
+      <div style={{ height: 28 }} />
 
       <Card title="Prices the pool uses">
         <table className="table">

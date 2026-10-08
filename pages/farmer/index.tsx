@@ -40,10 +40,10 @@ export default function FarmerOverview() {
       <PageHeader eyebrow="Farmer" title="Farmer overview" subtitle="Your crop in storage, your advances, and what to do next." />
 
       <div className="grid-4">
-        <Stat icon={ArchiveBoxIcon} label="Crop in storage" value={usd(stockValue)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} testId="stat-stock" />
-        <Stat icon={ClockIcon} tone="gold" label="Waiting for checks" value={String(pending.length)} sub="Deliveries not yet graded" />
-        <Stat icon={BanknotesIcon} tone="red" label="Owed on advances" value={usd(owed)} sub={`${active.length} active`} />
-        <Stat icon={BuildingLibraryIcon} tone="blue" label="Pool cash available" value={usd(stats?.availableCash)} sub="What can be advanced now" />
+        <Stat lead icon={ArchiveBoxIcon} label="Crop in storage" value={usd(stockValue)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} testId="stat-stock" />
+        <Stat icon={ClockIcon} label="Waiting for checks" value={String(pending.length)} sub="Deliveries not yet graded" />
+        <Stat icon={BanknotesIcon} label="Owed on advances" value={usd(owed)} sub={`${active.length} active`} />
+        <Stat icon={BuildingLibraryIcon} label="Pool cash available" value={usd(stats?.availableCash)} sub="What can be advanced now" />
       </div>
 
       <div className="grid-2" style={{ gridTemplateColumns: "1.4fr 1fr" }}>

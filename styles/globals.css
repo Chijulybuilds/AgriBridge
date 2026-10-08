@@ -65,6 +65,11 @@
   --sidebar-ink: oklch(0.95 0.012 272);
   --sidebar-ink-2: oklch(0.8 0.035 272);
 
+  /* The logo: a maize cob in its husk on an indigo tile. */
+  --logo-tile: var(--brand);
+  --logo-cob: var(--maize);
+  --logo-leaf: oklch(0.72 0.15 145);
+
   --shadow-sm: 0 1px 2px oklch(0.235 0.045 272 / 0.06);
   --shadow-md: 0 1px 2px oklch(0.235 0.045 272 / 0.05), 0 12px 28px -14px oklch(0.235 0.045 272 / 0.25);
   --shadow-lg: 0 2px 4px oklch(0.235 0.045 272 / 0.06), 0 26px 50px -20px oklch(0.235 0.045 272 / 0.35);
@@ -116,6 +121,10 @@
   --sidebar-line-strong: oklch(0.34 0.045 272);
   --sidebar-ink: oklch(0.95 0.012 272);
   --sidebar-ink-2: oklch(0.78 0.03 272);
+
+  --logo-tile: oklch(0.32 0.08 272);
+  --logo-cob: var(--maize);
+  --logo-leaf: oklch(0.74 0.15 145);
 
   --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.35);
   --shadow-md: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 30px -14px oklch(0 0 0 / 0.6);
@@ -266,7 +275,7 @@ code {
 
 .stack {
   display: grid;
-  gap: 16px;
+  gap: 20px;
 }
 
 .row {
@@ -287,8 +296,8 @@ code {
 .grid-3,
 .grid-4 {
   display: grid;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 20px;
+  margin-bottom: 28px;
 }
 
 .grid-2 {
@@ -320,7 +329,7 @@ code {
 /* ─── Page header ────────────────────────────────────────────────────────── */
 
 .page-header {
-  margin-bottom: 28px;
+  margin-bottom: 36px;
 }
 
 .page-eyebrow {
@@ -334,8 +343,8 @@ code {
 }
 
 .page-header h1 {
-  font-size: 40px;
-  margin-bottom: 10px;
+  font-size: 46px;
+  margin-bottom: 12px;
 }
 
 .page-header p {
@@ -346,17 +355,17 @@ code {
 
 /* ─── Cards and stats ────────────────────────────────────────────────────── */
 
+/* Cards sit flat on the page: a hairline edge and generous room, no shadow. */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 22px;
-  box-shadow: var(--shadow-sm);
+  border-radius: 16px;
+  padding: 28px;
 }
 
 .card h2 {
-  font-size: 17px;
-  margin-bottom: 14px;
+  font-size: 16.5px;
+  margin-bottom: 20px;
 }
 
 .card-sunken {
@@ -366,18 +375,66 @@ code {
   padding: 16px;
 }
 
-.stat {
-  position: relative;
-  overflow: hidden;
+/*
+ * A page's figures share one quiet panel. The figure that matters most on the page is larger
+ * (.stat-lead); colour on a figure means only one thing: look here (.stat-alert).
+ */
+.grid-4:has(> .stat) {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 26px 30px;
+  gap: 28px 36px;
+  align-items: end;
 }
 
-.stat-head {
+.stat {
+  min-width: 0;
+}
+
+.stat-label {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
 }
 
+.stat-label svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+/* Figures read like a weighbridge display. */
+.stat-value {
+  font-family: var(--font-display), "Arial Narrow", sans-serif;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+.stat-lead .stat-value {
+  font-size: 56px;
+  font-weight: 800;
+}
+
+.stat-alert .stat-value {
+  color: var(--danger);
+}
+
+.stat-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* Icon tiles elsewhere (feed, warehouses, sign-in): the tone carries meaning. */
 .stat-icon {
   width: 32px;
   height: 32px;
@@ -413,26 +470,6 @@ code {
   color: var(--danger);
 }
 
-.stat-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-secondary);
-}
-
-/* Figures read like a weighbridge display. */
-.stat-value {
-  font-family: var(--font-display), "Arial Narrow", sans-serif;
-  font-size: 36px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.01em;
-}
-
-.stat-sub {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  margin-top: 6px;
-}
 
 /* ─── Buttons and links ──────────────────────────────────────────────────── */
 
@@ -701,17 +738,6 @@ input[type="radio"] {
   line-height: 1.4;
 }
 
-.badge::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.badge-plain::before {
-  display: none;
-}
 
 .badge-green {
   background: var(--ok-soft);
@@ -795,20 +821,23 @@ input[type="radio"] {
 
 .table th {
   text-align: left;
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
   color: var(--text-muted);
-  padding: 10px 12px;
+  padding: 0 14px 12px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .table td {
-  padding: 13px 12px;
+  padding: 16px 14px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-left: 0;
 }
 
 .table tbody tr:hover {
@@ -1094,6 +1123,7 @@ input[type="radio"] {
   --brand-strong: var(--maize-strong);
   --on-brand: var(--on-maize);
   --focus: var(--maize);
+  --logo-tile: var(--sidebar-raised);
   --shadow-sm: none;
   color-scheme: dark;
   background: var(--sidebar-bg);
@@ -1137,7 +1167,7 @@ input[type="radio"] {
 }
 
 .app-content {
-  padding: 34px 32px 56px;
+  padding: 44px 44px 72px;
   flex: 1;
   width: 100%;
   max-width: 1240px;
@@ -1296,6 +1326,25 @@ input[type="radio"] {
 
   .page-header h1 {
     font-size: 34px;
+  }
+
+  /* On phones the figure that matters most gets its own row. */
+  .grid-4:has(> .stat) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 22px;
+    gap: 24px 20px;
+  }
+
+  .stat-lead {
+    grid-column: 1 / -1;
+  }
+
+  .stat-value {
+    font-size: 28px;
+  }
+
+  .stat-lead .stat-value {
+    font-size: 48px;
   }
 
   /* iOS zooms into any field under 16px. */

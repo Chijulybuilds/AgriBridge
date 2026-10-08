@@ -4,8 +4,9 @@
  *
  *   npm run demo:sepolia -- wallet                        create the deploy wallet (kept in .demo-wallets.json, gitignored)
  *   npm run demo:sepolia -- status [0xYourAddress …]      show Sepolia ETH balances
- *   npm run demo:sepolia -- deploy 0xFarmer [0xInvestor]
+ *   npm run demo:sepolia -- deploy 0xFarmer [0xInvestor] [--resume]
  *        deploy the demo; the addresses are MetaMask test accounts that get play money (one can do both).
+ *        --resume continues a deployment that stopped part-way, with the same addresses.
  *        The verifier and admin is always the AgriBridge Safe (VERIFIER_ADDRESS, default below).
  *        Writes .env.local so `npm run dev` uses this deployment, and prints the same settings for Vercel.
  *   npm run demo:sepolia -- env                           print the app settings again
@@ -189,7 +190,9 @@ if (command === "wallet") {
 } else if (command === "status") {
   await status(parseAddresses(args));
 } else if (command === "deploy") {
-  const addresses = parseAddresses(args);
+  // --resume picks up a deployment that stopped part-way (for example on a dropped RPC connection).
+  const resume = args.includes("--resume");
+  const addresses = parseAddresses(args.filter((arg) => arg !== "--resume"));
   if (addresses.length === 0) fail("Give the farmer's MetaMask address: npm run demo:sepolia -- deploy 0xFarmer [0xInvestor]");
   const [farmer, investor = farmer] = addresses;
   const verifier = verifierSafe();
@@ -201,6 +204,10 @@ if (command === "wallet") {
   }
 
   console.log(`Deploying the demo to Sepolia from ${deployer.address} …`);
+  // Sepolia now prices contract creation far above what forge simulates (measured Oct 2026: about
+  // 1,542 gas per byte of code instead of 200, so DemoUSDC needs 3.44M gas where forge predicts 521k),
+  // so each transaction gets ten times forge's estimate. Only the gas actually used is paid for.
+  const gasMultiplier = process.env.GAS_ESTIMATE_MULTIPLIER || "1000";
   const result = spawnSync(
     foundryTool("forge"),
     [
@@ -208,6 +215,8 @@ if (command === "wallet") {
       "--rpc-url", rpcUrl(),
       "--private-key", process.env.DEPLOYER_PRIVATE_KEY || readState().deployer.privateKey,
       "--broadcast", "--slow",
+      "--gas-estimate-multiplier", gasMultiplier,
+      ...(resume ? ["--resume"] : []),
     ],
     {
       cwd: root,

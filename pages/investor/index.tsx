@@ -74,9 +74,9 @@ export default function InvestorOverview() {
       />
 
       <div className="grid-4">
-        <Stat icon={WalletIcon} tone="gold" label="Your money in the pool" value={usd(position?.value)} sub={earned !== undefined ? `${usd(earned)} earned so far` : undefined} testId="position" />
+        <Stat lead icon={WalletIcon} label="Your money in the pool" value={usd(position?.value)} sub={earned !== undefined ? `${usd(earned)} earned so far` : undefined} testId="position" />
         <Stat icon={ArrowTrendingUpIcon} label="Investors earn now" value={stats ? `${percentFromWad(stats.supplyRate)} a year` : "—"} sub="Changes with how much is lent out" />
-        <Stat icon={BuildingLibraryIcon} tone="blue" label="Pool size" value={usd(stats?.totalAssets)} sub={stats ? `${percentFromWad(stats.utilization, 0)} lent to farmers` : undefined} />
+        <Stat icon={BuildingLibraryIcon} label="Pool size" value={usd(stats?.totalAssets)} sub={stats ? `${percentFromWad(stats.utilization, 0)} lent to farmers` : undefined} />
         <Stat icon={ShieldCheckIcon} label="Loss cushion" value={usd(stats?.reserves)} sub="Covers bad debt before investors" />
       </div>
 

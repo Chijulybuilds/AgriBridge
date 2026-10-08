@@ -59,10 +59,10 @@ export function AdvancesTab() {
   return (
     <div className="stack">
       <div className="grid-4" style={{ marginBottom: 0 }}>
-        <Stat icon={DocumentTextIcon} tone="blue" label="Open advances" value={String(loans.length)} />
-        <Stat icon={BanknotesIcon} tone="gold" label="Owed to the pool" value={usd(stats?.totalDebt)} />
+        <Stat lead alert={due} icon={BellAlertIcon} label="Due for settlement" value={due ? "Yes" : "None"} />
+        <Stat icon={DocumentTextIcon} label="Open advances" value={String(loans.length)} />
+        <Stat icon={BanknotesIcon} label="Owed to the pool" value={usd(stats?.totalDebt)} />
         <Stat icon={ShieldCheckIcon} label="Loss cushion" value={usd(stats?.reserves)} />
-        <Stat icon={BellAlertIcon} tone={due ? "red" : "green"} label="Due for settlement" value={due ? "Yes" : "None"} />
       </div>
 
       <Card

@@ -120,7 +120,7 @@ export default function Clearance() {
         </Card>
       )}
 
-      <div style={{ height: 16 }} />
+      <div style={{ height: 28 }} />
 
       <Card title="Feed-grade stock for sale">
         {clearanceListings.length === 0 ? (
