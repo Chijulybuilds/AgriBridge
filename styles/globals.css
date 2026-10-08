@@ -751,7 +751,26 @@ input[type="radio"] {
   color: var(--text-primary);
 }
 
-.segmented button[aria-pressed="true"],
+.segmented button[aria-pressed="true"] {
+  color: var(--brand);
+}
+
+.segmented button {
+  position: relative;
+}
+
+.segmented-thumb {
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.segmented-label {
+  position: relative;
+}
+
 .segmented a[aria-current="true"] {
   background: var(--bg-card);
   color: var(--brand);
@@ -939,9 +958,20 @@ input[type="radio"] {
   color: var(--text-primary);
 }
 
+.tab {
+  position: relative;
+}
+
 .tab[aria-selected="true"] {
   color: var(--brand);
-  border-bottom-color: var(--brand);
+}
+
+.tab-indicator {
+  position: absolute;
+  inset: auto 0 -2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--brand);
 }
 
 .tab:focus-visible {
@@ -1327,7 +1357,8 @@ input[type="radio"] {
 /*
  * Things move only to explain a change: a page arriving, a figure that just changed, a
  * transaction moving on, a menu opening. Nothing loops except loading placeholders, and all
- * of it is off under prefers-reduced-motion.
+ * of it is off under prefers-reduced-motion. CSS runs the entrances; Motion (pages/_app.tsx)
+ * runs the sliding tab and option indicators and the phone menu, which need layout or exits.
  */
 
 /* The theme button swaps sun and moon by cross-fade; the html attribute picks the icon before paint. */
@@ -1387,15 +1418,6 @@ input[type="radio"] {
     animation-delay: 200ms;
   }
 
-  /* The phone menu slides in from the edge it lives on. */
-  .drawer {
-    animation: drawer-in var(--dur-slow) var(--ease-out);
-  }
-
-  .drawer-backdrop {
-    animation: fade-in var(--dur-standard) var(--ease-out);
-  }
-
   /* A tab's panel and a transaction's status arrive with the same short rise. */
   [role="tabpanel"],
   .tx-notice {
@@ -1429,19 +1451,6 @@ input[type="radio"] {
   from {
     opacity: 0;
     translate: 0 8px;
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes drawer-in {
-  from {
-    opacity: 0;
-    translate: -24px 0;
   }
 }
 

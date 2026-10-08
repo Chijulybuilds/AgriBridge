@@ -1,10 +1,11 @@
-import { useRef, useState, type ComponentType, type CSSProperties, type KeyboardEvent, type ReactNode, type SVGProps } from "react";
+import { useId, useRef, useState, type ComponentType, type CSSProperties, type KeyboardEvent, type ReactNode, type SVGProps } from "react";
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";
+import { m } from "motion/react";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 type Tone = "green" | "gold" | "red" | "blue" | "muted";
@@ -195,6 +196,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label }: {
   label?: string;
 }) {
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
+  const indicator = useId();
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const current = tabs.findIndex((tab) => tab.id === value);
@@ -212,7 +214,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label }: {
   }
 
   return (
-    <div className="tabs" role="tablist" aria-label={label} onKeyDown={onKeyDown}>
+    <m.div layoutScroll className="tabs" role="tablist" aria-label={label} onKeyDown={onKeyDown}>
       {tabs.map((tab, i) => (
         <button
           key={tab.id}
@@ -230,9 +232,11 @@ export function Tabs<T extends string>({ tabs, value, onChange, label }: {
           onClick={() => onChange(tab.id)}
         >
           {tab.label}
+          {/* One underline, shared by every tab, so it slides to the chosen one. */}
+          {tab.id === value && <m.span layoutId={indicator} className="tab-indicator" aria-hidden="true" />}
         </button>
       ))}
-    </div>
+    </m.div>
   );
 }
 
@@ -254,8 +258,9 @@ export function Segmented<T extends string>({ options, value, onChange, testIdPr
   label?: string;
   labelledBy?: string;
 }) {
+  const thumb = useId();
   return (
-    <div className="segmented" role="group" aria-label={label} aria-labelledby={labelledBy}>
+    <m.div layoutScroll className="segmented" role="group" aria-label={label} aria-labelledby={labelledBy}>
       {options.map((option) => (
         <button
           key={option.id}
@@ -264,10 +269,11 @@ export function Segmented<T extends string>({ options, value, onChange, testIdPr
           data-testid={testIdPrefix ? `${testIdPrefix}-${option.id}` : undefined}
           onClick={() => onChange(option.id)}
         >
-          {option.label}
+          {option.id === value && <m.span layoutId={thumb} className="segmented-thumb" aria-hidden="true" />}
+          <span className="segmented-label">{option.label}</span>
         </button>
       ))}
-    </div>
+    </m.div>
   );
 }
 

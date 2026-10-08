@@ -2,6 +2,7 @@ import type { AppProps } from "next/app";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { Atkinson_Hyperlegible_Next, Big_Shoulders, Big_Shoulders_Stencil } from "next/font/google";
+import { LazyMotion, MotionConfig, domMax } from "motion/react";
 
 import "../styles/globals.css";
 
@@ -37,6 +38,13 @@ const sans = Atkinson_Hyperlegible_Next({
 });
 
 /**
+ * Motion (motion.dev) runs the few animations CSS can't: indicators that slide between tabs, and
+ * exits. One spring for all of them, with no bounce, matching --ease-out in globals.css; it
+ * switches itself off when the person has asked for reduced motion.
+ */
+const SPRING = { type: "spring", duration: 0.32, bounce: 0 } as const;
+
+/**
  * Two separate wallet setups: the hidden /verifier page talks only to the
  * verifier Safe; every other page signs people in with MetaMask Embedded
  * Wallets (or a browser wallet in local development). See components/providers.tsx.
@@ -46,6 +54,8 @@ export default function App({ Component, pageProps }: AppProps) {
   const Providers = router.pathname.startsWith("/verifier") ? VerifierProviders : AppProviders;
   return (
     <ThemeProvider>
+      <MotionConfig reducedMotion="user" transition={SPRING}>
+      <LazyMotion features={domMax} strict>
       <Head>
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -55,6 +65,8 @@ export default function App({ Component, pageProps }: AppProps) {
           <Component {...pageProps} />
         </Providers>
       </div>
+      </LazyMotion>
+      </MotionConfig>
     </ThemeProvider>
   );
 }

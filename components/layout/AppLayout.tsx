@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence, m } from "motion/react";
 import { useConnection } from "wagmi";
 import {
   ArchiveBoxIcon,
@@ -118,14 +119,32 @@ export default function AppLayout({
           <Sidebar role={role} onNavigate={() => setMenuOpen(false)} />
         </aside>
 
-        {menuOpen && (
-          <>
-            <div className="drawer-backdrop" onClick={() => setMenuOpen(false)} />
-            <aside ref={drawer} className="app-sidebar drawer" role="dialog" aria-modal="true" aria-label="Menu" style={{ boxShadow: "var(--shadow-lg)" }}>
-              <Sidebar role={role} onNavigate={() => setMenuOpen(false)} closable />
-            </aside>
-          </>
-        )}
+        <AnimatePresence>
+          {menuOpen && (
+            <Fragment key="drawer">
+              <m.div
+                className="drawer-backdrop"
+                onClick={() => setMenuOpen(false)}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              />
+              <m.aside
+                ref={drawer}
+                className="app-sidebar"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Menu"
+                style={{ boxShadow: "var(--shadow-lg)" }}
+                initial={{ x: "-100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "-100%" }}
+              >
+                <Sidebar role={role} onNavigate={() => setMenuOpen(false)} closable />
+              </m.aside>
+            </Fragment>
+          )}
+        </AnimatePresence>
 
         <div className="app-main" inert={menuOpen}>
           <header className="app-header">
