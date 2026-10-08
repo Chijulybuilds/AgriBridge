@@ -20,7 +20,21 @@ export function lotName(lot: Pick<Lot, "id" | "commodityId">, commodities: Map<b
   return `${commodities.get(lot.commodityId)?.name ?? "Crop"} · lot ${lot.id}`;
 }
 
-/** A lot as lists show it: the crop's seal, its name, and a line underneath. */
+/**
+ * The crop's name and its lot code, stencilled like the marks on a sack.
+ * It reads (and copies) as "Cocoa · lot 3".
+ */
+export function LotTitle({ crop, id }: { crop: string; id: bigint }) {
+  return (
+    <span className="lot-title">
+      <strong>{crop}</strong>
+      <span className="visually-hidden"> · </span>
+      <span className="lot-code">lot {id.toString()}</span>
+    </span>
+  );
+}
+
+/** A lot as lists show it: the crop's seal, its name and lot code, and a line underneath. */
 export function LotLabel({
   lot,
   commodities,
@@ -30,12 +44,17 @@ export function LotLabel({
   commodities: Map<bigint, Commodity>;
   sub?: React.ReactNode;
 }) {
+  const crop = commodities.get(lot.commodityId)?.name;
   return (
-    <span className="row" style={{ gap: 11, flexWrap: "nowrap" }}>
-      <CropSeal name={commodities.get(lot.commodityId)?.name} size={32} />
+    <span className="lot-label">
+      <CropSeal name={crop} size={32} />
       <span style={{ minWidth: 0 }}>
-        <strong style={{ display: "block", whiteSpace: "nowrap" }}>{lotName(lot, commodities)}</strong>
-        {sub && <span className="muted">{sub}</span>}
+        <LotTitle crop={crop ?? "Crop"} id={lot.id} />
+        {sub && (
+          <span className="muted" style={{ display: "block", marginTop: 2 }}>
+            {sub}
+          </span>
+        )}
       </span>
     </span>
   );

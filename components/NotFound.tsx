@@ -13,25 +13,35 @@ export function NotFound() {
       <Head>
         <title>Page not found · AgriBridge</title>
       </Head>
-      <div
-        className="field-rows"
+      <main
         style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--bg-primary)", padding: 24 }}
         data-testid="not-found"
       >
         <div style={{ textAlign: "center", maxWidth: 420 }}>
           <LogoMark size={44} />
-          <div className="display" style={{ fontSize: 64, lineHeight: 1, margin: "18px 0 8px", color: "var(--accent-green)" }}>
+          <div
+            aria-hidden="true"
+            style={{
+              fontFamily: "var(--font-stencil), 'Arial Narrow', sans-serif",
+              fontSize: 88,
+              fontWeight: 800,
+              lineHeight: 1,
+              letterSpacing: "0.04em",
+              margin: "20px 0 10px",
+              color: "var(--brand)",
+            }}
+          >
             404
           </div>
-          <h1 style={{ fontSize: 22, marginBottom: 8 }}>This page could not be found.</h1>
-          <p className="text-secondary" style={{ marginBottom: 22 }}>
+          <h1 style={{ fontSize: 30, marginBottom: 10 }}>This page could not be found.</h1>
+          <p className="text-secondary" style={{ marginBottom: 24 }}>
             It may have moved, or the address may be mistyped.
           </p>
           <Link className="btn" href="/">
             Back to AgriBridge
           </Link>
         </div>
-      </div>
+      </main>
     </>
   );
 }

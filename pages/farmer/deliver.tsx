@@ -119,7 +119,7 @@ export default function Deliver() {
               <input id="harvest" className="input" type="date" max={today} data-testid="harvest-date" value={harvestDay} onChange={(e) => setHarvestDay(e.target.value)} />
             </div>
             {formError && (
-              <p className="form-error" data-testid="form-error">
+              <p className="form-error" role="alert" data-testid="form-error">
                 {formError}
               </p>
             )}

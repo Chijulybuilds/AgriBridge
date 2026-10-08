@@ -17,7 +17,7 @@ import {
   useMarketSettings,
   type Listing,
 } from "../../hooks/useProtocolData";
-import { useTx } from "../../hooks/useTx";
+import { useTx, type Tx } from "../../hooks/useTx";
 import { MarketplaceAbi } from "../../lib/contracts/abis";
 import { contracts, PriceMode } from "../../lib/contracts/config";
 import { date, kg, kgInput, parseKg, parseKgUpTo, parsePercentToBps, parseUsd, percentFromBps, usdPerKg } from "../../lib/format";
@@ -25,8 +25,11 @@ import { useRememberedRole } from "../../lib/session";
 
 type Pricing = "market" | "fixed";
 
-/** Terms a seller sets: a price (fixed, or a share of today's value) and an optional bulk deal. */
-function useTerms(defaultPricing: Pricing = "market") {
+/**
+ * Terms a seller sets: a price (fixed, or a share of today's value) and an optional bulk deal.
+ * `idPrefix` keeps field ids unique when several forms are on the page (editing a listing).
+ */
+function useTerms(defaultPricing: Pricing = "market", idPrefix = "") {
   const [pricing, setPricing] = useState<Pricing>(defaultPricing);
   const [fixedPrice, setFixedPrice] = useState("");
   const [percent, setPercent] = useState("100");
@@ -59,7 +62,9 @@ function useTerms(defaultPricing: Pricing = "market") {
   const fields = (referencePerKg: bigint | undefined) => (
     <>
       <div className="field">
-        <label>Price</label>
+        <span className="field-label" id={`${idPrefix}pricing`}>
+          Price
+        </span>
         <Segmented
           options={[
             { id: "market", label: "Follow the market" },
@@ -68,12 +73,13 @@ function useTerms(defaultPricing: Pricing = "market") {
           value={pricing}
           onChange={setPricing}
           testIdPrefix="pricing"
+          labelledBy={`${idPrefix}pricing`}
         />
       </div>
       {pricing === "market" ? (
         <div className="field">
-          <label htmlFor="percent">Share of today&apos;s value (%)</label>
-          <input id="percent" className="input" inputMode="decimal" value={percent} onChange={(e) => setPercent(e.target.value)} />
+          <label htmlFor={`${idPrefix}percent`}>Share of today&apos;s value (%)</label>
+          <input id={`${idPrefix}percent`} className="input" inputMode="decimal" value={percent} onChange={(e) => setPercent(e.target.value)} />
           <span className="hint">
             The price moves with the crop&apos;s price and its age.{" "}
             {referencePerKg !== undefined && parsePercentToBps(percent, 200)
@@ -83,24 +89,24 @@ function useTerms(defaultPricing: Pricing = "market") {
         </div>
       ) : (
         <div className="field">
-          <label htmlFor="fixed">Price per kilogram (US$)</label>
-          <input id="fixed" className="input" inputMode="decimal" value={fixedPrice} onChange={(e) => setFixedPrice(e.target.value)} />
+          <label htmlFor={`${idPrefix}fixed`}>Price per kilogram (US$)</label>
+          <input id={`${idPrefix}fixed`} className="input" inputMode="decimal" value={fixedPrice} onChange={(e) => setFixedPrice(e.target.value)} />
           {referencePerKg !== undefined && <span className="hint">Today&apos;s value is {usdPerKg(referencePerKg)}.</span>}
         </div>
       )}
-      <label className="row" style={{ fontSize: 13, marginBottom: 10, cursor: "pointer" }}>
+      <label className="row" style={{ fontSize: 14, gap: 8, minHeight: 40, marginBottom: 10, cursor: "pointer" }}>
         <input type="checkbox" checked={bulk} onChange={(e) => setBulk(e.target.checked)} data-testid="bulk-toggle" />
         Offer a bulk deal to large buyers
       </label>
       {bulk && (
         <div className="grid-2" style={{ marginBottom: 6 }}>
           <div className="field">
-            <label htmlFor="bulk-min">From (kg)</label>
-            <input id="bulk-min" className="input" inputMode="decimal" value={bulkMin} onChange={(e) => setBulkMin(e.target.value)} />
+            <label htmlFor={`${idPrefix}bulk-min`}>From (kg)</label>
+            <input id={`${idPrefix}bulk-min`} className="input" inputMode="decimal" value={bulkMin} onChange={(e) => setBulkMin(e.target.value)} />
           </div>
           <div className="field">
-            <label htmlFor="bulk-off">Discount (%)</label>
-            <input id="bulk-off" className="input" inputMode="decimal" value={bulkOff} onChange={(e) => setBulkOff(e.target.value)} />
+            <label htmlFor={`${idPrefix}bulk-off`}>Discount (%)</label>
+            <input id={`${idPrefix}bulk-off`} className="input" inputMode="decimal" value={bulkOff} onChange={(e) => setBulkOff(e.target.value)} />
           </div>
         </div>
       )}
@@ -124,6 +130,8 @@ export default function Sell() {
   const { listings } = useListings();
   const { settings } = useMarketSettings();
   const tx = useTx();
+  // A listing leaves "My listings" once it is taken down, so its status lives on the card.
+  const listingTx = useTx();
   const terms = useTerms();
 
   const sellable = lots.filter((l) => l.usable && l.balanceKg > 0n);
@@ -208,7 +216,7 @@ export default function Sell() {
                 <input id="kg" className="input" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
               </div>
               {terms.fields(referencePerKg)}
-              {formError && <p className="form-error" data-testid="form-error">{formError}</p>}
+              {formError && <p className="form-error" role="alert" data-testid="form-error">{formError}</p>}
               <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-listing">
                 {tx.isBusy ? "Listing…" : "List for sale"}
               </button>
@@ -239,6 +247,7 @@ export default function Sell() {
             {mine.map((listing) => (
               <MyListing
                 key={listing.id.toString()}
+                tx={listingTx}
                 listing={listing}
                 label={
                   <LotLabel
@@ -251,15 +260,20 @@ export default function Sell() {
             ))}
           </div>
         )}
+        <TxStatus tx={listingTx} success={listingTx.step === "Take down" ? "Taken down. The unsold crop is back in your stock." : "Price changed."} />
+        {mine.length > 0 && (
+          <p className="hint" style={{ marginTop: 12 }}>
+            Each sale is paid to you as it happens; Activity shows every sale.
+          </p>
+        )}
       </Card>
     </AppLayout>
   );
 }
 
-function MyListing({ listing, label }: { listing: Listing; label: ReactNode }) {
-  const tx = useTx();
+function MyListing({ tx, listing, label }: { tx: Tx; listing: Listing; label: ReactNode }) {
   const [editing, setEditing] = useState(false);
-  const terms = useTerms(listing.mode === PriceMode.Fixed ? "fixed" : "market");
+  const terms = useTerms(listing.mode === PriceMode.Fixed ? "fixed" : "market", `listing-${listing.id}-`);
   const [error, setError] = useState<string | null>(null);
 
   async function reprice() {
@@ -307,16 +321,12 @@ function MyListing({ listing, label }: { listing: Listing; label: ReactNode }) {
       {editing && (
         <div style={{ marginTop: 12 }}>
           {terms.fields(undefined)}
-          {error && <p className="form-error">{error}</p>}
+          {error && <p className="form-error" role="alert">{error}</p>}
           <button className="btn" disabled={tx.isBusy} onClick={() => void reprice()}>
             Save price
           </button>
         </div>
       )}
-      <TxStatus tx={tx} success="Saved." />
-      <p className="hint" style={{ marginTop: 8 }}>
-        Each sale is paid to you as it happens; Activity shows every sale.
-      </p>
     </div>
   );
 }

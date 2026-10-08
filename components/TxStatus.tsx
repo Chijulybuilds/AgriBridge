@@ -6,10 +6,18 @@ import { activeChain } from "../lib/wagmi";
 /**
  * Where a transaction is: waiting for the person, waiting for the network,
  * done, or failed (with the reason in plain words). Links to the explorer once
- * there is a transaction, so anyone can check the record.
+ * there is a transaction, so anyone can check the record. The status sits in a
+ * live region that is always present, so screen readers announce each change.
  */
 export function TxStatus({ tx, success }: { tx: Pick<Tx, "state" | "hash" | "error" | "step">; success?: string }) {
-  if (tx.state === "idle") return null;
+  return (
+    <div role="status" aria-live="polite">
+      {tx.state !== "idle" && <TxNotice tx={tx} success={success} />}
+    </div>
+  );
+}
+
+function TxNotice({ tx, success }: { tx: Pick<Tx, "state" | "hash" | "error" | "step">; success?: string }) {
 
   const label =
     tx.state === "signing"

@@ -94,6 +94,7 @@ export default function InvestorOverview() {
                 setFormError(null);
               }}
               testIdPrefix="mode"
+              label="Invest or withdraw"
             />
           </div>
           <form onSubmit={submit} noValidate>
@@ -116,8 +117,8 @@ export default function InvestorOverview() {
                 {mode === "invest" ? `You have ${usd(balance)} to invest.` : `Free to withdraw now: ${usd(stats?.availableCash)} across the pool.`}
               </span>
             </div>
-            {formError && <p className="form-error" data-testid="form-error">{formError}</p>}
-            <button className="btn btn-block btn-gold" type="submit" disabled={tx.isBusy || !parseUsd(amount)} data-testid="submit-tx">
+            {formError && <p className="form-error" role="alert" data-testid="form-error">{formError}</p>}
+            <button className="btn btn-block btn-gold" type="submit" disabled={tx.isBusy} data-testid="submit-tx">
               {tx.isBusy ? "Working…" : mode === "invest" ? "Invest" : "Withdraw"}
             </button>
             <TxStatus tx={tx} success={mode === "invest" ? "Invested. Interest starts now." : "Withdrawn to your account."} />

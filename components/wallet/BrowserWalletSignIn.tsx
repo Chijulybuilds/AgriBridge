@@ -38,7 +38,7 @@ export function BrowserWalletSignIn() {
           </button>
         );
       })}
-      {error && <p className="form-error">{friendlyError(error)}</p>}
+      {error && <p className="form-error" role="alert">{friendlyError(error)}</p>}
     </div>
   );
 }

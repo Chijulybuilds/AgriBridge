@@ -168,7 +168,7 @@ export default function Advance() {
                   {maxBorrow !== undefined ? `Up to ${usd(maxBorrow)} for this crop and date.` : "Choose the crop, kilograms and date to see your limit."}
                 </span>
               </div>
-              {formError && <p className="form-error" data-testid="form-error">{formError}</p>}
+              {formError && <p className="form-error" role="alert" data-testid="form-error">{formError}</p>}
               <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-advance">
                 {tx.isBusy ? "Working…" : "Get the advance"}
               </button>

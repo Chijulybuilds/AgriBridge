@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { useCommodities, type Commodity } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
@@ -92,6 +92,7 @@ export function CropsTab() {
 }
 
 function CropEditor({ commodity }: { commodity?: Commodity }) {
+  const id = useId();
   const tx = useTx();
   const [draft, setDraft] = useState<Draft>(toDraft(commodity));
   const [error, setError] = useState<string | null>(null);
@@ -117,11 +118,11 @@ function CropEditor({ commodity }: { commodity?: Commodity }) {
 
   const field = (label: string, key: keyof Draft, suffix?: string) => (
     <div className="field" style={{ marginBottom: 8 }}>
-      <label>
+      <label htmlFor={`${id}-${key}`}>
         {label}
         {suffix ? ` (${suffix})` : ""}
       </label>
-      <input className="input" value={String(draft[key])} onChange={set(key)} />
+      <input id={`${id}-${key}`} className="input" value={String(draft[key])} onChange={set(key)} />
     </div>
   );
 
@@ -130,8 +131,13 @@ function CropEditor({ commodity }: { commodity?: Commodity }) {
       <div className="grid-4" style={{ marginBottom: 6 }}>
         {field("Name", "name")}
         <div className="field" style={{ marginBottom: 8 }}>
-          <label>Price source</label>
-          <select className="select" value={draft.priceSource} onChange={(e) => setDraft({ ...draft, priceSource: Number(e.target.value) })}>
+          <label htmlFor={`${id}-source`}>Price source</label>
+          <select
+            id={`${id}-source`}
+            className="select"
+            value={draft.priceSource}
+            onChange={(e) => setDraft({ ...draft, priceSource: Number(e.target.value) })}
+          >
             {PRICE_SOURCES.map((source, i) => (
               <option key={source} value={i}>
                 {source}
@@ -149,17 +155,17 @@ function CropEditor({ commodity }: { commodity?: Commodity }) {
         {field("Basis cut", "basis", "% off the world price")}
         {field("Storage fee", "storage", "$ per tonne a month")}
       </div>
-      <div className="row">
-        <label className="row" style={{ fontSize: 13, gap: 6 }}>
+      <div className="row" style={{ gap: 14 }}>
+        <label className="row" style={{ fontSize: 14, gap: 8, minHeight: 40 }}>
           <input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />
           Accepting deliveries
         </label>
         <button className="btn btn-small" disabled={tx.isBusy} onClick={() => void save()}>
-          {commodity ? "Save" : "Add crop"}
+          {commodity ? `Save ${commodity.name}` : "Add crop"}
         </button>
         {commodity && <span className="muted">Storage now {usd(commodity.storageFeePerTonMonth)} per tonne a month</span>}
       </div>
-      {error && <p className="form-error" style={{ marginTop: 8 }}>{error}</p>}
+      {error && <p className="form-error" role="alert" style={{ marginTop: 8 }}>{error}</p>}
       <TxStatus tx={tx} success="Saved." />
     </div>
   );

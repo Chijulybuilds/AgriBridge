@@ -77,6 +77,7 @@ export default function Activity() {
             value={topic}
             onChange={setTopic}
             testIdPrefix="topic"
+            label="Show"
           />
         }
       >

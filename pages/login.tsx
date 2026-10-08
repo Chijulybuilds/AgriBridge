@@ -51,17 +51,17 @@ export default function Login() {
         <aside className="login-brand">
           <Logo size={34} tone="onDark" />
           <div>
-            <h1 className="display" style={{ fontSize: 38, lineHeight: 1.1, color: "#f4efe2", marginBottom: 16 }}>
+            <p className="display" style={{ fontSize: "clamp(40px, 4.4vw, 60px)", lineHeight: 0.98, color: "inherit", marginBottom: 18 }}>
               Crop in storage becomes money you can use.
-            </h1>
-            <p style={{ color: "rgba(244, 239, 226, 0.78)", fontSize: 15, maxWidth: 420 }}>
+            </p>
+            <p style={{ color: "var(--sidebar-ink-2)", fontSize: 16, maxWidth: 420 }}>
               Graded in partner warehouses, recorded on Ethereum, and checked by the contracts at every step.
             </p>
           </div>
-          <ul className="stack" style={{ gap: 10, listStyle: "none" }}>
+          <ul className="stack" style={{ gap: 12, listStyle: "none" }}>
             {["No app to install, no passwords to remember", "Your account is yours: AgriBridge never holds your key", "Every step has a public record you can check"].map((line) => (
-              <li key={line} className="row" style={{ gap: 10, color: "rgba(244, 239, 226, 0.88)", fontSize: 13.5, flexWrap: "nowrap" }}>
-                <CheckIcon style={{ width: 16, height: 16, color: "#e0a93b", flexShrink: 0 }} />
+              <li key={line} className="row" style={{ gap: 10, fontSize: 15, flexWrap: "nowrap" }}>
+                <CheckIcon aria-hidden="true" style={{ width: 18, height: 18, color: "var(--maize)", flexShrink: 0 }} />
                 {line}
               </li>
             ))}
@@ -78,46 +78,36 @@ export default function Login() {
             </span>
           </div>
 
-          <div style={{ maxWidth: 420, width: "100%", margin: "0 auto" }}>
-            <span className="page-eyebrow">Welcome</span>
-            <h2 className="display" style={{ fontSize: 30, marginBottom: 6 }}>
-              Sign in
-            </h2>
-            <p className="text-secondary" style={{ marginBottom: 22 }}>
+          <div style={{ maxWidth: 440, width: "100%", margin: "0 auto" }}>
+            <h1 style={{ fontSize: 44, marginBottom: 10 }}>Sign in</h1>
+            <p className="text-secondary" style={{ marginBottom: 24 }}>
               Choose what you want to do first. You can switch at any time.
             </p>
 
-            <div className="stack" style={{ gap: 10, marginBottom: 22 }} role="radiogroup" aria-label="I am a">
+            <fieldset className="stack" style={{ gap: 10, marginBottom: 24, border: "none" }}>
+              <legend className="visually-hidden">What do you want to do first?</legend>
               {APP_ROLES.map((r) => {
                 const Icon = ROLE_DETAILS[r.id].icon;
-                const selected = r.id === role;
                 return (
-                  <button
-                    key={r.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    data-testid={`role-${r.id}`}
-                    onClick={() => setRole(r.id)}
-                    className="role-card"
-                  >
-                    <span className={`stat-icon ${selected ? "tone-green" : "tone-gold"}`}>
+                  <label key={r.id} className="role-card" data-testid={`role-${r.id}`}>
+                    <span className="stat-icon tone-blue">
                       <Icon />
                     </span>
-                    <span style={{ textAlign: "left" }}>
-                      <strong style={{ display: "block", fontSize: 14 }}>{r.label}</strong>
-                      <span className="muted" style={{ fontSize: 12.5 }}>
+                    <span style={{ flex: 1 }}>
+                      <strong style={{ display: "block", fontSize: 15 }}>{r.label}</strong>
+                      <span className="muted" style={{ fontSize: 13.5 }}>
                         {ROLE_DETAILS[r.id].line}
                       </span>
                     </span>
-                  </button>
+                    <input type="radio" name="role" value={r.id} checked={r.id === role} onChange={() => setRole(r.id)} />
+                  </label>
                 );
               })}
-            </div>
+            </fieldset>
 
             <SignIn />
 
-            <p className="muted" style={{ textAlign: "center", marginTop: 22, fontSize: 13 }}>
+            <p className="muted" style={{ textAlign: "center", marginTop: 24, fontSize: 14 }}>
               Just looking?{" "}
               <Link className="link" href="/market">
                 Browse the market
@@ -130,19 +120,20 @@ export default function Login() {
       <style>{`
         .login-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(360px, 0.9fr) 1.1fr; background: var(--bg-primary); }
         .login-brand {
-          background-color: #143d25;
-          background-image: repeating-linear-gradient(-24deg, rgba(255,255,255,0.045) 0, rgba(255,255,255,0.045) 2px, transparent 2px, transparent 22px),
-            radial-gradient(120% 80% at 0% 100%, rgba(224,169,59,0.22), transparent 60%);
-          color: #f4efe2; padding: 40px 44px; display: flex; flex-direction: column; justify-content: space-between; gap: 32px;
+          background: var(--sidebar-bg); color: var(--sidebar-ink);
+          padding: 40px 48px; display: flex; flex-direction: column; justify-content: space-between; gap: 32px;
         }
         .login-main { padding: 28px 32px 40px; display: flex; flex-direction: column; justify-content: center; }
         .login-mobile-logo { display: none; }
         .role-card {
           display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border-radius: 14px; cursor: pointer;
-          background: var(--bg-card); border: 1px solid var(--border); box-shadow: var(--shadow-sm); font: inherit; color: var(--text-primary);
+          background: var(--bg-card); border: 1px solid var(--border-light); font: inherit; color: var(--text-primary);
+          transition-property: border-color, background-color; transition-duration: 0.15s; transition-timing-function: ease-out;
         }
-        .role-card:hover { border-color: var(--border-light); }
-        .role-card[aria-checked="true"] { border-color: var(--accent-green); box-shadow: 0 0 0 4px var(--ring); }
+        .role-card:hover { border-color: var(--line-input); }
+        .role-card:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand); }
+        .role-card:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+        .role-card input:focus-visible { outline: none; }
         @media (max-width: 860px) {
           .login-shell { grid-template-columns: 1fr; }
           .login-brand { display: none; }

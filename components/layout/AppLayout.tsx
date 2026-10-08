@@ -1,14 +1,13 @@
 import Link from "next/link";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useConnection } from "wagmi";
 import {
   ArchiveBoxIcon,
   BanknotesIcon,
   Bars3Icon,
   BuildingStorefrontIcon,
-  ChartBarSquareIcon,
   CubeIcon,
   DocumentTextIcon,
   HomeIcon,
@@ -76,11 +75,28 @@ export default function AppLayout({
   requireWallet?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const drawer = useRef<HTMLElement>(null);
   const { address, isConnected } = useConnection();
   const { balance } = useUsdc(address);
 
   // Remember the role a person last used, so sign-in brings them back to it.
   useEffect(() => storeRole(role), [role]);
+
+  // On phones the menu is a dialog: focus moves into it, Escape closes it, and focus returns to the menu button.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const trigger = menuButton.current;
+    drawer.current?.querySelector<HTMLElement>('button[aria-label="Close menu"]')?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      trigger?.focus();
+    };
+  }, [menuOpen]);
 
   const body = (
     <>
@@ -94,6 +110,9 @@ export default function AppLayout({
       <Head>
         <title>{`${title} · AgriBridge`}</title>
       </Head>
+      <a className="skip-link" href="#content">
+        Skip to content
+      </a>
       <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-primary)" }}>
         <aside className="app-sidebar desktop-sidebar">
           <Sidebar role={role} onNavigate={() => setMenuOpen(false)} />
@@ -101,19 +120,22 @@ export default function AppLayout({
 
         {menuOpen && (
           <>
-            <div
-              onClick={() => setMenuOpen(false)}
-              style={{ position: "fixed", inset: 0, background: "rgba(10, 20, 14, 0.45)", zIndex: 40 }}
-            />
-            <aside className="app-sidebar" style={{ zIndex: 50, boxShadow: "var(--shadow-lg)" }}>
+            <div className="drawer-backdrop" onClick={() => setMenuOpen(false)} />
+            <aside ref={drawer} className="app-sidebar" role="dialog" aria-modal="true" aria-label="Menu" style={{ boxShadow: "var(--shadow-lg)" }}>
               <Sidebar role={role} onNavigate={() => setMenuOpen(false)} closable />
             </aside>
           </>
         )}
 
-        <div className="app-main">
+        <div className="app-main" inert={menuOpen}>
           <header className="app-header">
-            <button className="icon-btn mobile-topbar-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu">
+            <button
+              ref={menuButton}
+              className="icon-btn mobile-topbar-menu"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+            >
               <Bars3Icon style={{ width: 19, height: 19 }} />
             </button>
             <Link href="/" className="mobile-topbar-brand" aria-label="AgriBridge home">
@@ -123,17 +145,14 @@ export default function AppLayout({
               <DemoFaucet />
               {isConnected && (
                 <span className="chip hide-mobile" data-testid="usdc-balance" title="Your dollars (USDC)">
-                  <WalletIcon style={{ width: 15, height: 15, color: "var(--accent-green)" }} />
+                  <WalletIcon style={{ width: 15, height: 15, color: "var(--brand)" }} />
                   <span className="num">{usd(balance)}</span>
                 </span>
               )}
               <ThemeToggle />
               {isConnected ? (
                 <span className="chip" data-testid="account">
-                  <span
-                    aria-hidden="true"
-                    style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-green-light)" }}
-                  />
+                  <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--ok)" }} />
                   <AccountName />
                 </span>
               ) : (
@@ -143,7 +162,9 @@ export default function AppLayout({
               )}
             </div>
           </header>
-          <main className="app-content">{requireWallet ? <RequireWallet>{body}</RequireWallet> : body}</main>
+          <main id="content" tabIndex={-1} className="app-content">
+            {requireWallet ? <RequireWallet>{body}</RequireWallet> : body}
+          </main>
         </div>
       </div>
     </>
@@ -172,35 +193,21 @@ function Sidebar({ role, onNavigate, closable }: { role: AppRole; onNavigate: ()
       </div>
 
       {/* Everyone can play every role; this switches which tools are shown. */}
-      <div style={{ padding: "4px 14px 14px" }}>
-        <div className="segmented" style={{ display: "flex" }} role="navigation" aria-label="Role">
-          {APP_ROLES.map((r) => (
-            <Link
-              key={r.id}
-              href={r.home}
-              onClick={onNavigate}
-              data-testid={`switch-to-${r.id}`}
-              aria-current={r.id === role ? "true" : undefined}
-              style={{
-                flex: 1,
-                textAlign: "center",
-                padding: "7px 0",
-                borderRadius: 8,
-                fontSize: 12.5,
-                fontWeight: 700,
-                textDecoration: "none",
-                color: r.id === role ? "var(--accent-green)" : "var(--text-secondary)",
-                background: r.id === role ? "var(--bg-card)" : "transparent",
-                boxShadow: r.id === role ? "var(--shadow-sm)" : "none",
-              }}
-            >
-              {r.label}
-            </Link>
-          ))}
-        </div>
-      </div>
+      <nav className="segmented role-switch" aria-label="Role" style={{ margin: "4px 14px 18px" }}>
+        {APP_ROLES.map((r) => (
+          <Link
+            key={r.id}
+            href={r.home}
+            onClick={onNavigate}
+            data-testid={`switch-to-${r.id}`}
+            aria-current={r.id === role ? "true" : undefined}
+          >
+            {r.label}
+          </Link>
+        ))}
+      </nav>
 
-      <nav style={{ padding: "0 12px", flex: 1, overflowY: "auto" }}>
+      <nav aria-label="Pages" style={{ padding: "0 12px", flex: 1, overflowY: "auto" }}>
         {nav.map((item) => {
           const Icon = item.icon;
           return (
@@ -219,10 +226,6 @@ function Sidebar({ role, onNavigate, closable }: { role: AppRole; onNavigate: ()
       </nav>
 
       <div style={{ padding: 14, borderTop: "1px solid var(--border)", flexShrink: 0 }}>
-        <Link href="/market" className="nav-item" onClick={onNavigate}>
-          <ChartBarSquareIcon />
-          Prices and stock
-        </Link>
         <Link href="/" className="nav-item" onClick={onNavigate}>
           <HomeIcon />
           Home

@@ -22,44 +22,42 @@ export function useTheme() {
 
 const STORAGE_KEY = "agribridge_theme";
 
-function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-  const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
-  if (stored === "light" || stored === "dark") return stored;
+/** The theme pages/_document.tsx already applied before the first paint. */
+function currentTheme(): Theme {
+  const applied = document.documentElement.getAttribute("data-theme");
+  if (applied === "light" || applied === "dark") return applied;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  // Unknown on the server; read once mounted, without repainting the page.
+  const [theme, setThemeState] = useState<Theme | null>(null);
 
-  // Bootstrap theme on mount (avoids hydration mismatch)
   useEffect(() => {
-    // Deliberate: the server cannot read localStorage or matchMedia, so the
-    // stored theme can only be applied after hydration.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setThemeState(getInitialTheme());
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the applied theme is only readable in the browser
+    setThemeState(currentTheme());
   }, []);
 
-  const applyTheme = useCallback((t: Theme) => {
-    document.documentElement.setAttribute("data-theme", t);
-    window.localStorage.setItem(STORAGE_KEY, t);
-  }, []);
-
-  // Apply whenever it changes
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme, applyTheme]);
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
-  const toggleTheme = useCallback(() => {
-    setThemeState((prev) => (prev === "light" ? "dark" : "light"));
-  }, []);
-
+  // Only an explicit choice is remembered; otherwise the page follows the system setting.
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, t);
+    } catch {
+      // Storage can be unavailable (private mode); the choice then lasts for this visit.
+    }
   }, []);
 
+  const toggleTheme = useCallback(() => {
+    setTheme(currentTheme() === "dark" ? "light" : "dark");
+  }, [setTheme]);
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme: theme ?? "light", toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

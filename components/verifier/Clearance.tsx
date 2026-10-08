@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ArchiveBoxIcon, TagIcon } from "@heroicons/react/24/outline";
 
 import { useClearanceInventory, useCommodities, useListings, useLots, useMarketSettings, type Lot } from "../../hooks/useProtocolData";
-import { useTx } from "../../hooks/useTx";
+import { useTx, type Tx } from "../../hooks/useTx";
 import { ERC20Abi, MarketplaceAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
 import { kg, parseKg, parseUsd, percentFromBps, usd, usdPerKg } from "../../lib/format";
@@ -23,6 +23,9 @@ export function ClearanceTab() {
   const { data: inventory } = useClearanceInventory(lots.map((l) => l.id));
   const held = lots.filter((l) => (inventory?.get(l.id) ?? 0n) > 0n);
   const open = listings.filter((l) => l.active && l.clearance);
+  // Rows leave these lists once they are handled, so each list keeps one status that stays on screen.
+  const listTx = useTx();
+  const takeDownTx = useTx();
 
   return (
     <div className="stack">
@@ -38,6 +41,7 @@ export function ClearanceTab() {
               return (
                 <ListClearance
                   key={lot.id.toString()}
+                  tx={listTx}
                   lot={lot}
                   label={<LotLabel lot={lot} commodities={commodities} sub={`${kg(available)} bought`} />}
                   available={available}
@@ -46,6 +50,7 @@ export function ClearanceTab() {
             })}
           </div>
         )}
+        <TxStatus tx={listTx} success="Listed. Feed buyers can see it on the market now." />
       </Card>
 
       <Card title="Listed for feed buyers">
@@ -57,6 +62,7 @@ export function ClearanceTab() {
               {open.map((listing) => (
                 <ClearanceListing
                   key={listing.id.toString()}
+                  tx={takeDownTx}
                   id={listing.id}
                   label={<LotLabel lot={lots.find((l) => l.id === listing.lotId) ?? { id: listing.lotId, commodityId: 0n }} commodities={commodities} />}
                   kgLeft={listing.kgRemaining}
@@ -66,18 +72,22 @@ export function ClearanceTab() {
             </tbody>
           </table>
         )}
+        <TxStatus tx={takeDownTx} success="Taken down. The stock is back in the clearance inventory." />
       </Card>
     </div>
   );
 }
 
 function FundCard({ balance, discountBps }: { balance?: bigint; discountBps?: bigint }) {
+  const id = useId();
   const tx = useTx();
   const [amount, setAmount] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   async function fund() {
+    setError(null);
     const value = parseUsd(amount);
-    if (!value) return;
+    if (!value) return setError("Enter an amount in US dollars, such as 5000.");
     try {
       if (tx.viaSafe) {
         // Safe transactions run in order, so the approval is queued just ahead of the top-up.
@@ -94,30 +104,43 @@ function FundCard({ balance, discountBps }: { balance?: bigint; discountBps?: bi
 
   return (
     <Card title="Clearance fund">
-      <p style={{ marginBottom: 12 }}>
-        <strong style={{ fontSize: 20 }}>{usd(balance)}</strong>{" "}
+      <p style={{ marginBottom: 16 }}>
+        <span className="stat-value" style={{ fontSize: 30 }}>
+          {usd(balance)}
+        </span>{" "}
         <span className="muted">available to buy expired stock at {discountBps !== undefined ? percentFromBps(discountBps) : "30%"} below its value</span>
       </p>
-      <div className="row">
-        <input className="input" style={{ maxWidth: 200 }} placeholder="Top up (US$)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        <button className="btn" disabled={tx.isBusy || !parseUsd(amount)} onClick={() => void fund()}>
+      <div className="row" style={{ alignItems: "flex-end", gap: 12 }}>
+        <div className="field" style={{ marginBottom: 0, flex: "0 1 220px" }}>
+          <label htmlFor={`${id}-amount`}>Top up the fund (US$)</label>
+          <input id={`${id}-amount`} className="input" placeholder="5000" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+        <button className="btn" disabled={tx.isBusy} onClick={() => void fund()}>
           Top up
         </button>
       </div>
+      {error && (
+        <p className="form-error" role="alert" style={{ marginTop: 8 }}>
+          {error}
+        </p>
+      )}
       <TxStatus tx={tx} success="Fund topped up." />
     </Card>
   );
 }
 
-function ListClearance({ lot, label, available }: { lot: Lot; label: ReactNode; available: bigint }) {
-  const tx = useTx();
+function ListClearance({ tx, lot, label, available }: { tx: Tx; lot: Lot; label: ReactNode; available: bigint }) {
+  const id = useId();
   const [amount, setAmount] = useState("");
   const [price, setPrice] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   async function list() {
-    const kgAmount = parseKg(amount) ?? available;
+    setError(null);
+    const kgAmount = amount.trim() ? parseKg(amount) : available;
     const pricePerKg = parseUsd(price);
-    if (!pricePerKg || kgAmount > available) return;
+    if (!kgAmount || kgAmount > available) return setError(`Enter up to ${kg(available)}, or leave it empty to list all of it.`);
+    if (!pricePerKg) return setError("Enter the price per kilogram in US dollars, such as 0.40.");
     try {
       await tx.send(
         { address: contracts.marketplace!, abi: MarketplaceAbi, functionName: "listClearance", args: [lot.id, kgAmount, pricePerKg] },
@@ -130,21 +153,30 @@ function ListClearance({ lot, label, available }: { lot: Lot; label: ReactNode; 
 
   return (
     <div className="card-sunken">
-      <div className="row">
-        <span style={{ minWidth: 220 }}>{label}</span>
-        <input className="input" style={{ maxWidth: 140 }} placeholder={`kg (all ${kg(available)})`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        <input className="input" style={{ maxWidth: 140 }} placeholder="US$ per kg" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
-        <button className="btn btn-small" disabled={tx.isBusy || !parseUsd(price)} onClick={() => void list()}>
-          List
+      <div className="row" style={{ alignItems: "flex-end", gap: 12 }}>
+        <span style={{ minWidth: 220, alignSelf: "center" }}>{label}</span>
+        <div className="field" style={{ marginBottom: 0, flex: "0 1 150px" }}>
+          <label htmlFor={`${id}-kg`}>Kilograms</label>
+          <input id={`${id}-kg`} className="input" placeholder={`All ${kg(available)}`} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+        <div className="field" style={{ marginBottom: 0, flex: "0 1 170px" }}>
+          <label htmlFor={`${id}-price`}>Price (US$ per kg)</label>
+          <input id={`${id}-price`} className="input" placeholder="0.40" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
+        </div>
+        <button className="btn" disabled={tx.isBusy} onClick={() => void list()}>
+          List for feed buyers
         </button>
       </div>
-      <TxStatus tx={tx} success="Listed." />
+      {error && (
+        <p className="form-error" role="alert" style={{ marginTop: 8 }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
 
-function ClearanceListing({ id, label, kgLeft, price }: { id: bigint; label: ReactNode; kgLeft: bigint; price: bigint }) {
-  const tx = useTx();
+function ClearanceListing({ tx, id, label, kgLeft, price }: { tx: Tx; id: bigint; label: ReactNode; kgLeft: bigint; price: bigint }) {
   return (
     <tr>
       <td>{label}</td>
@@ -158,7 +190,6 @@ function ClearanceListing({ id, label, kgLeft, price }: { id: bigint; label: Rea
         >
           Take down
         </button>
-        <TxStatus tx={tx} success="Taken down; the stock is back in the clearance inventory." />
       </td>
     </tr>
   );

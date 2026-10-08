@@ -4,7 +4,7 @@ import { useConnection } from "wagmi";
 import { ArchiveBoxIcon, BanknotesIcon, ClockIcon, ScaleIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../../components/layout/AppLayout";
-import { GradeBadge, LotState, lotName, ValueTimeline } from "../../components/lots";
+import { GradeBadge, LotState, LotTitle, ValueTimeline } from "../../components/lots";
 import { Card, CropSeal, EmptyState, Notice, PageHeader, Skeleton, Stat } from "../../components/ui";
 import { lotValue, useCommodities, useLoans, useLots, useWarehouses, type Lot } from "../../hooks/useProtocolData";
 import { date, kg, relativeDays, SECONDS_PER_DAY, usd, useNow } from "../../lib/format";
@@ -92,7 +92,6 @@ export default function MyStock() {
                   <StockRow
                     key={lot.id.toString()}
                     lot={lot}
-                    name={lotName(lot, commodities)}
                     crop={commodities.get(lot.commodityId)?.name}
                     warehouse={warehouses.get(lot.warehouseId)?.name}
                     value={lotValue(lot, commodities.get(lot.commodityId), lot.balanceKg)}
@@ -113,7 +112,6 @@ export default function MyStock() {
 
 function StockRow({
   lot,
-  name,
   crop,
   warehouse,
   value,
@@ -123,7 +121,6 @@ function StockRow({
   timeline,
 }: {
   lot: Lot;
-  name: string;
   crop?: string;
   warehouse?: string;
   value?: bigint;
@@ -136,11 +133,11 @@ function StockRow({
     <>
       <tr>
         <td>
-          <span className="row" style={{ gap: 11, flexWrap: "nowrap" }}>
+          <span className="lot-label">
             <CropSeal name={crop} size={32} />
             <span>
-              <strong style={{ whiteSpace: "nowrap" }}>{name}</strong>
-              <span className="row" style={{ gap: 6, marginTop: 3 }}>
+              <LotTitle crop={crop ?? "Crop"} id={lot.id} />
+              <span className="row" style={{ gap: 6, marginTop: 4 }}>
                 <LotState lot={lot} />
               </span>
             </span>

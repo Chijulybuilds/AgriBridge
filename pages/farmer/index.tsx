@@ -75,9 +75,11 @@ export default function FarmerOverview() {
           </Link>
         </Card>
 
-        <section className="card field-rows" style={{ background: "var(--accent-green-bg)", borderColor: "transparent" }}>
+        <section className="card island">
           <span className="page-eyebrow">Next step</span>
-          <h2 style={{ fontSize: 22, margin: "2px 0 10px" }}>{next.cta}</h2>
+          <h2 className="display" style={{ fontSize: 34, margin: "2px 0 12px" }}>
+            {next.cta}
+          </h2>
           <p className="text-secondary" style={{ marginBottom: 18, lineHeight: 1.6 }}>
             {next.text}
           </p>

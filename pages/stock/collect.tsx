@@ -119,7 +119,9 @@ export default function Collect() {
                 <input id="kg" className="input" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
               </div>
               <div className="field">
-                <label>How</label>
+                <span className="field-label" id="method-label">
+                  How
+                </span>
                 <Segmented
                   options={[
                     { id: "pickup", label: "I'll pick it up" },
@@ -128,6 +130,7 @@ export default function Collect() {
                   value={method}
                   onChange={setMethod}
                   testIdPrefix="method"
+                  labelledBy="method-label"
                 />
               </div>
               {method === "delivery" && (
@@ -150,7 +153,7 @@ export default function Collect() {
                   <KeyValue label="You have" value={usd(balance)} />
                 </div>
               )}
-              {formError && <p className="form-error">{formError}</p>}
+              {formError && <p className="form-error" role="alert">{formError}</p>}
               <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-collect">
                 {tx.isBusy ? "Working…" : "Ask to collect"}
               </button>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { BuildingOffice2Icon } from "@heroicons/react/24/outline";
 
 import { useWarehouses, type Warehouse } from "../../hooks/useProtocolData";
@@ -35,6 +35,7 @@ export function WarehousesTab() {
 }
 
 function WarehouseEditor({ warehouse }: { warehouse?: Warehouse }) {
+  const id = useId();
   const tx = useTx();
   const [name, setName] = useState(warehouse?.name ?? "");
   const [region, setRegion] = useState(warehouse?.region ?? "");
@@ -89,21 +90,30 @@ function WarehouseEditor({ warehouse }: { warehouse?: Warehouse }) {
           </span>
         </div>
       )}
-      <div className="row">
-        <input className="input" style={{ maxWidth: 200 }} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input className="input" style={{ maxWidth: 200 }} placeholder="Region, country" value={region} onChange={(e) => setRegion(e.target.value)} />
-        <input className="input" style={{ maxWidth: 140 }} placeholder="Capacity (t)" inputMode="numeric" value={tonnes} onChange={(e) => setTonnes(e.target.value)} />
+      <div className="row" style={{ alignItems: "flex-end", gap: 12 }}>
+        <div className="field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
+          <label htmlFor={`${id}-name`}>Name</label>
+          <input id={`${id}-name`} className="input" placeholder="Tamale Store" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="field" style={{ marginBottom: 0, flex: "1 1 180px" }}>
+          <label htmlFor={`${id}-region`}>Region</label>
+          <input id={`${id}-region`} className="input" placeholder="Northern, Ghana" value={region} onChange={(e) => setRegion(e.target.value)} />
+        </div>
+        <div className="field" style={{ marginBottom: 0, flex: "0 1 150px" }}>
+          <label htmlFor={`${id}-capacity`}>Capacity (tonnes)</label>
+          <input id={`${id}-capacity`} className="input" placeholder="2000" inputMode="numeric" value={tonnes} onChange={(e) => setTonnes(e.target.value)} />
+        </div>
         {warehouse && (
-          <label className="row" style={{ fontSize: 13, gap: 6 }}>
+          <label className="row" style={{ fontSize: 14, gap: 8, minHeight: 44 }}>
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
             Taking deliveries
           </label>
         )}
-        <button className="btn btn-small" disabled={tx.isBusy} onClick={() => void save()}>
-          {warehouse ? "Save" : "Add"}
+        <button className="btn" disabled={tx.isBusy} onClick={() => void save()}>
+          {warehouse ? "Save warehouse" : "Add warehouse"}
         </button>
       </div>
-      {error && <p className="form-error" style={{ marginTop: 8 }}>{error}</p>}
+      {error && <p className="form-error" role="alert" style={{ marginTop: 8 }}>{error}</p>}
       <TxStatus tx={tx} success="Saved." />
     </div>
   );

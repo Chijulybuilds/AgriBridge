@@ -46,10 +46,12 @@ export function PricesTab() {
 function PriceRow({ commodity }: { commodity: Commodity }) {
   const tx = useTx();
   const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   async function save() {
+    setError(null);
     const trimmed = value.trim();
-    if (!/^\d+(\.\d+)?$/.test(trimmed) || Number(trimmed) <= 0) return;
+    if (!/^\d+(\.\d+)?$/.test(trimmed) || Number(trimmed) <= 0) return setError("Enter a price in US dollars per kg, such as 5.85.");
     try {
       await tx.send(
         {
@@ -80,11 +82,25 @@ function PriceRow({ commodity }: { commodity: Commodity }) {
       <td>{commodity.fresh ? <Badge tone="green">Current</Badge> : <Badge tone="gold">Out of date</Badge>}</td>
       <td>
         <div className="row" style={{ flexWrap: "nowrap" }}>
-          <input className="input" style={{ maxWidth: 110 }} inputMode="decimal" placeholder="5.85" value={value} onChange={(e) => setValue(e.target.value)} data-testid={`price-${commodity.id}`} />
-          <button className="btn btn-small" disabled={tx.isBusy || !value.trim()} onClick={() => void save()}>
-            Set
+          <input
+            className="input"
+            style={{ maxWidth: 110 }}
+            inputMode="decimal"
+            placeholder="5.85"
+            aria-label={`New price for ${commodity.name} (US$ per kg)`}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            data-testid={`price-${commodity.id}`}
+          />
+          <button className="btn btn-small" disabled={tx.isBusy} onClick={() => void save()}>
+            Set price
           </button>
         </div>
+        {error && (
+          <p className="form-error" role="alert" style={{ margin: "6px 0 0" }}>
+            {error}
+          </p>
+        )}
         <TxStatus tx={tx} success="Price set." />
       </td>
     </tr>

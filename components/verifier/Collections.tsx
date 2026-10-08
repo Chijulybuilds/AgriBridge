@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ClockIcon, TruckIcon } from "@heroicons/react/24/outline";
 
 import { useCommodities, useLots, useWarehouses, useWithdrawalRequests, type WithdrawalRequest } from "../../hooks/useProtocolData";
-import { useTx } from "../../hooks/useTx";
+import { useTx, type Tx } from "../../hooks/useTx";
 import { WarehouseDeskAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
 import { date, kg, parseUsd, shortAddress, textToBytes32, usd } from "../../lib/format";
@@ -22,6 +22,8 @@ export function CollectionsTab() {
   const { byId: commodities } = useCommodities();
   const { byId: warehouses } = useWarehouses();
   const lotById = new Map(lots.map((l) => [l.id, l]));
+  // One status for the whole list: a request leaves it once it is handled, and the result must stay on screen.
+  const tx = useTx();
   const pending = requests.filter((r) => r.status === "Pending");
   const done = requests.filter((r) => r.status !== "Pending").slice(0, 10);
 
@@ -38,6 +40,7 @@ export function CollectionsTab() {
               return (
                 <CollectionItem
                   key={r.id.toString()}
+                  tx={tx}
                   request={r}
                   label={
                     <LotLabel
@@ -51,6 +54,7 @@ export function CollectionsTab() {
             })}
           </div>
         )}
+        <TxStatus tx={tx} success={tx.step === "Reject" ? "Rejected. The holder got everything back." : "Released. The storage fee is paid and the stock is off the record."} />
       </Card>
       <Card title="Recently handled">
         {done.length === 0 ? (
@@ -79,8 +83,8 @@ export function CollectionsTab() {
   );
 }
 
-function CollectionItem({ request, label }: { request: WithdrawalRequest; label: ReactNode }) {
-  const tx = useTx();
+function CollectionItem({ tx, request, label }: { tx: Tx; request: WithdrawalRequest; label: ReactNode }) {
+  const id = useId();
   const delivery = request.deliveryBudget > 0n;
   const [fee, setFee] = useState("");
   const [reason, setReason] = useState("");
@@ -122,20 +126,36 @@ function CollectionItem({ request, label }: { request: WithdrawalRequest; label:
           <span className="badge badge-muted badge-plain">Storage paid {usd(request.storageFee)}</span>
         </span>
       </div>
-      <div className="row">
-        {delivery && (
-          <input className="input" style={{ maxWidth: 200 }} placeholder="Actual delivery fee (US$)" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} />
-        )}
-        <button className="btn" disabled={tx.isBusy} onClick={() => void release()}>
-          Goods have left: confirm
-        </button>
-        <input className="input" style={{ maxWidth: 240 }} placeholder="Reason (max 32 characters)" maxLength={32} value={reason} onChange={(e) => setReason(e.target.value)} />
-        <button className="btn btn-danger" disabled={tx.isBusy} onClick={() => void reject()}>
-          Reject and refund
-        </button>
+      <div className="spread" style={{ alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+        <div className="row" style={{ alignItems: "flex-end", gap: 10 }}>
+          {delivery && (
+            <div className="field" style={{ marginBottom: 0, width: 200 }}>
+              <label htmlFor={`${id}-fee`}>Actual delivery fee (US$)</label>
+              <input id={`${id}-fee`} className="input" placeholder="25" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} />
+            </div>
+          )}
+          <button className="btn" disabled={tx.isBusy} onClick={() => void release()}>
+            Confirm the goods have left
+          </button>
+        </div>
+        <div className="row" style={{ alignItems: "flex-end", gap: 10 }}>
+          <div className="field" style={{ marginBottom: 0, width: 240 }}>
+            <label htmlFor={`${id}-reason`}>Reason, if you reject it</label>
+            <input
+              id={`${id}-reason`}
+              className="input"
+              placeholder="Not collected in time"
+              maxLength={32}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+          <button className="btn btn-danger" disabled={tx.isBusy} onClick={() => void reject()}>
+            Reject and refund
+          </button>
+        </div>
       </div>
-      {error && <p className="form-error" style={{ marginTop: 8 }}>{error}</p>}
-      <TxStatus tx={tx} success="Recorded." />
+      {error && <p className="form-error" role="alert" style={{ marginTop: 8 }}>{error}</p>}
     </div>
   );
 }

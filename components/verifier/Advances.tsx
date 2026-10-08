@@ -1,14 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import { ArchiveBoxIcon, BanknotesIcon, BellAlertIcon, DocumentTextIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 
 import { lotValue, useCommodities, useLoans, useLots, usePoolStats } from "../../hooks/useProtocolData";
-import { useTx } from "../../hooks/useTx";
+import { useTx, type Tx } from "../../hooks/useTx";
 import { LendingPoolAbi, LiquidationKeeperAbi } from "../../lib/contracts/abis";
 import { contracts, VERIFIER_SAFE } from "../../lib/contracts/config";
 import { publicClient } from "../../lib/chain";
 import { date, kg, pricePerKg, relativeDays, shortAddress, usd } from "../../lib/format";
-import { loanHealth, LotLabel, lotName } from "../lots";
+import { loanHealth, LotLabel } from "../lots";
 import { TxStatus } from "../TxStatus";
 import { Badge, Card, EmptyState, Notice, Stat } from "../ui";
 
@@ -25,6 +24,8 @@ export function AdvancesTab() {
   const { byId: commodities } = useCommodities();
   const lotById = new Map(lots.map((l) => [l.id, l]));
   const tx = useTx();
+  // Released crop leaves the list, so its status lives on the card, where it stays on screen.
+  const releaseTx = useTx();
 
   const keeper = contracts.keeper;
   const { data: upkeep } = useQuery({
@@ -125,38 +126,39 @@ export function AdvancesTab() {
         ) : (
           <div className="stack">
             {inventory.map(({ lot, kg: amount }) => (
-              <ReleaseRow key={lot.id.toString()} lotId={lot.id} name={lotName(lot, commodities)} amount={amount} />
+              <ReleaseRow
+                key={lot.id.toString()}
+                tx={releaseTx}
+                lotId={lot.id}
+                label={<LotLabel lot={lot} commodities={commodities} sub={`${kg(amount)} held by the pool`} />}
+                amount={amount}
+              />
             ))}
           </div>
         )}
-        <Notice>Released crop goes to the Safe, which can then sell it on the market or through clearance.</Notice>
+        <TxStatus tx={releaseTx} success="Released to the Safe, which can now sell it." />
+        {inventory && inventory.length > 0 && (
+          <Notice>Released crop goes to the Safe, which can then sell it on the market or through clearance.</Notice>
+        )}
       </Card>
     </div>
   );
 }
 
-function ReleaseRow({ lotId, name, amount }: { lotId: bigint; name: string; amount: bigint }) {
-  const tx = useTx();
-  const [busy, setBusy] = useState(false);
+function ReleaseRow({ tx, lotId, label, amount }: { tx: Tx; lotId: bigint; label: React.ReactNode; amount: bigint }) {
   async function release() {
-    setBusy(true);
     try {
       await tx.send({ address: contracts.pool!, abi: LendingPoolAbi, functionName: "releaseInventory", args: [lotId, amount, VERIFIER_SAFE!] }, "Release");
     } catch {
       // Shown by TxStatus.
-    } finally {
-      setBusy(false);
     }
   }
   return (
-    <div className="spread">
-      <span>
-        <strong>{name}</strong> · {kg(amount)}
-      </span>
-      <button className="btn btn-secondary btn-small" disabled={busy || tx.isBusy} onClick={() => void release()}>
+    <div className="spread" style={{ flexWrap: "wrap" }}>
+      {label}
+      <button className="btn btn-secondary btn-small" disabled={tx.isBusy} onClick={() => void release()}>
         Release to the Safe
       </button>
-      <TxStatus tx={tx} success="Released." />
     </div>
   );
 }

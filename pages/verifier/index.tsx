@@ -10,7 +10,7 @@ import { LogoMark } from "../../components/Logo";
 import { NetworkGuard } from "../../components/NetworkGuard";
 import { NotFound } from "../../components/NotFound";
 import { ThemeToggle } from "../../components/ThemeToggle";
-import { Tabs } from "../../components/ui";
+import { TabPanel, Tabs } from "../../components/ui";
 import { AdvancesTab } from "../../components/verifier/Advances";
 import { ClearanceTab } from "../../components/verifier/Clearance";
 import { CollectionsTab } from "../../components/verifier/Collections";
@@ -79,37 +79,42 @@ function Console({ safe }: { safe: string }) {
   const [tab, setTab] = useState<TabId>("intake");
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-primary)" }}>
+      <a className="skip-link" href="#content">
+        Skip to content
+      </a>
       <header className="app-header" style={{ padding: "0 28px" }}>
         <div className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
           <LogoMark size={28} />
-          <span className="display" style={{ fontSize: 18, fontWeight: 700 }}>
+          <span className="display" style={{ fontSize: 22 }}>
             Verifier console
           </span>
         </div>
         <div className="row" style={{ marginLeft: "auto", gap: 8, flexWrap: "nowrap" }}>
           <span className="chip hide-mobile">{activeChain.name}</span>
           <span className="chip" title={safe} data-testid="verifier-safe">
-            <ShieldCheckIcon style={{ width: 15, height: 15, color: "var(--accent-green)" }} />
+            <ShieldCheckIcon style={{ width: 15, height: 15, color: "var(--ok)" }} />
             Safe {shortAddress(safe)}
           </span>
           <ThemeToggle />
         </div>
       </header>
-      <main className="app-content" style={{ margin: "0 auto" }}>
+      <main id="content" tabIndex={-1} className="app-content" style={{ margin: "0 auto" }}>
         <div className="page-header">
           <span className="page-eyebrow">Warehouse team</span>
           <h1>Today&apos;s work</h1>
           <p>Every action here becomes a transaction from the Safe; inside Safe{"{"}Wallet{"}"} the owners confirm it.</p>
         </div>
         <NetworkGuard />
-        <Tabs tabs={TABS} value={tab} onChange={setTab} />
-        {tab === "intake" && <IntakeTab />}
-        {tab === "collections" && <CollectionsTab />}
-        {tab === "advances" && <AdvancesTab />}
-        {tab === "prices" && <PricesTab />}
-        {tab === "clearance" && <ClearanceTab />}
-        {tab === "warehouses" && <WarehousesTab />}
-        {tab === "crops" && <CropsTab />}
+        <Tabs tabs={TABS} value={tab} onChange={setTab} label="Verifier work" />
+        <TabPanel id={tab}>
+          {tab === "intake" && <IntakeTab />}
+          {tab === "collections" && <CollectionsTab />}
+          {tab === "advances" && <AdvancesTab />}
+          {tab === "prices" && <PricesTab />}
+          {tab === "clearance" && <ClearanceTab />}
+          {tab === "warehouses" && <WarehousesTab />}
+          {tab === "crops" && <CropsTab />}
+        </TabPanel>
       </main>
     </div>
   );
@@ -127,10 +132,10 @@ function ConnectScreen({ connecting }: { connecting: boolean }) {
   }, [safeConnector, connect]);
 
   return (
-    <div className="field-rows" style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--bg-primary)", padding: 16 }}>
+    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--bg-primary)", padding: 16 }}>
       <div className="card" style={{ maxWidth: 400, width: "100%", padding: 28, boxShadow: "var(--shadow-md)" }}>
         <LogoMark size={36} />
-        <h1 style={{ fontSize: 22, margin: "14px 0 6px" }}>Connect</h1>
+        <h1 style={{ fontSize: 34, margin: "16px 0 8px" }}>Connect</h1>
         <p className="text-secondary" style={{ marginBottom: 18, fontSize: 13.5 }}>
           Open this page from Safe{"{"}Wallet{"}"}, or connect the authorised wallet.
         </p>
@@ -144,7 +149,7 @@ function ConnectScreen({ connecting }: { connecting: boolean }) {
             ))}
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -161,12 +166,12 @@ function OwnerScreen({ owner, safe }: { owner: Address; safe: Address }) {
       : undefined;
 
   return (
-    <div className="field-rows" style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--bg-primary)", padding: 16 }}>
+    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--bg-primary)", padding: 16 }}>
       <div className="card" style={{ maxWidth: 520, width: "100%", padding: 30, boxShadow: "var(--shadow-md)" }} data-testid="owner-screen">
-        <span className="stat-icon tone-green" style={{ width: 42, height: 42 }}>
+        <span className="stat-icon tone-blue" style={{ width: 42, height: 42 }}>
           <ShieldCheckIcon />
         </span>
-        <h1 style={{ fontSize: 24, margin: "16px 0 8px" }}>Open the console inside Safe{"{"}Wallet{"}"}</h1>
+        <h1 style={{ fontSize: 34, margin: "16px 0 10px" }}>Open the console inside Safe{"{"}Wallet{"}"}</h1>
         <p className="text-secondary" style={{ marginBottom: 18 }}>
           Your wallet {shortAddress(owner)} is one of the verifier Safe&apos;s owners. Verifier actions have to come from the Safe
           itself, so the console runs inside Safe{"{"}Wallet{"}"}, where each action waits for the owners to confirm it.
@@ -186,6 +191,6 @@ function OwnerScreen({ owner, safe }: { owner: Address; safe: Address }) {
           <p className="muted">Safe{"{"}Wallet{"}"} works on Sepolia; this app is pointed at {activeChain.name}.</p>
         )}
       </div>
-    </div>
+    </main>
   );
 }

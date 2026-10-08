@@ -243,7 +243,7 @@ test("9. expired stock is sold to AgriBridge and listed for feed buyers", async 
   await verifier.getByTestId("price-1").locator("..").getByRole("button", { name: "Set" }).click();
   await confirmed(verifier, "Set Cocoa");
   await verifier.getByTestId("tab-clearance").click();
-  await verifier.getByPlaceholder("Top up (US$)").fill("5000");
+  await verifier.getByLabel("Top up the fund (US$)").fill("5000");
   await verifier.getByRole("button", { name: "Top up" }).click();
   await confirmed(verifier, "Top up the fund");
 
@@ -257,7 +257,7 @@ test("9. expired stock is sold to AgriBridge and listed for feed buyers", async 
 
   await verifier.reload();
   await verifier.getByTestId("tab-clearance").click();
-  await verifier.getByPlaceholder("US$ per kg").first().fill("1");
+  await verifier.getByLabel("Price (US$ per kg)").first().fill("1");
   await verifier.getByRole("button", { name: "List" }).first().click();
   await confirmed(verifier, "List for feed buyers");
 
@@ -272,9 +272,9 @@ test("10. the Safe adds a warehouse and sees each crop's rules", async ({ browse
   await expect(verifier.getByText("Demo Warehouse - Kano").first()).toBeVisible();
 
   const add = verifier.locator("section", { hasText: "Add a warehouse" });
-  await add.getByPlaceholder("Name").fill("Tamale Store");
-  await add.getByPlaceholder("Region, country").fill("Northern, Ghana");
-  await add.getByPlaceholder("Capacity (t)").fill("2000");
+  await add.getByLabel("Name").fill("Tamale Store");
+  await add.getByLabel("Region").fill("Northern, Ghana");
+  await add.getByLabel("Capacity (tonnes)").fill("2000");
   await add.getByRole("button", { name: "Add" }).click();
   await confirmed(add, "Add warehouse");
   await expect(verifier.getByText("Tamale Store").first()).toBeVisible();

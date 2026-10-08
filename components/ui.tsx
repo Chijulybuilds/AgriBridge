@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode, SVGProps } from "react";
+import { useRef, type ComponentType, type KeyboardEvent, type ReactNode, type SVGProps } from "react";
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
@@ -165,19 +165,48 @@ export function KeyValue({ label, value, testId }: { label: string; value: React
   );
 }
 
-export function Tabs<T extends string>({ tabs, value, onChange }: {
+/**
+ * Tabs that follow the ARIA pattern: one tab stop for the whole row, arrow keys
+ * (and Home/End) move between tabs, and each tab names the panel it shows.
+ */
+export function Tabs<T extends string>({ tabs, value, onChange, label }: {
   tabs: ReadonlyArray<{ id: T; label: string }>;
   value: T;
   onChange: (id: T) => void;
+  label?: string;
 }) {
+  const buttons = useRef<Array<HTMLButtonElement | null>>([]);
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const current = tabs.findIndex((tab) => tab.id === value);
+    const last = tabs.length - 1;
+    const next =
+      event.key === "ArrowRight" ? (current === last ? 0 : current + 1)
+      : event.key === "ArrowLeft" ? (current === 0 ? last : current - 1)
+      : event.key === "Home" ? 0
+      : event.key === "End" ? last
+      : undefined;
+    if (next === undefined) return;
+    event.preventDefault();
+    onChange(tabs[next].id);
+    buttons.current[next]?.focus();
+  }
+
   return (
-    <div className="tabs" role="tablist">
-      {tabs.map((tab) => (
+    <div className="tabs" role="tablist" aria-label={label} onKeyDown={onKeyDown}>
+      {tabs.map((tab, i) => (
         <button
           key={tab.id}
+          ref={(el) => {
+            buttons.current[i] = el;
+          }}
+          id={`tab-${tab.id}`}
+          type="button"
           className="tab"
           role="tab"
           aria-selected={tab.id === value}
+          aria-controls={`panel-${tab.id}`}
+          tabIndex={tab.id === value ? 0 : -1}
           data-testid={`tab-${tab.id}`}
           onClick={() => onChange(tab.id)}
         >
@@ -188,15 +217,26 @@ export function Tabs<T extends string>({ tabs, value, onChange }: {
   );
 }
 
-/** A two-or-three way choice, such as "pickup / delivery". */
-export function Segmented<T extends string>({ options, value, onChange, testIdPrefix }: {
+/** The content a tab shows, labelled by that tab. */
+export function TabPanel({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <div role="tabpanel" id={`panel-${id}`} aria-labelledby={`tab-${id}`}>
+      {children}
+    </div>
+  );
+}
+
+/** A two-or-three way choice, such as "pickup / delivery". `label` names the group for screen readers. */
+export function Segmented<T extends string>({ options, value, onChange, testIdPrefix, label, labelledBy }: {
   options: ReadonlyArray<{ id: T; label: string }>;
   value: T;
   onChange: (id: T) => void;
   testIdPrefix?: string;
+  label?: string;
+  labelledBy?: string;
 }) {
   return (
-    <div className="segmented">
+    <div className="segmented" role="group" aria-label={label} aria-labelledby={labelledBy}>
       {options.map((option) => (
         <button
           key={option.id}
@@ -238,14 +278,17 @@ export function Timeline({ points, format }: {
   );
 }
 
-/** Each crop's seal colour, so lists can be scanned by crop at a glance. */
+/**
+ * Each crop's seal colour, taken from the crop itself, so lists can be scanned by crop
+ * at a glance. All are deep enough for the white initial to read.
+ */
 const CROP_COLOURS: Record<string, string> = {
-  cocoa: "#7a4a2a",
-  rice: "#b79a4c",
-  maize: "#d59b17",
-  cashew: "#c8692c",
-  yam: "#8a5a7a",
-  soybeans: "#5f8a3a",
+  cocoa: "oklch(0.42 0.08 45)",
+  rice: "oklch(0.56 0.085 85)",
+  maize: "oklch(0.6 0.13 75)",
+  cashew: "oklch(0.55 0.15 40)",
+  yam: "oklch(0.47 0.07 340)",
+  soybeans: "oklch(0.52 0.1 135)",
 };
 
 export function CropSeal({ name, size = 34 }: { name: string | undefined; size?: number }) {
@@ -254,7 +297,7 @@ export function CropSeal({ name, size = 34 }: { name: string | undefined; size?:
     <span
       className="crop-seal"
       aria-hidden="true"
-      style={{ width: size, height: size, fontSize: size * 0.44, background: CROP_COLOURS[key] ?? "#4f6b57" }}
+      style={{ width: size, height: size, fontSize: size * 0.48, background: CROP_COLOURS[key] ?? "oklch(0.45 0.05 272)" }}
     >
       {(name ?? "?").charAt(0)}
     </span>

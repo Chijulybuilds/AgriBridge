@@ -10,7 +10,7 @@ test.describe("Landing page", () => {
     await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
     await expect(page.getByText(/no crypto wallet needed/i).first()).toBeVisible();
 
-    await page.getByRole("button", { name: /i'm a farmer/i }).click();
+    await page.getByRole("link", { name: /i'm a farmer/i }).click();
     await expect(page).toHaveURL(/\/login\?role=farmer/);
   });
 

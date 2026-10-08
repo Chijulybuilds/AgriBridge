@@ -20,7 +20,7 @@ export function EmbeddedSignIn() {
         No app to install and no passwords to remember. Your AgriBridge account is created the first time you sign in.
         Already use a crypto wallet? Choose it in the same window.
       </p>
-      {error && <p className="form-error">{error.message}</p>}
+      {error && <p className="form-error" role="alert">{error.message}</p>}
     </div>
   );
 }
