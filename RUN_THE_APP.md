@@ -126,9 +126,13 @@ Vercel → Settings → Environment Variables) and redeploy.
 other wallet sees "page not found". The contracts accept verifier actions from the Safe alone.
 
 To use it, each Safe owner opens [Safe{Wallet}](https://app.safe.global) on Sepolia, then **Apps →
-My custom apps → Add custom Safe App** with `https://<your site>/verifier`. Inside Safe{Wallet} the
-page connects as the Safe. Every action becomes a Safe transaction that waits for enough owners to
-confirm it.
+My custom apps → Add custom Safe App** with `https://<your site>/verifier`. While developing, use
+`http://localhost:3000/verifier`. Inside Safe{Wallet} the page connects as the Safe. Every action
+becomes a Safe transaction that waits for enough owners to confirm it.
+
+Safe{Wallet} first reads `/verifier/manifest.json` and its icon from your site. `next.config.ts`
+lets it read them from another origin. A static export (`npm run build:static`) can't set that
+header, so add `Access-Control-Allow-Origin: *` for those two files on the host instead.
 
 Its tabs:
 - **Intake:** weigh, grade and approve or reject deliveries.
