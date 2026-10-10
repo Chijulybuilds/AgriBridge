@@ -34,10 +34,18 @@ const transports = {
   [foundry.id]: http(activeChain.id === foundry.id ? rpcUrl : "http://127.0.0.1:8545"),
 };
 
-/** The public app: MetaMask, found through the browser (EIP-6963). */
+/**
+ * The public app: MetaMask only. One connector aimed at MetaMask (in the extension, or inside the
+ * MetaMask phone app's browser), without wagmi's "disconnect shim": the shim makes connecting
+ * send wallet_requestPermissions, which the MetaMask phone app can leave pending and invisible
+ * ("request already pending"); without it, connecting is a plain eth_requestAccounts. Sign out
+ * revokes the permission in MetaMask instead (components/wallet). The end-to-end tests' wallet
+ * is found through EIP-6963 discovery, which is on only for them.
+ */
 export const appConfig = createConfig({
   chains: [activeChain],
-  connectors: [injected()],
+  connectors: [injected({ target: "metaMask", shimDisconnect: false })],
+  multiInjectedProviderDiscovery: Boolean(process.env.NEXT_PUBLIC_E2E),
   transports,
   ssr: true,
 });

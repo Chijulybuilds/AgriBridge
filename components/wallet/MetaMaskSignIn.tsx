@@ -17,8 +17,7 @@ const useIsClient = () =>
  * Sign-in with MetaMask, the only way into the app.
  *
  * - With the browser extension, or inside the MetaMask phone app's own browser, MetaMask is in
- *   the page: it announces itself (EIP-6963, "io.metamask" or "io.metamask.mobile"), or at least
- *   sets window.ethereum.isMetaMask, which the plain "injected" connector then reaches.
+ *   the page (window.ethereum.isMetaMask) and the "metaMask" connector (lib/wagmi.ts) reaches it.
  * - On a phone in an ordinary browser (Chrome, Safari) MetaMask can't be in the page, so the
  *   button opens this same page inside the MetaMask app, where signing in works.
  * - The end-to-end tests (NEXT_PUBLIC_E2E) sign in with their own test wallet.
@@ -39,11 +38,12 @@ export function MetaMaskSignIn() {
     );
   }
 
-  const ethereum = (window as Window & { ethereum?: { isMetaMask?: boolean } }).ethereum;
-  const announced = connectors.find((c) => c.id === "io.metamask" || c.id === "io.metamask.mobile");
-  const injected = ethereum?.isMetaMask ? connectors.find((c) => c.id === "injected") : undefined;
-  const testWallet = process.env.NEXT_PUBLIC_E2E ? connectors.find((c) => c.id !== "injected") : undefined;
-  const connector = announced ?? injected ?? testWallet;
+  type Provider = { isMetaMask?: boolean; providers?: Provider[] };
+  const ethereum = (window as Window & { ethereum?: Provider }).ethereum;
+  const hasMetaMask = Boolean(ethereum?.isMetaMask || ethereum?.providers?.some((p) => p.isMetaMask));
+  const metaMask = hasMetaMask ? connectors.find((c) => c.id === "metaMask") : undefined;
+  const testWallet = process.env.NEXT_PUBLIC_E2E ? connectors.find((c) => c.id !== "metaMask") : undefined;
+  const connector = metaMask ?? testWallet;
 
   if (!connector) {
     const onPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -78,7 +78,10 @@ export function MetaMaskSignIn() {
       </button>
       {error && (
         <p className="form-error" role="alert">
-          {friendlyError(error)}
+          {/* -32002: MetaMask already has a connection request open for this site. */}
+          {(error as { code?: number }).code === -32002 || /already pending/i.test(error.message)
+            ? "MetaMask is already asking to connect. Open MetaMask and approve the request. If you can't see it, close MetaMask, reopen this page and tap Connect MetaMask once."
+            : friendlyError(error)}
         </p>
       )}
     </div>
