@@ -20,9 +20,14 @@ export const publicClient = createPublicClient({
   pollingInterval: activeChain.id === foundry.id ? 500 : 2_000,
 });
 
-/** Reads event history (the activity feed): a separate endpoint when NEXT_PUBLIC_LOGS_RPC_URL is set. */
+/**
+ * Reads event history (the activity feed): a separate endpoint when NEXT_PUBLIC_LOGS_RPC_URL is set.
+ * Free gateways answer bursts with "429 too many requests", so it retries more patiently.
+ */
 export const logsClient =
-  logsRpcUrl === rpcUrl ? publicClient : createPublicClient({ chain: activeChain, transport: http(logsRpcUrl, { batch: true }) });
+  logsRpcUrl === rpcUrl
+    ? publicClient
+    : createPublicClient({ chain: activeChain, transport: http(logsRpcUrl, { batch: true, retryCount: 6, retryDelay: 400 }) });
 
 /** Resolves to undefined instead of throwing, for reads that revert by design (e.g. a stale price). */
 export async function orUndefined<T>(read: Promise<T>): Promise<T | undefined> {

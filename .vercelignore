@@ -1,0 +1,18 @@
+# Upload only what the website needs, so a CLI deploy (`vercel deploy`) can never carry
+# local secrets (.env*, .demo-wallets.json), contracts tooling, or the Solidity submodules.
+/*
+!/pages
+!/components
+!/hooks
+!/lib
+!/public
+!/styles
+!/package.json
+!/package-lock.json
+!/next.config.ts
+!/next-env.d.ts
+!/tsconfig.json
+!/vercel.json
+/lib/openzeppelin-contracts
+/lib/chainlink-evm
+/lib/foundry-devops

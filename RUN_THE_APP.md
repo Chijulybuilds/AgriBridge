@@ -108,7 +108,28 @@ npm run demo:sepolia -- deploy 0xFarmer 0xInvestor
 **Hosting.** Add those settings to the host (for example Vercel → Settings → Environment
 Variables) and redeploy. For a steadier connection, set `NEXT_PUBLIC_RPC_URL` to a hosted
 endpoint (Alchemy, Infura) whose key is restricted to your site's domain, and keep
-`NEXT_PUBLIC_LOGS_RPC_URL` on an endpoint that can scan event history.
+`NEXT_PUBLIC_LOGS_RPC_URL` on an endpoint that can scan event history (Tenderly's free gateway,
+`https://sepolia.gateway.tenderly.co`; publicnode prunes old logs).
+
+A CLI deploy (`vercel deploy --prod`) uploads only what `.vercelignore` allows, so local secrets
+(`.env*`, `.demo-wallets.json`) never leave your computer.
+
+**The current deployment** (2026-10-08, deploy block 11871536) is live at
+[agribridge-lilac.vercel.app](https://agribridge-lilac.vercel.app):
+
+| Contract | Address |
+|---|---|
+| Commodity settings | `0x980c895F6A8a52F715aef088700d467b74f2cCcE` |
+| Lot registry | `0xBCe9849bD3910fD6896b0B41DA7F9397c5cAb6D8` |
+| Crop tokens | `0xbF478AdF495b0400c3777388D743f6fD50Fd4d18` |
+| Price oracle | `0x28B68382f5f7C70bBc4684F0645E11493bbF229f` |
+| Pool shares | `0x74BCA132FC90222615d72D592BDE025bCc643e52` |
+| Lending pool | `0x063554671C2ddd5406fa8ef606E52706073f98eE` |
+| Liquidation keeper | `0x7017139045b274B4D6Ab4edF8911bD7C4a0F5c4f` |
+| Marketplace | `0xE0DfBB84f47E7d65A476e66c913025E4ba860320` |
+| Warehouse desk | `0x447E03E00d91bc89225AA08470A478B6a479900D` |
+| Play USDC | `0x6773c3F55A1f4907ae7DCF409b0cbf0E2f00092b` |
+| Verifier and admin Safe | `0xDa152AfD8C2efDA383fde6F840f590C93738de12` |
 
 ---
 
@@ -120,7 +141,7 @@ Safe{Wallet}; any other wallet sees "page not found". The contracts accept verif
 Safe alone.
 
 To use it, each Safe owner opens [Safe{Wallet}](https://app.safe.global) on Sepolia, then **Apps →
-My custom apps → Add custom Safe App** with `https://<your site>/verifier`. While developing, use
+My custom apps → Add custom Safe App** with `https://agribridge-lilac.vercel.app/verifier`. While developing, use
 `http://localhost:3000/verifier`. Inside Safe{Wallet} the page connects as the Safe. Every action
 becomes a Safe transaction that waits for enough owners to confirm it.
 

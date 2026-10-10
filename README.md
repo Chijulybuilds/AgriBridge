@@ -12,6 +12,8 @@
 
 AgriBridge is the team's entry for the STEM Festival brief *"The Agri-Token Exchange"*.
 
+**Live demo on Sepolia: [agribridge-lilac.vercel.app](https://agribridge-lilac.vercel.app)** (sign in with MetaMask on Sepolia).
+
 | | |
 |---|---|
 | **Run it** | [RUN_THE_APP.md](RUN_THE_APP.md): locally, on Sepolia, sign-in setup, tests |

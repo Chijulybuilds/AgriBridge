@@ -25,12 +25,13 @@ fees (prepare the volunteers' wallets before the day), then gets play dollars fr
 
 ## Before the day
 
-1. The contracts are deployed on Sepolia and the app is online: see [RUN_THE_APP.md](RUN_THE_APP.md).
+1. The contracts are deployed on Sepolia and the app is online at [agribridge-lilac.vercel.app](https://agribridge-lilac.vercel.app)
+   (see [RUN_THE_APP.md](RUN_THE_APP.md)).
 2. The Safe's leaked owner has been replaced, ideally making it 2 of 3 owners (see
    [RUN_THE_APP.md](RUN_THE_APP.md)). **Enough owners to sign must be at the demo** (or on their
    phones): every verifier action waits for their confirmations.
 3. Each owner has opened the app inside Safe{Wallet} once (**Apps → My custom apps → Add custom
-   Safe App**, address `https://<your site>/verifier`).
+   Safe App**, address `https://agribridge-lilac.vercel.app/verifier`).
 4. Prices are set at deployment: today's world prices for cocoa, rice, maize and soybeans, and
    local estimates for cashew and yam. Only the Safe can change them.
 
