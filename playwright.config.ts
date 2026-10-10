@@ -44,6 +44,8 @@ export default defineConfig({
       NEXT_PUBLIC_E2E: "1",
       NEXT_PUBLIC_CHAIN_ID: "31337",
       NEXT_PUBLIC_RPC_URL: "http://127.0.0.1:8545",
+      // Set explicitly, so a Sepolia value in .env.local never leaks into the tests.
+      NEXT_PUBLIC_LOGS_RPC_URL: "http://127.0.0.1:8545",
       NEXT_PUBLIC_DEPLOY_BLOCK: "0",
       NEXT_PUBLIC_VERIFIER_SAFE: ACCOUNTS.verifier,
       ...deploymentEnv(),

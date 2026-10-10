@@ -24,6 +24,13 @@ export const activeChain = chainId === foundry.id ? foundry : sepolia;
 export const rpcUrl =
   process.env.NEXT_PUBLIC_RPC_URL || (activeChain.id === foundry.id ? "http://127.0.0.1:8545" : undefined);
 
+/**
+ * Where the activity feed reads event history. Free plans of hosted RPCs (Alchemy's allows 10
+ * blocks per log query) can't scan history, so this can point at an endpoint that can, while
+ * everything else uses NEXT_PUBLIC_RPC_URL. Defaults to the same endpoint.
+ */
+export const logsRpcUrl = process.env.NEXT_PUBLIC_LOGS_RPC_URL || rpcUrl;
+
 const transports = {
   [sepolia.id]: http(activeChain.id === sepolia.id ? rpcUrl : undefined),
   [foundry.id]: http(activeChain.id === foundry.id ? rpcUrl : "http://127.0.0.1:8545"),

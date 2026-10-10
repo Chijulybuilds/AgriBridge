@@ -127,6 +127,8 @@ function appSettings() {
   return [
     `NEXT_PUBLIC_CHAIN_ID=${sepolia.id}`,
     `NEXT_PUBLIC_RPC_URL=${process.env.APP_RPC_URL || PUBLIC_RPC}`,
+    // Free hosted plans cap log queries at a few blocks; the public endpoint can scan history.
+    `NEXT_PUBLIC_LOGS_RPC_URL=${PUBLIC_RPC}`,
     ...(block !== undefined ? [`NEXT_PUBLIC_DEPLOY_BLOCK=${block}`] : []),
     `NEXT_PUBLIC_COMMODITY_CONFIG_ADDRESS=${deployed.CommodityConfig}`,
     `NEXT_PUBLIC_COMMODITY_REGISTRY_ADDRESS=${deployed.CommodityRegistry}`,

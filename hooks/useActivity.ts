@@ -11,7 +11,7 @@ import {
   WarehouseDeskAbi,
 } from "../lib/contracts/abis";
 import { contracts, contractsConfigured, DEPLOY_BLOCK, GRADES } from "../lib/contracts/config";
-import { publicClient } from "../lib/chain";
+import { logsClient, publicClient } from "../lib/chain";
 import { kg, pricePerKg, shortAddress, usd } from "../lib/format";
 
 export type ActivityItem = {
@@ -43,7 +43,8 @@ export async function scanLogs(
   fetchers: Array<(range: { fromBlock: bigint; toBlock: bigint }) => Promise<unknown[]>>,
 ): Promise<DecodedLog[]> {
   // Uncached: viem reuses a block number for a polling interval, which would miss the block a transaction just landed in.
-  const latest = await publicClient.getBlockNumber({ cacheTime: 0 });
+  // Asked of the same endpoint as the logs, so the range never runs past that endpoint's newest block.
+  const latest = await logsClient.getBlockNumber({ cacheTime: 0 });
   const first = DEPLOY_BLOCK ?? (latest > FALLBACK_LOOKBACK ? latest - FALLBACK_LOOKBACK : 0n);
   const logs: DecodedLog[] = [];
   for (let from = first; from <= latest; from += CHUNK) {
@@ -129,13 +130,13 @@ export function useActivity() {
     refetchInterval: 20_000,
     queryFn: async (): Promise<ActivityItem[]> => {
       const logs = await scanLogs([
-        (range) => publicClient.getContractEvents({ address: registry!, abi: CommodityRegistryAbi, ...range }),
-        (range) => publicClient.getContractEvents({ address: pool!, abi: LendingPoolAbi, ...range }),
-        (range) => publicClient.getContractEvents({ address: marketplace!, abi: MarketplaceAbi, ...range }),
-        (range) => publicClient.getContractEvents({ address: desk!, abi: WarehouseDeskAbi, ...range }),
-        (range) => publicClient.getContractEvents({ address: oracle!, abi: CommodityPriceOracleAbi, eventName: "PriceUpdated", ...range }),
+        (range) => logsClient.getContractEvents({ address: registry!, abi: CommodityRegistryAbi, ...range }),
+        (range) => logsClient.getContractEvents({ address: pool!, abi: LendingPoolAbi, ...range }),
+        (range) => logsClient.getContractEvents({ address: marketplace!, abi: MarketplaceAbi, ...range }),
+        (range) => logsClient.getContractEvents({ address: desk!, abi: WarehouseDeskAbi, ...range }),
+        (range) => logsClient.getContractEvents({ address: oracle!, abi: CommodityPriceOracleAbi, eventName: "PriceUpdated", ...range }),
         (range) =>
-          publicClient.getContractEvents({ address: usdc!, abi: DemoUSDCAbi, eventName: "Transfer", args: { from: zeroAddress }, ...range }),
+          logsClient.getContractEvents({ address: usdc!, abi: DemoUSDCAbi, eventName: "Transfer", args: { from: zeroAddress }, ...range }),
       ]);
       const commodityNames = new Map<bigint, string>();
       const count = await publicClient.readContract({ address: contracts.config!, abi: CommodityConfigAbi, functionName: "commodityCount" });
@@ -175,9 +176,9 @@ export function usePoolHistory(investor?: Address) {
     queryFn: async (): Promise<PoolMove[]> => {
       const logs = await scanLogs([
         (range) =>
-          publicClient.getContractEvents({ address: pool!, abi: LendingPoolAbi, eventName: "LiquidityDeposited", args: { investor }, ...range }),
+          logsClient.getContractEvents({ address: pool!, abi: LendingPoolAbi, eventName: "LiquidityDeposited", args: { investor }, ...range }),
         (range) =>
-          publicClient.getContractEvents({ address: pool!, abi: LendingPoolAbi, eventName: "LiquidityWithdrawn", args: { investor }, ...range }),
+          logsClient.getContractEvents({ address: pool!, abi: LendingPoolAbi, eventName: "LiquidityWithdrawn", args: { investor }, ...range }),
       ]);
       const moves = logs.map((log) => ({
         key: `${log.transactionHash}-${log.logIndex}`,

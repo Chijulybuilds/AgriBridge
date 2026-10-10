@@ -1,7 +1,7 @@
 import { createPublicClient, http } from "viem";
 import { foundry } from "viem/chains";
 
-import { activeChain, rpcUrl } from "./wagmi";
+import { activeChain, logsRpcUrl, rpcUrl } from "./wagmi";
 
 /**
  * The app reads contracts through its own client rather than through the
@@ -19,6 +19,10 @@ export const publicClient = createPublicClient({
   // How often to check whether a transaction is mined: viem's 4s default makes every step feel slow.
   pollingInterval: activeChain.id === foundry.id ? 500 : 2_000,
 });
+
+/** Reads event history (the activity feed): a separate endpoint when NEXT_PUBLIC_LOGS_RPC_URL is set. */
+export const logsClient =
+  logsRpcUrl === rpcUrl ? publicClient : createPublicClient({ chain: activeChain, transport: http(logsRpcUrl, { batch: true }) });
 
 /** Resolves to undefined instead of throwing, for reads that revert by design (e.g. a stale price). */
 export async function orUndefined<T>(read: Promise<T>): Promise<T | undefined> {
