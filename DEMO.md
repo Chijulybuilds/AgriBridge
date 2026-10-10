@@ -17,7 +17,7 @@ is tested.
 | **Investor** | a volunteer | MetaMask |
 | **Buyer** | a volunteer | MetaMask |
 | **Verifier** (the warehouse team) | two of the Safe's owners | Safe{Wallet}, with AgriBridge opened inside it |
-| **Regulator** | a team member | MetaMask; the Safe gives them the role |
+| **Regulator** | a team member (not chosen yet) | MetaMask; the Safe gives them the role later |
 
 Everyone signs in with MetaMask on Sepolia. Each wallet needs a little Sepolia ETH to pay network
 fees (prepare the volunteers' wallets before the day), then gets play dollars from the
@@ -92,7 +92,11 @@ farmer's advance is now *At risk*. **Settle due advances with the cushion.**
 > keeper settles it from the cushion. In production the price comes from Chainlink and local price
 > reporters; for the festival, the Safe sets it.
 
-### 9. The regulator
+### 9. The regulator (only once the role is given)
+Nobody holds the regulator role yet; the Safe grants it later, in one transaction (see
+[RUN_THE_APP.md](RUN_THE_APP.md)). Until then, skip this step and say instead: a regulator can
+freeze any lot or warehouse, and the automated test journey does exactly that.
+
 **Regulator → Regulator:** freeze the cocoa lot. Frozen stock can't be borrowed against, sold, moved
 or collected. Unfreeze it again.
 
