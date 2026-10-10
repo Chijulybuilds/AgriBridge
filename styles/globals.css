@@ -340,6 +340,11 @@ code {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+/* Two columns where the first holds the main content (stacks on phones like .grid-2). */
+.grid-2-lead {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
 .grid-4 {
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
@@ -1556,6 +1561,24 @@ input[type="radio"] {
   opacity: 1;
 }
 
+/* The end bars' figures open inwards, so they never reach past the card. */
+.crop-bar:first-child .crop-bar-tip {
+  left: 0;
+  translate: none;
+}
+
+.crop-bar:last-child .crop-bar-tip {
+  left: auto;
+  right: 0;
+  translate: none;
+}
+
+@media (hover: none) {
+  .crop-bar-tip {
+    display: none;
+  }
+}
+
 .fill-list {
   list-style: none;
   display: grid;
@@ -1832,13 +1855,13 @@ input[type="radio"] {
 
 @media (max-width: 1024px) {
   .grid-3 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (max-width: 860px) {
   .grid-2 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .desktop-sidebar {
@@ -1871,6 +1894,55 @@ input[type="radio"] {
     padding: 22px 16px 44px;
   }
 
+  /* Phones: tighter, even spacing, so content keeps the width and nothing crowds the edges. */
+  .page-header {
+    margin-bottom: 24px;
+  }
+
+  .page-header .row .btn {
+    flex: 1 1 auto;
+  }
+
+  .stack {
+    gap: 16px;
+  }
+
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .card {
+    padding: 20px;
+    border-radius: 14px;
+  }
+
+  .card h2 {
+    margin-bottom: 16px;
+  }
+
+  .card-sunken,
+  .price-card {
+    padding: 16px;
+  }
+
+  .market-overview {
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  /* Table cells stay on one line; a wide table scrolls inside its card (.table-scroll). */
+  .table td {
+    white-space: nowrap;
+  }
+
+  /* The crop chart sits a little closer to the headline figure. */
+  .crop-chart-head {
+    margin-top: 28px;
+  }
+
   .page-header h1 {
     font-size: 34px;
   }
@@ -1901,5 +1973,16 @@ input[type="radio"] {
 
   .hide-mobile {
     display: none !important;
+  }
+}
+
+/* The narrowest phones: the account chip moves out of the top bar (the menu shows the account). */
+@media (max-width: 520px) {
+  .hide-small {
+    display: none !important;
+  }
+
+  .app-header {
+    gap: 8px;
   }
 }

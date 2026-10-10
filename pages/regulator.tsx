@@ -65,32 +65,34 @@ export default function Regulator() {
         {warehouses.length === 0 ? (
           <EmptyState icon={BuildingOffice2Icon}>No warehouses.</EmptyState>
         ) : (
-          <table className="table">
-            <tbody>
-              {warehouses.map((w) => (
-                <tr key={w.id.toString()}>
-                  <td>
-                    <span className="row" style={{ gap: 11, flexWrap: "nowrap" }}>
-                      <span className={`stat-icon ${w.frozen ? "tone-red" : "tone-blue"}`}>
-                        <BuildingOffice2Icon />
+          <div className="table-scroll">
+            <table className="table">
+              <tbody>
+                {warehouses.map((w) => (
+                  <tr key={w.id.toString()}>
+                    <td>
+                      <span className="row" style={{ gap: 11, flexWrap: "nowrap" }}>
+                        <span className={`stat-icon ${w.frozen ? "tone-red" : "tone-blue"}`}>
+                          <BuildingOffice2Icon />
+                        </span>
+                        <span>
+                          <strong>{w.name}</strong>
+                          <div className="muted">{w.region}</div>
+                        </span>
                       </span>
-                      <span>
-                        <strong>{w.name}</strong>
-                        <div className="muted">{w.region}</div>
-                      </span>
-                    </span>
-                  </td>
-                  <td>{kg(w.storedKg)} stored</td>
-                  <td>{w.frozen ? <Badge tone="red">Frozen</Badge> : <Badge tone="green">Open</Badge>}</td>
-                  <td>
-                    <button className={`btn btn-small ${w.frozen ? "btn-secondary" : "btn-danger"}`} disabled={!hasRole || tx.isBusy} onClick={() => void freezeWarehouse(w.id, !w.frozen)}>
-                      {w.frozen ? "Unfreeze" : "Freeze"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                    <td>{kg(w.storedKg)} stored</td>
+                    <td>{w.frozen ? <Badge tone="red">Frozen</Badge> : <Badge tone="green">Open</Badge>}</td>
+                    <td>
+                      <button className={`btn btn-small ${w.frozen ? "btn-secondary" : "btn-danger"}`} disabled={!hasRole || tx.isBusy} onClick={() => void freezeWarehouse(w.id, !w.frozen)}>
+                        {w.frozen ? "Unfreeze" : "Freeze"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 

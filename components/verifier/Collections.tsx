@@ -60,23 +60,25 @@ export function CollectionsTab() {
         {done.length === 0 ? (
           <EmptyState icon={ClockIcon}>Nothing yet.</EmptyState>
         ) : (
-          <table className="table">
-            <tbody>
-              {done.map((r) => (
-                <tr key={r.id.toString()}>
-                  <td>
-                    <strong>Request {r.id.toString()}</strong>
-                    <div className="muted">{lotName(lotById.get(r.lotId) ?? { id: r.lotId, commodityId: 0n }, commodities)}</div>
-                  </td>
-                  <td>{kg(r.kg)}</td>
-                  <td>{date(r.requestedAt)}</td>
-                  <td>
-                    <StatusBadge status={r.status} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table className="table">
+              <tbody>
+                {done.map((r) => (
+                  <tr key={r.id.toString()}>
+                    <td>
+                      <strong>Request {r.id.toString()}</strong>
+                      <div className="muted">{lotName(lotById.get(r.lotId) ?? { id: r.lotId, commodityId: 0n }, commodities)}</div>
+                    </td>
+                    <td>{kg(r.kg)}</td>
+                    <td>{date(r.requestedAt)}</td>
+                    <td>
+                      <StatusBadge status={r.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

@@ -165,33 +165,35 @@ export default function Collect() {
           {requests.length === 0 ? (
             <EmptyState icon={ClipboardDocumentListIcon}>No requests yet.</EmptyState>
           ) : (
-            <table className="table">
-              <tbody>
-                {requests.map((r) => {
-                  const requestLot = lots.find((l) => l.id === r.lotId);
-                  return (
-                    <tr key={r.id.toString()}>
-                      <td>
-                        <strong>{requestLot ? lotName(requestLot, commodities) : `Lot ${r.lotId}`}</strong>
-                        <div className="muted">
-                          {kg(r.kg)} · {r.deliveryBudget > 0n ? "delivery" : "pickup"} · {date(r.requestedAt)}
-                        </div>
-                      </td>
-                      <td>
-                        <StatusBadge status={r.status === "Pending" ? "Awaiting warehouse" : r.status} />
-                      </td>
-                      <td>
-                        {r.status === "Pending" && (
-                          <button className="btn btn-secondary btn-small" disabled={tx.isBusy} onClick={() => void cancel(r.id)}>
-                            Cancel
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="table-scroll">
+              <table className="table">
+                <tbody>
+                  {requests.map((r) => {
+                    const requestLot = lots.find((l) => l.id === r.lotId);
+                    return (
+                      <tr key={r.id.toString()}>
+                        <td>
+                          <strong>{requestLot ? lotName(requestLot, commodities) : `Lot ${r.lotId}`}</strong>
+                          <div className="muted">
+                            {kg(r.kg)} · {r.deliveryBudget > 0n ? "delivery" : "pickup"} · {date(r.requestedAt)}
+                          </div>
+                        </td>
+                        <td>
+                          <StatusBadge status={r.status === "Pending" ? "Awaiting warehouse" : r.status} />
+                        </td>
+                        <td>
+                          {r.status === "Pending" && (
+                            <button className="btn btn-secondary btn-small" disabled={tx.isBusy} onClick={() => void cancel(r.id)}>
+                              Cancel
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
           <Notice>Pending requests are confirmed by the warehouse team when the goods leave. Cancelling refunds everything.</Notice>
         </Card>

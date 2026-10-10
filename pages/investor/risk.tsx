@@ -93,33 +93,35 @@ export default function Risk() {
       <div style={{ height: 28 }} />
 
       <Card title="Prices the pool uses">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Crop</th>
-              <th>Price</th>
-              <th>Borrow limit</th>
-              <th>Settled at</th>
-              <th>Price status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {commodities.map((c) => (
-              <tr key={c.id.toString()}>
-                <td>
-                  <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
-                    <CropSeal name={c.name} size={26} />
-                    <strong>{c.name}</strong>
-                  </span>
-                </td>
-                <td>{pricePerKg(c.price)}</td>
-                <td>{percentFromBps(c.maxLtvBps)}</td>
-                <td>{percentFromBps(c.liquidationLtvBps)}</td>
-                <td>{c.fresh ? <Badge tone="green">Current</Badge> : <Badge tone="gold">Out of date</Badge>}</td>
+        <div className="table-scroll">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Crop</th>
+                <th>Price</th>
+                <th>Borrow limit</th>
+                <th>Settled at</th>
+                <th>Price status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {commodities.map((c) => (
+                <tr key={c.id.toString()}>
+                  <td>
+                    <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
+                      <CropSeal name={c.name} size={26} />
+                      <strong>{c.name}</strong>
+                    </span>
+                  </td>
+                  <td>{pricePerKg(c.price)}</td>
+                  <td>{percentFromBps(c.maxLtvBps)}</td>
+                  <td>{percentFromBps(c.liquidationLtvBps)}</td>
+                  <td>{c.fresh ? <Badge tone="green">Current</Badge> : <Badge tone="gold">Out of date</Badge>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </AppLayout>
   );

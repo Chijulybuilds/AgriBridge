@@ -239,35 +239,37 @@ export default function Market() {
         {stock.length === 0 ? (
           <EmptyState icon={ArchiveBoxIcon}>No verified stock yet.</EmptyState>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Crop</th>
-                <th>Grade</th>
-                <th>Warehouse</th>
-                <th>Stored</th>
-                <th>For sale</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stock.map((row) => (
-                <tr key={`${row.commodityId}-${row.grade}-${row.warehouseId}`}>
-                  <td>
-                    <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
-                      <CropSeal name={commodityById.get(row.commodityId)?.name} size={26} />
-                      <strong>{commodityById.get(row.commodityId)?.name}</strong>
-                    </span>
-                  </td>
-                  <td>
-                    <GradeBadge grade={row.grade} />
-                  </td>
-                  <td>{warehouseById.get(row.warehouseId)?.name}</td>
-                  <td>{kg(row.storedKg)}</td>
-                  <td>{row.forSaleKg > 0n ? kg(row.forSaleKg) : <span className="muted">not listed</span>}</td>
+          <div className="table-scroll">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Crop</th>
+                  <th>Grade</th>
+                  <th>Warehouse</th>
+                  <th>Stored</th>
+                  <th>For sale</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {stock.map((row) => (
+                  <tr key={`${row.commodityId}-${row.grade}-${row.warehouseId}`}>
+                    <td>
+                      <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>
+                        <CropSeal name={commodityById.get(row.commodityId)?.name} size={26} />
+                        <strong>{commodityById.get(row.commodityId)?.name}</strong>
+                      </span>
+                    </td>
+                    <td>
+                      <GradeBadge grade={row.grade} />
+                    </td>
+                    <td>{warehouseById.get(row.warehouseId)?.name}</td>
+                    <td>{kg(row.storedKg)}</td>
+                    <td>{row.forSaleKg > 0n ? kg(row.forSaleKg) : <span className="muted">not listed</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </AppLayout>

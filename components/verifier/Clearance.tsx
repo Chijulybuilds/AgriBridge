@@ -57,20 +57,22 @@ export function ClearanceTab() {
         {open.length === 0 ? (
           <EmptyState icon={TagIcon}>No clearance listings.</EmptyState>
         ) : (
-          <table className="table">
-            <tbody>
-              {open.map((listing) => (
-                <ClearanceListing
-                  key={listing.id.toString()}
-                  tx={takeDownTx}
-                  id={listing.id}
-                  label={<LotLabel lot={lots.find((l) => l.id === listing.lotId) ?? { id: listing.lotId, commodityId: 0n }} commodities={commodities} />}
-                  kgLeft={listing.kgRemaining}
-                  price={listing.price}
-                />
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table className="table">
+              <tbody>
+                {open.map((listing) => (
+                  <ClearanceListing
+                    key={listing.id.toString()}
+                    tx={takeDownTx}
+                    id={listing.id}
+                    label={<LotLabel lot={lots.find((l) => l.id === listing.lotId) ?? { id: listing.lotId, commodityId: 0n }} commodities={commodities} />}
+                    kgLeft={listing.kgRemaining}
+                    price={listing.price}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
         <TxStatus tx={takeDownTx} success="Taken down. The stock is back in the clearance inventory." />
       </Card>

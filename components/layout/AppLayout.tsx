@@ -177,7 +177,7 @@ export default function AppLayout({
               )}
               <ThemeToggle />
               {isConnected ? (
-                <span className="chip" data-testid="account">
+                <span className="chip hide-small" data-testid="account">
                   <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--ok)" }} />
                   <AccountName />
                 </span>

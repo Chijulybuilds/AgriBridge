@@ -70,23 +70,25 @@ export default function MyAdvances() {
           })}
           {closed.length > 0 && (
             <Card title="Closed advances">
-              <table className="table">
-                <tbody>
-                  {closed.map((loan) => {
-                    const lot = lotById.get(loan.lotId);
-                    return (
-                      <tr key={loan.id.toString()}>
-                        <td>{lot ? lotName(lot, commodities) : `Lot ${loan.lotId}`}</td>
-                        <td>{usd(loan.principal)} borrowed</td>
-                        <td>{date(loan.openedAt)}</td>
-                        <td>
-                          <StatusBadge status={loan.status} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="table-scroll">
+                <table className="table">
+                  <tbody>
+                    {closed.map((loan) => {
+                      const lot = lotById.get(loan.lotId);
+                      return (
+                        <tr key={loan.id.toString()}>
+                          <td>{lot ? lotName(lot, commodities) : `Lot ${loan.lotId}`}</td>
+                          <td>{usd(loan.principal)} borrowed</td>
+                          <td>{date(loan.openedAt)}</td>
+                          <td>
+                            <StatusBadge status={loan.status} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </Card>
           )}
         </div>

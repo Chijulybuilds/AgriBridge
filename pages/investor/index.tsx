@@ -140,17 +140,19 @@ export default function InvestorOverview() {
             Your investments and withdrawals will show here.
           </EmptyState>
         ) : (
-          <table className="table">
-            <tbody>
-              {history.map((move) => (
-                <tr key={move.key}>
-                  <td>{move.kind}</td>
-                  <td>{usd(move.amount)}</td>
-                  <td className="muted">{date(move.timestamp)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table className="table">
+              <tbody>
+                {history.map((move) => (
+                  <tr key={move.key}>
+                    <td>{move.kind}</td>
+                    <td>{usd(move.amount)}</td>
+                    <td className="muted">{date(move.timestamp)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </AppLayout>

@@ -46,7 +46,7 @@ export default function FarmerOverview() {
         <Stat icon={BuildingLibraryIcon} label="Pool cash available" value={usd(stats?.availableCash)} sub="What can be advanced now" />
       </div>
 
-      <div className="grid-2" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
+      <div className="grid-2 grid-2-lead">
         <Card title="Recent deliveries">
           {isLoading ? (
             <Skeleton rows={4} />
@@ -55,20 +55,22 @@ export default function FarmerOverview() {
               Book one and bring the crop to the warehouse.
             </EmptyState>
           ) : (
-            <table className="table">
-              <tbody>
-                {mine.slice(-5).reverse().map((lot) => (
-                  <tr key={lot.id.toString()}>
-                    <td>
-                      <LotLabel lot={lot} commodities={commodities} sub={warehouses.get(lot.warehouseId)?.name} />
-                    </td>
-                    <td>{kg(lot.status === "Verified" ? lot.measuredKg : lot.estimatedKg)}</td>
-                    <td>{lot.status === "Verified" ? <GradeBadge grade={lot.currentGrade} /> : <StatusBadge status={lot.status} />}</td>
-                    <td className="muted">{date(lot.requestedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-scroll">
+              <table className="table">
+                <tbody>
+                  {mine.slice(-5).reverse().map((lot) => (
+                    <tr key={lot.id.toString()}>
+                      <td>
+                        <LotLabel lot={lot} commodities={commodities} sub={warehouses.get(lot.warehouseId)?.name} />
+                      </td>
+                      <td>{kg(lot.status === "Verified" ? lot.measuredKg : lot.estimatedKg)}</td>
+                      <td>{lot.status === "Verified" ? <GradeBadge grade={lot.currentGrade} /> : <StatusBadge status={lot.status} />}</td>
+                      <td className="muted">{date(lot.requestedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <Link className="link" href="/farmer/deliver" style={{ display: "inline-block", marginTop: 12 }}>
             All deliveries →

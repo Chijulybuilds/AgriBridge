@@ -128,54 +128,56 @@ export default function Clearance() {
             AgriBridge lists the expired stock it buys here, at a low fixed price, for buyers such as animal-feed makers.
           </EmptyState>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Crop</th>
-                <th>Warehouse</th>
-                <th>Available</th>
-                <th>Price</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {clearanceListings.map((listing) => {
-                const listingLot = lotById.get(listing.lotId);
-                const open = buying === listing.id;
-                return (
-                  <ClearanceRows
-                    key={listing.id.toString()}
-                    cells={
-                      <>
-                        <td>{listingLot ? <LotLabel lot={listingLot} commodities={commodities} sub="Feed grade" /> : `Lot ${listing.lotId}`}</td>
-                        <td>{listingLot ? warehouses.get(listingLot.warehouseId)?.name : "—"}</td>
-                        <td>{kg(listing.kgRemaining)}</td>
-                        <td>
-                          <ListingPrice listing={listing} />
-                        </td>
-                        <td>
-                          <button className="btn btn-small" onClick={() => setBuying(open ? undefined : listing.id)}>
-                            {open ? "Close" : "Buy"}
-                          </button>
-                        </td>
-                      </>
-                    }
-                    panel={
-                      open ? (
-                        <BuyPanel
-                          listing={listing}
-                          onBought={(summary) => {
-                            setBought(summary);
-                            setBuying(undefined);
-                          }}
-                        />
-                      ) : null
-                    }
-                  />
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Crop</th>
+                  <th>Warehouse</th>
+                  <th>Available</th>
+                  <th>Price</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {clearanceListings.map((listing) => {
+                  const listingLot = lotById.get(listing.lotId);
+                  const open = buying === listing.id;
+                  return (
+                    <ClearanceRows
+                      key={listing.id.toString()}
+                      cells={
+                        <>
+                          <td>{listingLot ? <LotLabel lot={listingLot} commodities={commodities} sub="Feed grade" /> : `Lot ${listing.lotId}`}</td>
+                          <td>{listingLot ? warehouses.get(listingLot.warehouseId)?.name : "—"}</td>
+                          <td>{kg(listing.kgRemaining)}</td>
+                          <td>
+                            <ListingPrice listing={listing} />
+                          </td>
+                          <td>
+                            <button className="btn btn-small" onClick={() => setBuying(open ? undefined : listing.id)}>
+                              {open ? "Close" : "Buy"}
+                            </button>
+                          </td>
+                        </>
+                      }
+                      panel={
+                        open ? (
+                          <BuyPanel
+                            listing={listing}
+                            onBought={(summary) => {
+                              setBought(summary);
+                              setBuying(undefined);
+                            }}
+                          />
+                        ) : null
+                      }
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </AppLayout>
