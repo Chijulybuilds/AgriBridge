@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
  *
  * This is a display preference, not a permission. Anyone may deliver a crop,
  * lend to the pool or buy on the market; the contracts check every action. Who
- * someone is comes from their wallet connection (MetaMask Embedded Wallets sign-in,
- * or a browser wallet), so there is no separate session to keep.
+ * someone is comes from their MetaMask connection, so there is no separate session to keep.
  */
 export type AppRole = "farmer" | "investor" | "buyer";
 

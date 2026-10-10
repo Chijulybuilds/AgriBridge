@@ -10,10 +10,8 @@ import { injected, safe } from "wagmi/connectors";
  * without touching a public network.
  *
  * There are two wallet setups, kept apart on purpose:
- * - the public app signs people in with MetaMask Embedded Wallets when
- *   NEXT_PUBLIC_WEB3AUTH_CLIENT_ID is set (see components/providers.tsx), and
- *   otherwise offers plain browser wallets (`appConfig`), which is what local
- *   development and the end-to-end tests use;
+ * - the public app signs people in with MetaMask (`appConfig`; the end-to-end
+ *   tests use their own browser test wallet);
  * - the hidden /verifier page only talks to the verifier Safe, opened as a Safe
  *   App (`verifierConfig`), or to a browser wallet for local development.
  */
@@ -36,7 +34,7 @@ const transports = {
   [foundry.id]: http(activeChain.id === foundry.id ? rpcUrl : "http://127.0.0.1:8545"),
 };
 
-/** Public app without MetaMask Embedded Wallets: browser wallets only. */
+/** The public app: MetaMask, found through the browser (EIP-6963). */
 export const appConfig = createConfig({
   chains: [activeChain],
   connectors: [injected()],
@@ -51,13 +49,3 @@ export const verifierConfig = createConfig({
   transports,
   ssr: true,
 });
-
-/**
- * MetaMask Embedded Wallets client ID, from the MetaMask Developer Dashboard. Public, not a secret.
- * The end-to-end tests (NEXT_PUBLIC_E2E) always use browser wallets, which they can drive.
- */
-export const web3AuthClientId = process.env.NEXT_PUBLIC_E2E ? undefined : process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID || undefined;
-
-/** "sapphire_devnet" while testing; "sapphire_mainnet" for a real launch. */
-export const web3AuthNetwork =
-  process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK === "sapphire_mainnet" ? "sapphire_mainnet" : "sapphire_devnet";

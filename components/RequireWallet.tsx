@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
 import { useConnection } from "wagmi";
 
-import { usesEmbeddedWallets } from "./providers";
 
 /**
  * Shows its children only to someone signed in, and sends everyone else to the
@@ -10,7 +9,7 @@ import { usesEmbeddedWallets } from "./providers";
  * boundary: every action is a transaction the contracts check.
  *
  * After a page load the wallet reconnects on its own, a moment after the first
- * render (longer for MetaMask Embedded Wallets, which starts up first), so the
+ * render, so the
  * redirect waits a little before deciding nobody is signed in.
  */
 export function RequireWallet({ children }: { children: ReactNode }) {
@@ -20,7 +19,7 @@ export function RequireWallet({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isConnected) return;
-    const timer = setTimeout(() => setPatienceOver(true), usesEmbeddedWallets ? 4_000 : 1_200);
+    const timer = setTimeout(() => setPatienceOver(true), 1_200);
     return () => clearTimeout(timer);
   }, [isConnected]);
 

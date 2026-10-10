@@ -2,7 +2,7 @@
 
 > **Crop in a warehouse becomes money a farmer can use.** Farmers borrow against stored crop or sell
 > it on a market; investors fund the loans and earn interest. Everything is recorded on-chain, and
-> people sign in with Google, email or a phone number: no crypto wallet needed.
+> people sign in with MetaMask.
 
 [![Solidity](https://img.shields.io/badge/Solidity-^0.8.24-363636?logo=solidity)](https://soliditylang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
@@ -59,8 +59,7 @@ Every step is a transaction anyone can check on the block explorer.
   - a public market
   - a hidden console for the verifier Safe, opened inside Safe{Wallet}
 
-  Sign-in uses MetaMask Embedded Wallets. Playwright drives the whole demo journey against a
-  local chain.
+  Sign-in uses MetaMask. Playwright drives the whole demo journey against a local chain.
 
 ## Status
 

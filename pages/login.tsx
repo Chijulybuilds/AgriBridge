@@ -16,10 +16,7 @@ const ROLE_DETAILS: Record<AppRole, { icon: typeof SunIcon; line: string }> = {
   buyer: { icon: BuildingStorefrontIcon, line: "Buy graded crop from the warehouses, then collect or resell it." },
 };
 
-/**
- * Sign-in. With MetaMask Embedded Wallets, people continue with Google, email
- * or a phone number and their account (and wallet) is created on first sign-in.
- */
+/** Sign-in with MetaMask. Choosing a role only decides where the app opens; it is not a permission. */
 export default function Login() {
   const router = useRouter();
   const { isConnected } = useConnection();
@@ -59,7 +56,7 @@ export default function Login() {
             </p>
           </div>
           <ul className="stack" style={{ gap: 12, listStyle: "none" }}>
-            {["No app to install, no passwords to remember", "Your account is yours: AgriBridge never holds your key", "Every step has a public record you can check"].map((line) => (
+            {["Sign in with MetaMask: no account or password to create", "Your account is yours: AgriBridge never holds your key", "Every step has a public record you can check"].map((line) => (
               <li key={line} className="row" style={{ gap: 10, fontSize: 15, flexWrap: "nowrap" }}>
                 <CheckIcon aria-hidden="true" style={{ width: 18, height: 18, color: "var(--maize)", flexShrink: 0 }} />
                 {line}

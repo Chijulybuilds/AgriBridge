@@ -13,13 +13,14 @@ is tested.
 
 | Role | Who plays it | How they sign in |
 |---|---|---|
-| **Farmer** | a volunteer | Google, on the farmer's laptop or phone |
-| **Investor** | a volunteer | email (a one-time code) |
-| **Buyer** | a volunteer | phone number (an SMS code) |
+| **Farmer** | a volunteer | MetaMask, on the farmer's laptop or in the MetaMask phone app |
+| **Investor** | a volunteer | MetaMask |
+| **Buyer** | a volunteer | MetaMask |
 | **Verifier** (the warehouse team) | two of the Safe's owners | Safe{Wallet}, with AgriBridge opened inside it |
-| **Regulator** | a team member | any sign-in; the Safe gives them the role |
+| **Regulator** | a team member | MetaMask; the Safe gives them the role |
 
-Nobody needs a crypto wallet: signing in creates one. Everyone gets play dollars from the
+Everyone signs in with MetaMask on Sepolia. Each wallet needs a little Sepolia ETH to pay network
+fees (prepare the volunteers' wallets before the day), then gets play dollars from the
 **Get test dollars** button at the top of the app.
 
 ## Before the day

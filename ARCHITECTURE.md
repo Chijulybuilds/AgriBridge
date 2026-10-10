@@ -84,10 +84,9 @@ hooks/       useProtocolData (reads), useTx (writes), useActivity (events)
 lib/         contracts/config, chain (read client), wagmi (wallet setups), format, session
 ```
 
-- **Two wallet setups.** The public app signs people in with MetaMask Embedded Wallets
-  (Google, email or SMS; no wallet to install), or with a browser wallet when no client ID is set,
-  as in local development and the tests. `/verifier` uses its own setup that connects only to the
-  Safe, as a Safe App inside Safe{Wallet}. See `components/providers.tsx`.
+- **Two wallet setups.** The public app signs people in with MetaMask only (the end-to-end tests
+  use their own test wallet). `/verifier` uses its own setup that connects only to the Safe, as a
+  Safe App inside Safe{Wallet}. See `components/providers.tsx`.
 - **Reads** go through one viem client (`lib/chain.ts`), not the wallet, so they work signed out
   and in both setups. Concurrent reads are grouped into one Multicall3 call where the chain has it.
 - **Writes** go through `useTx`. It asks for an approval only when one is missing, waits for the

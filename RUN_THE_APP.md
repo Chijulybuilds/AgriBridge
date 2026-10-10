@@ -6,8 +6,7 @@ Three ways to run it:
 2. [**On Sepolia**](#3-on-sepolia), the public test network. This is what the festival demo uses.
 3. [**The tests**](#5-tests): contracts, a Sepolia rehearsal, and the browser journeys.
 
-Sign-in with Google, email or phone needs a free MetaMask Developer account:
-[section 2](#2-sign-in-with-google-email-or-phone).
+Everyone signs in with MetaMask: [section 2](#2-sign-in-with-metamask).
 
 ---
 
@@ -52,8 +51,7 @@ NEXT_PUBLIC_DEPLOY_BLOCK=0
 
 Then `npm run dev` and open http://localhost:3000.
 
-**Wallets.** Without a MetaMask Developer client ID the app signs in with a browser wallet, which is
-the easiest for local work. In MetaMask, add the network *Localhost 8545* (chain ID 31337), then
+**Wallets.** In MetaMask, add the network *Localhost 8545* (chain ID 31337), then
 import these Anvil test accounts. Their keys are published by Foundry: never use them on a real
 network.
 
@@ -68,27 +66,19 @@ must match), so you can open http://localhost:3000/verifier with it.
 
 ---
 
-## 2. Sign-in with Google, email or phone
+## 2. Sign-in with MetaMask
 
-The public app signs people in with **MetaMask Embedded Wallets** (formerly Web3Auth): the first
-sign-in creates the person's wallet, signing in again on any device brings it back, and
-AgriBridge never holds anyone's key.
+The public app signs people in with **MetaMask** only: the browser extension, or the browser inside
+the MetaMask phone app. AgriBridge never holds anyone's key.
 
-1. Go to the [MetaMask Developer Dashboard](https://developer.metamask.io) and sign in.
-2. Create a project for **Embedded Wallets**, on **Sapphire Devnet** while testing.
-3. **Project Settings → General:** copy the **Client ID**. It is public, not a secret.
-4. **Allowlist:** add `http://localhost:3000` and your site's address.
-5. **Chains and networks:** enable **Ethereum Sepolia**.
-6. **Authentication:** turn on **Google**, **Email (passwordless)** and **SMS (passwordless)**.
-7. In `.env.local`: `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID=<the client ID>`. Restart `npm run dev`.
+1. Install MetaMask from [metamask.io](https://metamask.io/download/).
+2. Switch it to **Sepolia** (turn on *Show test networks* in its settings).
+3. Get a little Sepolia ETH for network fees from a faucet (for example Google Cloud's Sepolia
+   faucet). Every action in the app is a transaction the wallet pays a small fee for.
+4. Open the app, choose a role, and press **Connect MetaMask**. Then use **Get test dollars**.
 
-**Paying people's gas.** To spare users the network fees, turn on **Smart accounts** in the
-dashboard, with a bundler and paymaster for Sepolia (for example from Pimlico, free for testnets).
-Before relying on it, check that a farmer's smart account receives crop tokens: approve a delivery
-and see it in **My stock**.
-
-Leave the client ID empty to sign in with browser wallets instead, as in section 1. The end-to-end
-tests always do.
+Without MetaMask the sign-in page offers **Install MetaMask** instead. The end-to-end tests sign in
+with their own test wallet.
 
 ---
 
@@ -108,15 +98,17 @@ npm run demo:sepolia -- deploy 0xFarmer 0xInvestor
 
 - The deploy wallet is a throwaway key kept in `.demo-wallets.json` (gitignored; keep it private).
   It hands every role to the Safe at the end, and the script checks it kept none.
-- The farmer and investor addresses get play money. With sign-in by Google, anyone can also use
-  **Get test dollars** in the app, so these can be your own test addresses.
+- The farmer and investor addresses get play money. Anyone signed in can also use **Get test
+  dollars** in the app, so these can be your own test addresses.
 - Prices are set at deployment and stay valid for a year; the Safe changes them in
   **Verifier → Prices**. The Chainlink price feeder is left out unless `FUNCTIONS_ROUTER` is set.
-- The command writes `.env.local` (keeping your sign-in settings) and prints the same settings for
+- The command writes `.env.local` (keeping any other settings) and prints the same settings for
   your host. `npm run demo:sepolia -- env` prints them again.
 
-**Hosting.** Add those settings, plus `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID`, to the host (for example
-Vercel → Settings → Environment Variables) and redeploy.
+**Hosting.** Add those settings to the host (for example Vercel → Settings → Environment
+Variables) and redeploy. For a steadier connection, set `NEXT_PUBLIC_RPC_URL` to a hosted
+endpoint (Alchemy, Infura) whose key is restricted to your site's domain, and keep
+`NEXT_PUBLIC_LOGS_RPC_URL` on an endpoint that can scan event history.
 
 ---
 

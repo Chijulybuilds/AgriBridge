@@ -36,7 +36,7 @@ const STEPS: Array<{ role: string; tone: string; steps: Array<[string, string]> 
     role: "For investors",
     tone: "var(--brand)",
     steps: [
-      ["Sign in", "Continue with Google, email or phone. No crypto wallet needed."],
+      ["Sign in", "Connect MetaMask, the free wallet for your browser or phone."],
       ["See the pool", "Live rates, what's lent out, and the crop behind every advance."],
       ["Invest", "Add dollars to the pool that funds farmers' advances."],
       ["Earn", "Interest builds up every second as farmers borrow."],
@@ -150,7 +150,7 @@ export default function Home() {
               </h1>
               <p className="landing-lede">
                 Farmers store crops in trusted warehouses, then get cash advances against them or sell them on the
-                market. Investors fund the advances and earn interest. Sign in with Google: no crypto wallet needed.
+                market. Investors fund the advances and earn interest. Sign in with MetaMask.
               </p>
               <div className="row" style={{ gap: 12, marginTop: 30 }}>
                 <Link className="btn btn-large btn-gold" href="/login?role=farmer">
@@ -288,7 +288,7 @@ export default function Home() {
                   Ready to start?
                 </h2>
                 <p style={{ color: "var(--sidebar-ink-2)", fontSize: 16 }}>
-                  Sign in with Google, email or your phone number. No crypto wallet, no seed phrase.
+                  Sign in with MetaMask. Your account and your money stay yours.
                 </p>
               </div>
               <div className="row" style={{ gap: 12 }}>

@@ -6,8 +6,8 @@ import { Notice } from "./ui";
 
 /**
  * Says exactly why the app cannot work, instead of failing later with an
- * unexplained error: no contract addresses configured, or a browser wallet on
- * the wrong network. (Embedded wallets are put on the right network by the app.)
+ * unexplained error: no contract addresses configured, or MetaMask on the
+ * wrong network.
  */
 export function NetworkGuard() {
   const { isConnected, chainId } = useConnection();
