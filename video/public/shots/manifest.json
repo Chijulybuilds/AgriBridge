@@ -1,0 +1,466 @@
+{
+  "03-login": {
+    "url": "/login",
+    "targets": {
+      "connect": {
+        "x": 824,
+        "y": 634,
+        "w": 440,
+        "h": 39
+      },
+      "roles": {
+        "x": 824,
+        "y": 337,
+        "w": 440,
+        "h": 273
+      }
+    }
+  },
+  "03-farmer-home": {
+    "url": "/farmer",
+    "targets": {
+      "stats": {
+        "x": 292,
+        "y": 253,
+        "w": 1104,
+        "h": 169
+      }
+    }
+  },
+  "04-deliver-form": {
+    "url": "/farmer/deliver",
+    "targets": {
+      "commodity": {
+        "x": 321,
+        "y": 369,
+        "w": 484,
+        "h": 44
+      },
+      "warehouse": {
+        "x": 321,
+        "y": 455,
+        "w": 484,
+        "h": 44
+      },
+      "quantity": {
+        "x": 321,
+        "y": 541,
+        "w": 484,
+        "h": 45
+      },
+      "submit": {
+        "x": 321,
+        "y": 717,
+        "w": 484,
+        "h": 39
+      }
+    }
+  },
+  "04-deliver-done": {
+    "url": "/farmer/deliver",
+    "targets": {
+      "status": {
+        "x": 321,
+        "y": 768,
+        "w": 484,
+        "h": 69
+      },
+      "deliveries": {
+        "x": 292,
+        "y": 910,
+        "w": 1104,
+        "h": 193
+      }
+    }
+  },
+  "05-verify-form": {
+    "url": "/verifier",
+    "targets": {
+      "item": {
+        "x": 173,
+        "y": 387,
+        "w": 1094,
+        "h": 369
+      },
+      "measured": {
+        "x": 190,
+        "y": 489,
+        "w": 340,
+        "h": 45
+      },
+      "grade": {
+        "x": 550,
+        "y": 489,
+        "w": 340,
+        "h": 44
+      },
+      "evidence": {
+        "x": 910,
+        "y": 575,
+        "w": 340,
+        "h": 45
+      },
+      "approve": {
+        "x": 190,
+        "y": 700,
+        "w": 231,
+        "h": 39
+      }
+    }
+  },
+  "05-verify-done": {
+    "url": "/verifier",
+    "targets": {
+      "status": {
+        "x": 173,
+        "y": 529,
+        "w": 1094,
+        "h": 48
+      }
+    }
+  },
+  "06-stock": {
+    "url": "/stock",
+    "targets": {
+      "stats": {
+        "x": 292,
+        "y": 276,
+        "w": 1104,
+        "h": 147
+      },
+      "stock": {
+        "x": 292,
+        "y": 451,
+        "w": 1104,
+        "h": 209
+      }
+    }
+  },
+  "06-stock-timeline": {
+    "url": "/stock",
+    "targets": {
+      "timeline": {
+        "x": 321,
+        "y": 648,
+        "w": 1032,
+        "h": 96
+      }
+    }
+  },
+  "07-advance-form": {
+    "url": "/farmer/advance",
+    "targets": {
+      "endDate": {
+        "x": 321,
+        "y": 568,
+        "w": 484,
+        "h": 47
+      },
+      "max": {
+        "x": 321,
+        "y": 734,
+        "w": 484,
+        "h": 19
+      },
+      "amount": {
+        "x": 321,
+        "y": 682,
+        "w": 409,
+        "h": 45
+      },
+      "submit": {
+        "x": 321,
+        "y": 769,
+        "w": 484,
+        "h": 39
+      }
+    }
+  },
+  "07-advance-done": {
+    "url": "/farmer/advance",
+    "targets": {
+      "status": {
+        "x": 292,
+        "y": 276,
+        "w": 1104,
+        "h": 48
+      }
+    }
+  },
+  "07-loans": {
+    "url": "/farmer/loans",
+    "targets": {
+      "owed": {
+        "x": 765,
+        "y": 353,
+        "w": 69,
+        "h": 22
+      },
+      "repay": {
+        "x": 854,
+        "y": 457,
+        "w": 513,
+        "h": 39
+      }
+    }
+  },
+  "07-repaid": {
+    "url": "/farmer/loans",
+    "targets": {
+      "repaid": {
+        "x": 292,
+        "y": 276,
+        "w": 1104,
+        "h": 48
+      }
+    }
+  },
+  "08-sell-form": {
+    "url": "/market/sell",
+    "targets": {
+      "kg": {
+        "x": 321,
+        "y": 455,
+        "w": 484,
+        "h": 45
+      },
+      "bulk": {
+        "x": 321,
+        "y": 724,
+        "w": 18,
+        "h": 18
+      },
+      "bulkOff": {
+        "x": 573,
+        "y": 789,
+        "w": 232,
+        "h": 45
+      },
+      "submit": {
+        "x": 321,
+        "y": 857,
+        "w": 484,
+        "h": 39
+      }
+    }
+  },
+  "08-market-overview": {
+    "url": "/market",
+    "targets": {
+      "hero": {
+        "x": 292,
+        "y": 276,
+        "w": 683,
+        "h": 461
+      },
+      "chart": {
+        "x": 321,
+        "y": 512,
+        "w": 625,
+        "h": 196
+      },
+      "warehouses": {
+        "x": 1024,
+        "y": 347,
+        "w": 343,
+        "h": 184
+      }
+    }
+  },
+  "09-market-listings": {
+    "url": "/market",
+    "targets": {
+      "listings": {
+        "x": 292,
+        "y": 347,
+        "w": 1104,
+        "h": 205
+      },
+      "buy": {
+        "x": 1304,
+        "y": 469,
+        "w": 49,
+        "h": 32
+      }
+    }
+  },
+  "09-buy-panel": {
+    "url": "/market",
+    "targets": {
+      "panel": {
+        "x": 321,
+        "y": 558,
+        "w": 1032,
+        "h": 240
+      },
+      "total": {
+        "x": 1279,
+        "y": 664,
+        "w": 57,
+        "h": 22
+      },
+      "confirm": {
+        "x": 338,
+        "y": 742,
+        "w": 998,
+        "h": 39
+      }
+    }
+  },
+  "09-bought": {
+    "url": "/market",
+    "targets": {
+      "done": {
+        "x": 292,
+        "y": 276,
+        "w": 1104,
+        "h": 48
+      }
+    }
+  },
+  "09-collect-form": {
+    "url": "/stock/collect",
+    "targets": {
+      "fee": {
+        "x": 766,
+        "y": 650,
+        "w": 39,
+        "h": 22
+      },
+      "submit": {
+        "x": 321,
+        "y": 776,
+        "w": 484,
+        "h": 39
+      }
+    }
+  },
+  "09-verify-collection": {
+    "url": "/verifier",
+    "targets": {
+      "confirm": {
+        "x": 190,
+        "y": 495,
+        "w": 222,
+        "h": 39
+      }
+    }
+  },
+  "09-released": {
+    "url": "/stock/collect",
+    "targets": {
+      "released": {
+        "x": 1185,
+        "y": 368,
+        "w": 69,
+        "h": 23
+      }
+    }
+  },
+  "10-invest-form": {
+    "url": "/investor",
+    "targets": {
+      "amount": {
+        "x": 321,
+        "y": 600,
+        "w": 418,
+        "h": 45
+      },
+      "submit": {
+        "x": 321,
+        "y": 687,
+        "w": 484,
+        "h": 39
+      }
+    }
+  },
+  "10-invested": {
+    "url": "/investor",
+    "targets": {
+      "stats": {
+        "x": 292,
+        "y": 276,
+        "w": 1104,
+        "h": 169
+      },
+      "position": {
+        "x": 323,
+        "y": 334,
+        "w": 231,
+        "h": 56
+      }
+    }
+  },
+  "11-price-crash": {
+    "url": "/verifier",
+    "targets": {
+      "price": {
+        "x": 928,
+        "y": 500,
+        "w": 110,
+        "h": 45
+      }
+    }
+  },
+  "11-at-risk": {
+    "url": "/verifier",
+    "targets": {
+      "atRisk": {
+        "x": 1181,
+        "y": 617,
+        "w": 55,
+        "h": 23
+      },
+      "keeper": {
+        "x": 1013,
+        "y": 510,
+        "w": 254,
+        "h": 32
+      }
+    }
+  },
+  "11-settled": {
+    "url": "/farmer/loans",
+    "targets": {
+      "settled": {
+        "x": 1144,
+        "y": 359,
+        "w": 78,
+        "h": 23
+      }
+    }
+  },
+  "12-clearance": {
+    "url": "/market/clearance",
+    "targets": {
+      "sell": {
+        "x": 321,
+        "y": 516,
+        "w": 513,
+        "h": 39
+      }
+    }
+  },
+  "12-feed-listing": {
+    "url": "/market/clearance",
+    "targets": {
+      "listing": {
+        "x": 321,
+        "y": 613,
+        "w": 198,
+        "h": 21
+      }
+    }
+  },
+  "13-activity": {
+    "url": "/activity",
+    "targets": {
+      "feed": {
+        "x": 292,
+        "y": 0,
+        "w": 1104,
+        "h": 2220
+      }
+    }
+  }
+}

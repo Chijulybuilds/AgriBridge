@@ -1,0 +1,24 @@
+{
+  "name": "agribridge-demo-video",
+  "private": true,
+  "description": "The AgriBridge demo video: real app screens, narration and burned-in captions, rendered with Remotion.",
+  "scripts": {
+    "capture": "cd .. && npx playwright test -c video/playwright.capture.config.ts",
+    "voice": "node voice.mjs",
+    "studio": "remotion studio src/index.tsx",
+    "still": "remotion still src/index.tsx AgriBridgeDemo",
+    "render": "remotion render src/index.tsx AgriBridgeDemo out/agribridge-demo.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.534",
+    "@remotion/google-fonts": "^4.0.534",
+    "@remotion/media-utils": "^4.0.534",
+    "react": "19.2",
+    "react-dom": "19.2",
+    "remotion": "^4.0.534"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}

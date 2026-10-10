@@ -25,6 +25,8 @@ export default [
       "lib/contracts/abis/**",
       "playwright-report/**",
       "test-results/**",
+      // The demo video (Remotion) and its capture script have their own setup.
+      "video/**",
     ],
   },
   ...coreWebVitals,
