@@ -119,7 +119,7 @@ export const SCENES: Scene[] = [
       { src: "shots/11-before.png", url: `${APP}/farmer/loans`, zoom: "card", weight: 1.3 },
       { src: "shots/11-price-crash.png", url: `${APP}/verifier`, zoom: "price", weight: 0.8 },
       { src: "shots/11-price-set.png", url: `${APP}/verifier`, weight: 0.6 },
-      { src: "shots/11-after.png", url: `${APP}/farmer/loans`, zoom: "card", weight: 1.4 },
+      { src: "shots/11-after.png", url: `${APP}/farmer/loans`, zoom: "threshold", weight: 1.4 },
       { src: "shots/11-at-risk.png", url: `${APP}/verifier`, click: "keeper", weight: 1.1 },
       { src: "shots/11-settled.png", url: `${APP}/farmer/loans`, zoom: "settled", weight: 0.9 },
     ],
