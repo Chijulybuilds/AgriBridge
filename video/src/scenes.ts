@@ -112,13 +112,16 @@ export const SCENES: Scene[] = [
   },
   {
     id: "s11",
-    label: "8 · When prices fall",
+    label: "8 · Oracle price update",
     narration:
-      "Markets move. Suppose the price of cocoa falls sharply. In our example, it drops from $5.85 to $2.50 a kilogram. An advance that was safe is now at risk, because the debt has reached eighty per cent of the crop's value. AgriBridge settles it automatically: the debt is repaid from the crop, the settler earns a small reward, and anything left goes back to the farmer. If nobody else acts, AgriBridge's own keeper steps in and settles it from the loss cushion. The investors' money stays protected.",
+      "Markets move, so every advance is valued with live prices from AgriBridge's price oracle. Here is the farmer's second advance: $1,000 against 500 kilograms of cocoa. At $5.85 a kilogram it is healthy, and the crop would only be sold if the price fell below $2.94. Now the oracle receives a new cocoa price: $2.50. Straight away, the contracts re-value the collateral at the new price. The same 500 kilograms are now worth about $1,060, the debt has passed eighty per cent of that value, and the advance is marked at risk. AgriBridge settles it automatically: just enough crop is sold to repay the debt plus a five per cent reward, and the rest goes back to the farmer. If nobody else acts, AgriBridge's own keeper steps in and settles it from the loss cushion. The investors' money stays protected.",
     shots: [
-      { src: "shots/11-price-crash.png", url: `${APP}/verifier`, zoom: "price", weight: 0.9 },
-      { src: "shots/11-at-risk.png", url: `${APP}/verifier`, click: "keeper", weight: 1.2 },
-      { src: "shots/11-settled.png", url: `${APP}/farmer/loans`, zoom: "settled" },
+      { src: "shots/11-before.png", url: `${APP}/farmer/loans`, zoom: "card", weight: 1.3 },
+      { src: "shots/11-price-crash.png", url: `${APP}/verifier`, zoom: "price", weight: 0.8 },
+      { src: "shots/11-price-set.png", url: `${APP}/verifier`, weight: 0.6 },
+      { src: "shots/11-after.png", url: `${APP}/farmer/loans`, zoom: "card", weight: 1.4 },
+      { src: "shots/11-at-risk.png", url: `${APP}/verifier`, click: "keeper", weight: 1.1 },
+      { src: "shots/11-settled.png", url: `${APP}/farmer/loans`, zoom: "settled", weight: 0.9 },
     ],
   },
   {

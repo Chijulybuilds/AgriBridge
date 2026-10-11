@@ -220,11 +220,22 @@ test("capture the demo screens", async ({ browser }) => {
   await farmer.getByTestId("amount").fill("1000");
   await farmer.getByTestId("submit-advance").click();
   await confirmed(farmer, "Take the advance");
+  // Before the oracle update: the advance is healthy at today's price.
+  await farmer.goto("/farmer/loans");
+  const advance = farmer.getByTestId("advance-2");
+  await expect(advance).toContainText("Healthy");
+  await snap(farmer, "11-before", { card: advance, badge: advance.getByText("Healthy"), threshold: advance.getByText("Sold if the price falls below") });
+  // The oracle receives a new cocoa price (here set by the Safe, as in the festival deployment).
   await verifier.getByTestId("tab-prices").click();
   await verifier.getByTestId("price-1").fill("2.50");
   await snap(verifier, "11-price-crash", { price: verifier.getByTestId("price-1") });
   await verifier.getByTestId("price-1").locator("..").getByRole("button", { name: "Set" }).click();
   await confirmed(verifier, "Set Cocoa");
+  await snap(verifier, "11-price-set", { status: verifier.getByTestId("tx-status") });
+  // After: the contracts re-value the collateral at the new price, and the same advance is at risk.
+  await farmer.reload();
+  await expect(advance).toContainText("At risk", { timeout: 30_000 });
+  await snap(farmer, "11-after", { card: advance, badge: advance.getByText("At risk"), threshold: advance.getByText("Sold if the price falls below") });
   await verifier.getByTestId("tab-advances").click();
   await expect(verifier.getByText("At risk")).toBeVisible({ timeout: 30_000 });
   await verifier.waitForTimeout(1200);

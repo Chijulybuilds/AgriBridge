@@ -391,6 +391,29 @@
       }
     }
   },
+  "11-before": {
+    "url": "/farmer/loans",
+    "targets": {
+      "card": {
+        "x": 292,
+        "y": 276,
+        "w": 1104,
+        "h": 299
+      },
+      "badge": {
+        "x": 1306,
+        "y": 305,
+        "w": 61,
+        "h": 23
+      },
+      "threshold": {
+        "x": 321,
+        "y": 516,
+        "w": 167,
+        "h": 22
+      }
+    }
+  },
   "11-price-crash": {
     "url": "/verifier",
     "targets": {
@@ -402,11 +425,45 @@
       }
     }
   },
+  "11-price-set": {
+    "url": "/verifier",
+    "targets": {
+      "status": {
+        "x": 928,
+        "y": 557,
+        "w": 325,
+        "h": 48
+      }
+    }
+  },
+  "11-after": {
+    "url": "/farmer/loans",
+    "targets": {
+      "card": {
+        "x": 292,
+        "y": 276,
+        "w": 1104,
+        "h": 299
+      },
+      "badge": {
+        "x": 1312,
+        "y": 305,
+        "w": 55,
+        "h": 23
+      },
+      "threshold": {
+        "x": 321,
+        "y": 516,
+        "w": 167,
+        "h": 22
+      }
+    }
+  },
   "11-at-risk": {
     "url": "/verifier",
     "targets": {
       "atRisk": {
-        "x": 1181,
+        "x": 1182,
         "y": 617,
         "w": 55,
         "h": 23

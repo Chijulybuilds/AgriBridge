@@ -1,6 +1,6 @@
 # AgriBridge demo video: narration script
 
-Generated from `src/scenes.ts`, the single source for the voice and the captions. About 7 minutes.
+Generated from `src/scenes.ts`, the single source for the voice and the captions. About 7.5 minutes.
 Voice: ElevenLabs "Roger" (male), measured pace. Captions burned in.
 
 ## 1. The problem
@@ -43,9 +43,9 @@ A buyer, say a chocolate processor, buys two hundred kilograms. The bulk deal is
 
 Who funds the advances? Investors. An investor deposits dollars into the lending pool and earns the interest farmers pay. The rate rises when more of the pool is lent out, and a share of every interest payment builds a loss cushion that protects investors first. Interest builds up every second, and investors can withdraw whenever the pool has cash available. In this demo, the pool starts with $50,000 of play money, and every deposit and withdrawal can be checked on the blockchain.
 
-## 11. 8 · When prices fall
+## 11. 8 · Oracle price update
 
-Markets move. Suppose the price of cocoa falls sharply. In our example, it drops from $5.85 to $2.50 a kilogram. An advance that was safe is now at risk, because the debt has reached eighty per cent of the crop's value. AgriBridge settles it automatically: the debt is repaid from the crop, the settler earns a small reward, and anything left goes back to the farmer. If nobody else acts, AgriBridge's own keeper steps in and settles it from the loss cushion. The investors' money stays protected.
+Markets move, so every advance is valued with live prices from AgriBridge's price oracle. Here is the farmer's second advance: $1,000 against 500 kilograms of cocoa. At $5.85 a kilogram it is healthy, and the crop would only be sold if the price fell below $2.94. Now the oracle receives a new cocoa price: $2.50. Straight away, the contracts re-value the collateral at the new price. The same 500 kilograms are now worth about $1,060, the debt has passed eighty per cent of that value, and the advance is marked at risk. AgriBridge settles it automatically: just enough crop is sold to repay the debt plus a five per cent reward, and the rest goes back to the farmer. If nobody else acts, AgriBridge's own keeper steps in and settles it from the loss cushion. The investors' money stays protected.
 
 ## 12. 9 · Expired stock
 
