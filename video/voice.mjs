@@ -77,7 +77,7 @@ for (const [index, scene] of SCENES.entries()) {
     text,
     model_id: "eleven_multilingual_v2",
     // Steady and clear for a product demo: a calm, polished read, slightly slower than conversation.
-    voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true, speed: 0.94 },
+    voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.15, use_speaker_boost: true, speed: 0.88 },
     // Neighbouring scenes, so the intonation flows from one scene into the next.
     previous_text: SCENES[index - 1] ? spokenText(SCENES[index - 1]) : undefined,
     next_text: SCENES[index + 1] ? spokenText(SCENES[index + 1]) : undefined,

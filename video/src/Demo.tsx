@@ -16,8 +16,8 @@ type Box = { x: number; y: number; w: number; h: number };
 const MANIFEST = manifestJson as Record<string, { url: string; targets: Record<string, Box> }>;
 
 export const FPS = 30;
-const LEAD = 0.5; // seconds of quiet before each scene's voice
-const TAIL = 0.7; // and after it
+const LEAD = 0.7; // seconds of quiet before each scene's voice
+const TAIL = 1.3; // and after it
 
 /** The browser frame: screenshots are 1440×900 CSS px, shown 1400 wide. */
 const FRAME = { x: 260, y: 34, w: 1400, chrome: 44 };

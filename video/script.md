@@ -1,7 +1,7 @@
 # AgriBridge demo video: narration script
 
 Generated from `src/scenes.ts`, the single source for the voice and the captions. About 7 minutes.
-Voice: polished Nigerian English, warm and confident, measured pace. Captions burned in.
+Voice: ElevenLabs "Roger" (male), measured pace. Captions burned in.
 
 ## 1. The problem
 
@@ -37,19 +37,19 @@ Or she can sell. She lists half of her cocoa, and offers large buyers ten per ce
 
 ## 9. 6 · A buyer buys and collects
 
-A buyer, say a chocolate processor, buys two hundred kilograms. The bulk deal is applied automatically, and the tokens move to the buyer in the same transaction as the payment. To collect the goods, the buyer pays the storage fee, and the warehouse confirms the crop has left. Only then are the tokens burned, so tokens always match the crop in store. Delivery to the buyer's door is possible too, for a fee.
+A buyer, say a chocolate processor, buys two hundred kilograms. The bulk deal is applied automatically, so two hundred kilograms cost about $895 instead of $995, and the tokens move to the buyer in the same transaction as the payment. To collect the goods, the buyer pays the storage fee, and the warehouse confirms the crop has left. Only then are the tokens burned, so tokens always match the crop in store. Delivery to the buyer's door is possible too, for a fee.
 
 ## 10. 7 · The investor
 
-Who funds the advances? Investors. An investor deposits dollars into the lending pool and earns the interest farmers pay. The rate rises when more of the pool is lent out, and a share of every interest payment builds a loss cushion that protects investors first. Interest builds up every second, and investors can withdraw whenever the pool has cash available.
+Who funds the advances? Investors. An investor deposits dollars into the lending pool and earns the interest farmers pay. The rate rises when more of the pool is lent out, and a share of every interest payment builds a loss cushion that protects investors first. Interest builds up every second, and investors can withdraw whenever the pool has cash available. In this demo, the pool starts with $50,000 of play money, and every deposit and withdrawal can be checked on the blockchain.
 
 ## 11. 8 · When prices fall
 
-Markets move. Suppose the price of cocoa falls sharply. An advance that was safe is now at risk, because the debt has reached eighty per cent of the crop's value. AgriBridge settles it automatically: the debt is repaid from the crop, the settler earns a small reward, and anything left goes back to the farmer. If nobody else acts, AgriBridge's own keeper steps in and settles it from the loss cushion. The investors' money stays protected.
+Markets move. Suppose the price of cocoa falls sharply. In our example, it drops from $5.85 to $2.50 a kilogram. An advance that was safe is now at risk, because the debt has reached eighty per cent of the crop's value. AgriBridge settles it automatically: the debt is repaid from the crop, the settler earns a small reward, and anything left goes back to the farmer. If nobody else acts, AgriBridge's own keeper steps in and settles it from the loss cushion. The investors' money stays protected.
 
 ## 12. 9 · Expired stock
 
-Crop that is never sold eventually expires. Rather than let it go to waste, the holder can sell it to AgriBridge at a fixed discount, and AgriBridge lists it for feed makers. Nothing is left behind.
+Crop that is never sold eventually expires. Rather than let it go to waste, the holder can sell it to AgriBridge at a fixed discount, and AgriBridge lists it for feed makers. Feed makers get affordable stock, and the holder recovers part of the value. Nothing is left behind.
 
 ## 13. Every step on the record
 

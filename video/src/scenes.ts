@@ -93,7 +93,7 @@ export const SCENES: Scene[] = [
     id: "s09",
     label: "6 · A buyer buys and collects",
     narration:
-      "A buyer, say a chocolate processor, buys two hundred kilograms. The bulk deal is applied automatically, and the tokens move to the buyer in the same transaction as the payment. To collect the goods, the buyer pays the storage fee, and the warehouse confirms the crop has left. Only then are the tokens burned, so tokens always match the crop in store. Delivery to the buyer's door is possible too, for a fee.",
+      "A buyer, say a chocolate processor, buys two hundred kilograms. The bulk deal is applied automatically, so two hundred kilograms cost about $895 instead of $995, and the tokens move to the buyer in the same transaction as the payment. To collect the goods, the buyer pays the storage fee, and the warehouse confirms the crop has left. Only then are the tokens burned, so tokens always match the crop in store. Delivery to the buyer's door is possible too, for a fee.",
     shots: [
       { src: "shots/09-market-listings.png", url: `${APP}/market`, click: "buy", weight: 0.8 },
       { src: "shots/09-buy-panel.png", url: `${APP}/market`, click: "confirm" },
@@ -107,14 +107,14 @@ export const SCENES: Scene[] = [
     id: "s10",
     label: "7 · The investor",
     narration:
-      "Who funds the advances? Investors. An investor deposits dollars into the lending pool and earns the interest farmers pay. The rate rises when more of the pool is lent out, and a share of every interest payment builds a loss cushion that protects investors first. Interest builds up every second, and investors can withdraw whenever the pool has cash available.",
+      "Who funds the advances? Investors. An investor deposits dollars into the lending pool and earns the interest farmers pay. The rate rises when more of the pool is lent out, and a share of every interest payment builds a loss cushion that protects investors first. Interest builds up every second, and investors can withdraw whenever the pool has cash available. In this demo, the pool starts with $50,000 of play money, and every deposit and withdrawal can be checked on the blockchain.",
     shots: [{ src: "shots/10-invest-form.png", url: `${APP}/investor`, click: "submit" }, { src: "shots/10-invested.png", url: `${APP}/investor`, zoom: "stats", weight: 1.2 }],
   },
   {
     id: "s11",
     label: "8 · When prices fall",
     narration:
-      "Markets move. Suppose the price of cocoa falls sharply. An advance that was safe is now at risk, because the debt has reached eighty per cent of the crop's value. AgriBridge settles it automatically: the debt is repaid from the crop, the settler earns a small reward, and anything left goes back to the farmer. If nobody else acts, AgriBridge's own keeper steps in and settles it from the loss cushion. The investors' money stays protected.",
+      "Markets move. Suppose the price of cocoa falls sharply. In our example, it drops from $5.85 to $2.50 a kilogram. An advance that was safe is now at risk, because the debt has reached eighty per cent of the crop's value. AgriBridge settles it automatically: the debt is repaid from the crop, the settler earns a small reward, and anything left goes back to the farmer. If nobody else acts, AgriBridge's own keeper steps in and settles it from the loss cushion. The investors' money stays protected.",
     shots: [
       { src: "shots/11-price-crash.png", url: `${APP}/verifier`, zoom: "price", weight: 0.9 },
       { src: "shots/11-at-risk.png", url: `${APP}/verifier`, click: "keeper", weight: 1.2 },
@@ -125,7 +125,7 @@ export const SCENES: Scene[] = [
     id: "s12",
     label: "9 · Expired stock",
     narration:
-      "Crop that is never sold eventually expires. Rather than let it go to waste, the holder can sell it to AgriBridge at a fixed discount, and AgriBridge lists it for feed makers. Nothing is left behind.",
+      "Crop that is never sold eventually expires. Rather than let it go to waste, the holder can sell it to AgriBridge at a fixed discount, and AgriBridge lists it for feed makers. Feed makers get affordable stock, and the holder recovers part of the value. Nothing is left behind.",
     shots: [{ src: "shots/12-clearance.png", url: `${APP}/market/clearance`, click: "sell" }, { src: "shots/12-feed-listing.png", url: `${APP}/market/clearance`, zoom: "listing" }],
   },
   {
