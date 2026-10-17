@@ -39,6 +39,9 @@ contract CommodityConfig is AccessControl {
         /// @dev Most a loan may be worth against its collateral, and the point it gets liquidated.
         uint16 maxLtvBps;
         uint16 liquidationLtvBps;
+        /// @dev A liquidator's reward, as a share of the debt they repay: larger for crops that are
+        ///      slower to sell, so someone still steps in to settle them.
+        uint16 liquidationBonusBps;
         /// @dev Cut from the world price for transport, export and storage (0 for local prices).
         uint16 basisBps;
         /// @dev Storage charge in USDC (6 decimals) per metric ton per 30-day month.
@@ -50,6 +53,8 @@ contract CommodityConfig is AccessControl {
     //////////////////////////////////////////////////////////////*/
 
     uint16 public constant BPS = 10_000;
+    /// @notice The largest liquidation reward a commodity may set.
+    uint16 public constant MAX_LIQUIDATION_BONUS_BPS = 1_500;
 
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
@@ -77,6 +82,7 @@ contract CommodityConfig is AccessControl {
     error CommodityConfig__InvalidGradeFactors();
     error CommodityConfig__InvalidDecaySchedule();
     error CommodityConfig__InvalidLtv();
+    error CommodityConfig__InvalidLiquidationBonus();
     error CommodityConfig__InvalidBasis();
 
     /*//////////////////////////////////////////////////////////////
@@ -160,8 +166,9 @@ contract CommodityConfig is AccessControl {
 
     /**
      * @dev Rejects settings the rest of the protocol cannot use: value must fall from A to B to C,
-     *      the grade dates must come in order, and a loan must hit its liquidation point before it
-     *      is worth more than its collateral.
+     *      the grade dates must come in order, a loan must hit its liquidation point before it is
+     *      worth more than its collateral, and at that point the collateral must still cover the
+     *      debt plus the liquidator's reward.
      */
     function _validate(Commodity calldata _commodity) internal pure {
         if (bytes(_commodity.name).length == 0) revert CommodityConfig__EmptyName();
@@ -185,6 +192,13 @@ contract CommodityConfig is AccessControl {
                 || _commodity.liquidationLtvBps >= BPS
         ) {
             revert CommodityConfig__InvalidLtv();
+        }
+
+        if (
+            _commodity.liquidationBonusBps == 0 || _commodity.liquidationBonusBps > MAX_LIQUIDATION_BONUS_BPS
+                || uint256(_commodity.liquidationLtvBps) * (BPS + _commodity.liquidationBonusBps) >= uint256(BPS) * BPS
+        ) {
+            revert CommodityConfig__InvalidLiquidationBonus();
         }
 
         if (_commodity.basisBps >= BPS) revert CommodityConfig__InvalidBasis();

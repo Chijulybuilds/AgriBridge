@@ -39,6 +39,19 @@ export const CommodityConfigAbi = [
   },
   {
     "type": "function",
+    "name": "MAX_LIQUIDATION_BONUS_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "addCommodity",
     "inputs": [
       {
@@ -93,6 +106,11 @@ export const CommodityConfigAbi = [
           },
           {
             "name": "liquidationLtvBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "liquidationBonusBps",
             "type": "uint16",
             "internalType": "uint16"
           },
@@ -194,6 +212,11 @@ export const CommodityConfigAbi = [
           },
           {
             "name": "liquidationLtvBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "liquidationBonusBps",
             "type": "uint16",
             "internalType": "uint16"
           },
@@ -430,6 +453,11 @@ export const CommodityConfigAbi = [
             "internalType": "uint16"
           },
           {
+            "name": "liquidationBonusBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
             "name": "basisBps",
             "type": "uint16",
             "internalType": "uint16"
@@ -610,6 +638,11 @@ export const CommodityConfigAbi = [
   {
     "type": "error",
     "name": "CommodityConfig__InvalidGradeFactors",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommodityConfig__InvalidLiquidationBonus",
     "inputs": []
   },
   {

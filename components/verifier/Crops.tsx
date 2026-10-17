@@ -20,6 +20,7 @@ type Draft = {
   daysToExpiry: string;
   maxLoan: string;
   settleAt: string;
+  reward: string;
   basis: string;
   storage: string;
 };
@@ -37,6 +38,7 @@ function toDraft(c?: Commodity): Draft {
     daysToExpiry: c ? String(c.daysToExpiry) : "540",
     maxLoan: c ? pct(c.maxLtvBps) : "50",
     settleAt: c ? pct(c.liquidationLtvBps) : "80",
+    reward: c ? pct(c.liquidationBonusBps) : "5",
     basis: c ? pct(c.basisBps) : "10",
     storage: c ? (Number(c.storageFeePerTonMonth) / 1e6).toString() : "4",
   };
@@ -46,7 +48,7 @@ function toDraft(c?: Commodity): Draft {
 function fromDraft(d: Draft) {
   const bps = (value: string) => Math.round(Number(value) * 100);
   const whole = (value: string) => Number(value);
-  const numbers = [d.gradeB, d.gradeC, d.daysToB, d.daysToC, d.daysToExpiry, d.maxLoan, d.settleAt, d.basis];
+  const numbers = [d.gradeB, d.gradeC, d.daysToB, d.daysToC, d.daysToExpiry, d.maxLoan, d.settleAt, d.reward, d.basis];
   if (!d.name.trim()) return { error: "Give the crop a name." };
   if (numbers.some((n) => n.trim() === "" || !Number.isFinite(Number(n)) || Number(n) < 0)) return { error: "Fill in every number." };
   const storage = d.storage.trim() === "0" ? 0n : parseUsd(d.storage);
@@ -63,6 +65,7 @@ function fromDraft(d: Draft) {
       daysToExpiry: whole(d.daysToExpiry),
       maxLtvBps: bps(d.maxLoan),
       liquidationLtvBps: bps(d.settleAt),
+      liquidationBonusBps: bps(d.reward),
       basisBps: bps(d.basis),
       storageFeePerTonMonth: storage,
     },
@@ -78,7 +81,10 @@ export function CropsTab() {
   const { commodities } = useCommodities();
   return (
     <div className="stack">
-      <Notice>The contract refuses rules that don&apos;t add up, for example settling an advance below its borrow limit.</Notice>
+      <Notice>
+        The contract refuses rules that don&apos;t add up: for example settling an advance below its borrow limit, or a settlement
+        reward the crop could not cover at the point of settlement.
+      </Notice>
       {commodities.map((c) => (
         <Card key={c.id.toString()} title={`${c.name} · crop ${c.id.toString()}`}>
           <CropEditor commodity={c} />
@@ -152,6 +158,7 @@ function CropEditor({ commodity }: { commodity?: Commodity }) {
         {field("Expires after", "daysToExpiry", "days")}
         {field("Borrow limit", "maxLoan", "% of value")}
         {field("Settled at", "settleAt", "% of value")}
+        {field("Settlement reward", "reward", "% of what is repaid")}
         {field("Basis cut", "basis", "% off the world price")}
         {field("Storage fee", "storage", "$ per tonne a month")}
       </div>

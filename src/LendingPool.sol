@@ -42,10 +42,16 @@ interface ICommodityToken {
  *        decay the lot will go through before then is priced in from day one. Maturity must fall at
  *        least MATURITY_BUFFER before the lot expires.
  *      - A loan becomes liquidatable once its debt reaches `liquidationLtvBps` of the collateral's
- *        current value, or GRACE_PERIOD after an unpaid maturity. Anyone may liquidate: they pay the
- *        debt and receive collateral worth the debt plus LIQUIDATION_BONUS_BPS; the rest goes back to
- *        the borrower. If the collateral is worth less than that, the liquidator gets all of it for
- *        its value less the bonus, and protocol reserves absorb the shortfall.
+ *        current value, or GRACE_PERIOD after an unpaid maturity. Anyone may liquidate, and earns the
+ *        commodity's `liquidationBonusBps` on what they repay, paid in collateral.
+ *      - Partial liquidation: while the collateral is worth more than the debt plus that reward, a
+ *        liquidator repays at most CLOSE_FACTOR_BPS of the debt and the loan stays open, healthier,
+ *        with the rest of its collateral. A loan is closed in full when it is overdue, when the
+ *        collateral no longer covers the debt plus the reward (a partial repayment would then leave
+ *        it less healthy), or when what would remain is below MIN_BORROW_AMOUNT. Closing in full,
+ *        the liquidator pays the debt for collateral worth the debt plus the reward and the rest goes
+ *        back to the borrower; if the collateral is worth less, the liquidator gets all of it for its
+ *        value less the reward, and protocol reserves absorb the shortfall.
  *      - The keeper (KEEPER_ROLE) can liquidate with protocol reserves instead, so investors are
  *        repaid even when no outside liquidator steps in; the pool keeps that collateral as protocol
  *        inventory for the admin to sell.
@@ -77,7 +83,8 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     uint256 private constant SLOPE_ABOVE_KINK = 50e16; // adds 10% between 80% and 100%
     uint256 private constant KINK = 80e16; // 80% utilisation
 
-    uint256 public constant LIQUIDATION_BONUS_BPS = 500; // 5%
+    /// @notice Most of a loan's debt one liquidation may repay while the loan can be made healthy again.
+    uint256 public constant CLOSE_FACTOR_BPS = 5_000; // 50%
     uint256 public constant MIN_LOAN_TERM = 1 days;
     uint256 public constant MATURITY_BUFFER = 30 days;
     uint256 public constant GRACE_PERIOD = 7 days;
@@ -173,6 +180,14 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         uint256 kgReturned,
         uint256 shortfall
     );
+    event LoanPartiallyLiquidated(
+        uint256 indexed loanId,
+        address indexed borrower,
+        address indexed liquidator,
+        uint256 debtRepaid,
+        uint256 kgSeized,
+        uint256 remainingDebt
+    );
     event ReservesUsed(uint256 indexed loanId, uint256 amount);
     event ReservesDeposited(address indexed from, uint256 amount);
     event ReservesWithdrawn(address indexed to, uint256 amount);
@@ -201,6 +216,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     error LendingPool__InvalidReserveFactor();
     error LendingPool__NativeTokenNotSupported();
     error LendingPool__InvalidCall();
+    error LendingPool__RepayLimitTooLow(uint256 required);
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -373,19 +389,27 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Liquidates a loan past its liquidation point or overdue. The caller pays the debt in
-     *         USDC and receives collateral worth the debt plus the 5% bonus; the rest of the
-     *         collateral goes back to the borrower.
+     * @notice Liquidates a loan past its liquidation point or overdue. The caller repays debt in USDC
+     *         and receives collateral worth what they repay plus the commodity's reward. While the
+     *         loan can be made healthy again this repays at most CLOSE_FACTOR_BPS of the debt and the
+     *         loan stays open; otherwise it closes the loan (see the contract notes).
+     * @param _maxRepay The most USDC the caller will pay. A partial liquidation repays up to this;
+     *        if the loan must be closed and that costs more, the call reverts with
+     *        LendingPool__RepayLimitTooLow. Pass type(uint256).max to repay as much as allowed.
      */
-    function liquidate(uint256 _loanId) external whenNotPaused nonReentrant {
+    function liquidate(uint256 _loanId, uint256 _maxRepay) external whenNotPaused nonReentrant nonZero(_maxRepay) {
         _accrue();
         Loan storage loan = _activeLoan(_loanId);
-        (uint256 payment, uint256 seizedKg, uint256 shortfall) = _liquidationTerms(loan);
+        (uint256 payment, uint256 seizedKg, uint256 shortfall, bool closes) = _liquidationTerms(loan, _maxRepay);
 
         i_usdc.safeTransferFrom(msg.sender, address(this), payment);
         cash += payment;
-        _coverShortfall(_loanId, shortfall);
-        _settleLiquidation(_loanId, loan, msg.sender, payment, seizedKg, shortfall);
+        if (closes) {
+            _coverShortfall(_loanId, shortfall);
+            _settleLiquidation(_loanId, loan, msg.sender, payment, seizedKg, shortfall);
+        } else {
+            _settlePartialLiquidation(_loanId, loan, msg.sender, payment, seizedKg);
+        }
     }
 
     /**
@@ -395,16 +419,20 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     function liquidateWithReserves(uint256 _loanId) external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
         _accrue();
         Loan storage loan = _activeLoan(_loanId);
-        (uint256 payment, uint256 seizedKg, uint256 shortfall) = _liquidationTerms(loan);
+        (uint256 payment, uint256 seizedKg, uint256 shortfall, bool closes) = _liquidationTerms(loan, type(uint256).max);
 
         // The debt is paid out of reserves: cash stays put, reserves become collateral inventory.
         if (payment > reserves) revert LendingPool__InsufficientReserves();
         reserves -= payment;
         emit ReservesUsed(_loanId, payment);
 
-        _coverShortfall(_loanId, shortfall);
         inventory[loan.lotId] += seizedKg;
-        _settleLiquidation(_loanId, loan, address(this), payment, seizedKg, shortfall);
+        if (closes) {
+            _coverShortfall(_loanId, shortfall);
+            _settleLiquidation(_loanId, loan, address(this), payment, seizedKg, shortfall);
+        } else {
+            _settlePartialLiquidation(_loanId, loan, address(this), payment, seizedKg);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -564,6 +592,20 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     }
 
     /**
+     * @notice What liquidating the loan now would take: the USDC to repay, the kilograms the
+     *         liquidator would receive, and whether the loan would close. All zero while it cannot be
+     *         liquidated (healthy, or its lot frozen).
+     */
+    function liquidationQuote(uint256 _loanId)
+        external
+        view
+        returns (uint256 repay, uint256 kgSeized, bool closesLoan)
+    {
+        if (!isLiquidatable(_loanId) || i_registry.isFrozen(s_loans[_loanId].lotId)) return (0, 0, false);
+        (repay, kgSeized,, closesLoan) = _liquidationTerms(s_loans[_loanId], type(uint256).max);
+    }
+
+    /**
      * @notice Oracle price (USD per kilogram, 8 decimals) at which the loan reaches its liquidation
      *         point today, for "keep the price above X" warnings.
      */
@@ -598,28 +640,47 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     }
 
     /**
-     * @dev What a liquidation pays, seizes and leaves unpaid:
-     *      - collateral worth more than debt x 1.05: pay the debt, take debt x 1.05 worth, the rest
-     *        goes back to the borrower;
-     *      - worth between the debt and debt x 1.05: pay the debt, take it all (a smaller bonus);
-     *      - worth less than the debt: take it all for its value less the bonus; the rest of the debt
-     *        is the shortfall, which reserves absorb.
+     * @dev What a liquidation pays, seizes and leaves unpaid, with the reward b the commodity sets:
+     *      - Partial (not overdue, collateral worth more than debt x (1 + b)): repay at most
+     *        CLOSE_FACTOR_BPS of the debt, and at most `_maxRepay`; take what was repaid x (1 + b)
+     *        worth of collateral; keep the loan open. Repaying r of a debt D against collateral worth
+     *        V leaves (D - r) / (V - r(1 + b)), which is below D / V exactly when V > D(1 + b), so the
+     *        loan is always left healthier.
+     *      - Closing, when partial does not apply or would leave less than MIN_BORROW_AMOUNT:
+     *          collateral worth more than debt x (1 + b): pay the debt, take debt x (1 + b) worth,
+     *          the rest goes back to the borrower;
+     *          worth between the debt and debt x (1 + b): pay the debt, take it all (a smaller reward);
+     *          worth less than the debt: take it all for its value less the reward; the rest of the
+     *          debt is the shortfall, which reserves absorb.
+     *        Closing must cost no more than `_maxRepay`.
      */
-    function _liquidationTerms(Loan storage _loan)
+    function _liquidationTerms(Loan storage _loan, uint256 _maxRepay)
         internal
         view
-        returns (uint256 payment, uint256 seizedKg, uint256 shortfall)
+        returns (uint256 payment, uint256 seizedKg, uint256 shortfall, bool closes)
     {
         if (i_registry.isFrozen(_loan.lotId)) revert LendingPool__LotFrozen();
 
+        CommodityConfig.Commodity memory commodity = _commodity(_loan.lotId);
         uint256 debt = _debt(_loan.scaledDebt);
         uint256 value = _valueAt(_loan.lotId, _loan.collateralKg, block.timestamp);
         bool overdue = block.timestamp > uint256(_loan.maturity) + GRACE_PERIOD;
-        if (!overdue && debt * BPS < value * _commodity(_loan.lotId).liquidationLtvBps) {
-            revert LendingPool__PositionHealthy();
+        if (!overdue && debt * BPS < value * commodity.liquidationLtvBps) revert LendingPool__PositionHealthy();
+
+        uint256 bonus = commodity.liquidationBonusBps;
+        uint256 claim = (debt * (BPS + bonus)) / BPS;
+
+        if (!overdue && value > claim) {
+            uint256 repay = (debt * CLOSE_FACTOR_BPS) / BPS;
+            if (_maxRepay < repay) repay = _maxRepay;
+            if (debt - repay >= MIN_BORROW_AMOUNT) {
+                seizedKg = (_loan.collateralKg * ((repay * (BPS + bonus)) / BPS)) / value;
+                return (repay, seizedKg, 0, false);
+            }
+            // What would remain is below the smallest loan: close it instead.
         }
 
-        uint256 claim = (debt * (BPS + LIQUIDATION_BONUS_BPS)) / BPS;
+        closes = true;
         if (value > claim) {
             payment = debt;
             seizedKg = (_loan.collateralKg * claim) / value;
@@ -627,10 +688,12 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
             payment = debt;
             seizedKg = _loan.collateralKg;
         } else {
-            payment = (value * BPS) / (BPS + LIQUIDATION_BONUS_BPS);
+            // Rounded up, so the liquidator never pays less than the collateral's value less the reward.
+            payment = (value * BPS + BPS + bonus - 1) / (BPS + bonus);
             seizedKg = _loan.collateralKg;
             shortfall = debt - payment;
         }
+        if (payment > _maxRepay) revert LendingPool__RepayLimitTooLow(payment);
     }
 
     /// @dev Reserves absorb bad debt first; anything beyond them falls on investors.
@@ -641,6 +704,27 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
             reserves -= covered;
             emit ReservesUsed(_loanId, covered);
         }
+    }
+
+    /// @dev Repays part of the debt and hands over part of the collateral; the loan stays open.
+    function _settlePartialLiquidation(
+        uint256 _loanId,
+        Loan storage _loan,
+        address _recipient,
+        uint256 _payment,
+        uint256 _seizedKg
+    ) internal {
+        // Rounded down, so the borrower is never credited with more than was paid.
+        uint256 scaledRepaid = _toScaledDown(_payment);
+        _loan.scaledDebt -= scaledRepaid;
+        totalScaledDebt -= scaledRepaid;
+        _loan.collateralKg -= _seizedKg;
+
+        if (_recipient != address(this)) {
+            i_commodityToken.safeTransferFrom(address(this), _recipient, _loan.lotId, _seizedKg, "");
+        }
+
+        emit LoanPartiallyLiquidated(_loanId, _loan.borrower, _recipient, _payment, _seizedKg, _debt(_loan.scaledDebt));
     }
 
     /// @dev Closes the loan, sends the seized collateral and returns the rest to the borrower.

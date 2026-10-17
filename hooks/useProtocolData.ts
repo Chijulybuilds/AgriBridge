@@ -57,6 +57,8 @@ export type Commodity = {
   daysToExpiry: number;
   maxLtvBps: number;
   liquidationLtvBps: number;
+  /** A settler's reward, as a share of what they repay. */
+  liquidationBonusBps: number;
   basisBps: number;
   /** USDC (6 decimals) per metric ton per 30 days. */
   storageFeePerTonMonth: bigint;

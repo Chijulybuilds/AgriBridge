@@ -51,6 +51,19 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
+    "name": "CLOSE_FACTOR_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "DEFAULT_ADMIN_ROLE",
     "inputs": [],
     "outputs": [
@@ -84,19 +97,6 @@ export const LendingPoolAbi = [
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "LIQUIDATION_BONUS_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -740,6 +740,11 @@ export const LendingPoolAbi = [
         "name": "_loanId",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "_maxRepay",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -773,6 +778,35 @@ export const LendingPoolAbi = [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "liquidationQuote",
+    "inputs": [
+      {
+        "name": "_loanId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "repay",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "kgSeized",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "closesLoan",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -1348,6 +1382,49 @@ export const LendingPoolAbi = [
   },
   {
     "type": "event",
+    "name": "LoanPartiallyLiquidated",
+    "inputs": [
+      {
+        "name": "loanId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "borrower",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "liquidator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "debtRepaid",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "kgSeized",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "remainingDebt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "LoanRepaid",
     "inputs": [
       {
@@ -1648,6 +1725,17 @@ export const LendingPoolAbi = [
     "type": "error",
     "name": "LendingPool__PositionHealthy",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LendingPool__RepayLimitTooLow",
+    "inputs": [
+      {
+        "name": "required",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

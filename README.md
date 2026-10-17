@@ -39,9 +39,11 @@ AgriBridge is the team's entry for the STEM Festival brief *"The Agri-Token Exch
    cushion, filled by 20% of the interest, absorbs bad debt first.
 5. **Crop ages.** Its value falls a little each day, from Grade A to B to C, until it expires.
    Expired stock is bought by AgriBridge at a discount and resold for animal feed.
-6. **If an advance's crop falls in value** until the advance is 80% of it, or the advance is 7 days
-   late, part of the crop is sold to repay it plus 5%. The rest goes back to the farmer, who keeps
-   the money borrowed. Anyone can trigger this; a keeper makes sure it happens.
+6. **If an advance's crop falls in value** until the advance is 80% of it, enough crop is sold to
+   repay up to half of it, plus a reward of 5–8% (more for crops that are slower to sell), and the
+   advance carries on with less owed. If it is 7 days late, or the crop no longer covers what is
+   owed, the whole advance is settled and any crop left goes back to the farmer, who keeps the
+   money borrowed. Anyone can trigger this; a keeper makes sure it happens.
 7. **A regulator** can freeze any lot or warehouse during an investigation.
 
 Every step is a transaction anyone can check on the block explorer.

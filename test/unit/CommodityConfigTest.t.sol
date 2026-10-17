@@ -63,6 +63,7 @@ contract CommodityConfigTest is Test {
         assertEq(stored.daysToExpiry, 540);
         assertEq(stored.maxLtvBps, 5_000);
         assertEq(stored.liquidationLtvBps, 8_000);
+        assertEq(stored.liquidationBonusBps, 500);
         assertEq(stored.basisBps, 1_500);
         assertEq(stored.storageFeePerTonMonth, 5e6);
     }
@@ -163,6 +164,40 @@ contract CommodityConfigTest is Test {
                                VALIDATION
     //////////////////////////////////////////////////////////////*/
 
+    function test_Defaults_RewardSlowerSellingCropsMore() public pure {
+        CommodityConfig.Commodity[] memory rows = CommodityDefaults.all();
+        assertEq(rows[CommodityDefaults.COCOA - 1].liquidationBonusBps, 500);
+        assertEq(rows[CommodityDefaults.RICE - 1].liquidationBonusBps, 500);
+        assertEq(rows[CommodityDefaults.MAIZE - 1].liquidationBonusBps, 500);
+        assertEq(rows[CommodityDefaults.SOYBEANS - 1].liquidationBonusBps, 500);
+        assertEq(rows[CommodityDefaults.CASHEW - 1].liquidationBonusBps, 700);
+        assertEq(rows[CommodityDefaults.YAM - 1].liquidationBonusBps, 800);
+    }
+
+    function test_AddCommodity_Revert_NoLiquidationReward() public {
+        CommodityConfig.Commodity memory row = _cocoa();
+        row.liquidationBonusBps = 0; // nobody would settle a loan for nothing
+        _expectAddReverts(row, CommodityConfig.CommodityConfig__InvalidLiquidationBonus.selector);
+    }
+
+    function test_AddCommodity_Revert_LiquidationRewardAboveTheCap() public {
+        CommodityConfig.Commodity memory row = _cocoa();
+        row.liquidationBonusBps = config.MAX_LIQUIDATION_BONUS_BPS() + 1;
+        _expectAddReverts(row, CommodityConfig.CommodityConfig__InvalidLiquidationBonus.selector);
+    }
+
+    /// @notice At the liquidation point the collateral must still cover the debt plus the reward.
+    function test_AddCommodity_Revert_RewardTheCollateralCannotCover() public {
+        CommodityConfig.Commodity memory row = _cocoa();
+        row.maxLtvBps = 5_000;
+        row.liquidationLtvBps = 9_000;
+        row.liquidationBonusBps = 1_200; // 90% x 1.12 = 100.8%
+        _expectAddReverts(row, CommodityConfig.CommodityConfig__InvalidLiquidationBonus.selector);
+
+        row.liquidationBonusBps = 1_100; // 90% x 1.11 = 99.9%: still covered
+        _add(row);
+    }
+
     function _expectAddReverts(CommodityConfig.Commodity memory _row, bytes4 _error) internal {
         vm.expectRevert(_error);
         vm.prank(admin);
@@ -234,8 +269,11 @@ contract CommodityConfigTest is Test {
         row.maxLtvBps = _maxLtv;
         row.liquidationLtvBps = _liquidationLtv;
 
-        bool valid = _maxLtv > 0 && _maxLtv < _liquidationLtv && _liquidationLtv < 10_000;
-        if (!valid) vm.expectRevert(CommodityConfig.CommodityConfig__InvalidLtv.selector);
+        bool validLtv = _maxLtv > 0 && _maxLtv < _liquidationLtv && _liquidationLtv < 10_000;
+        // And at the liquidation point the collateral must cover the debt plus cocoa's 5% reward.
+        bool rewardCovered = uint256(_liquidationLtv) * (10_000 + row.liquidationBonusBps) < 10_000 * 10_000;
+        if (!validLtv) vm.expectRevert(CommodityConfig.CommodityConfig__InvalidLtv.selector);
+        else if (!rewardCovered) vm.expectRevert(CommodityConfig.CommodityConfig__InvalidLiquidationBonus.selector);
 
         vm.prank(admin);
         config.addCommodity(row);

@@ -24,14 +24,16 @@ library CommodityDefaults {
     function all() internal pure returns (CommodityConfig.Commodity[] memory rows) {
         rows = new CommodityConfig.Commodity[](COUNT);
         // World-priced export crops carry a basis cut for transport, export and storage.
-        rows[0] = _row("Cocoa", CommodityConfig.PriceSource.Global, 180, 360, 540, 5_000, 1_500, 5e6);
-        rows[1] = _row("Rice", CommodityConfig.PriceSource.Global, 180, 360, 540, 5_000, 1_000, 4e6);
-        rows[2] = _row("Maize", CommodityConfig.PriceSource.Global, 180, 360, 540, 5_000, 1_000, 3e6);
-        // No major futures market, so reporters post a local price and no basis cut applies.
-        rows[3] = _row("Cashew", CommodityConfig.PriceSource.Local, 270, 450, 720, 5_000, 0, 5e6);
-        // Yam spoils fastest and has only local prices, so it gets a lower loan limit.
-        rows[4] = _row("Yam", CommodityConfig.PriceSource.Local, 60, 120, 180, 4_000, 0, 4e6);
-        rows[5] = _row("Soybeans", CommodityConfig.PriceSource.Global, 180, 360, 540, 5_000, 1_000, 3e6);
+        rows[0] = _row("Cocoa", CommodityConfig.PriceSource.Global, 180, 360, 540, 5_000, 500, 1_500, 5e6);
+        rows[1] = _row("Rice", CommodityConfig.PriceSource.Global, 180, 360, 540, 5_000, 500, 1_000, 4e6);
+        rows[2] = _row("Maize", CommodityConfig.PriceSource.Global, 180, 360, 540, 5_000, 500, 1_000, 3e6);
+        // No major futures market, so reporters post a local price and no basis cut applies. Sold
+        // only locally, so liquidators get a larger reward (7%) than for world-traded crops (5%).
+        rows[3] = _row("Cashew", CommodityConfig.PriceSource.Local, 270, 450, 720, 5_000, 700, 0, 5e6);
+        // Yam spoils fastest and has only local prices, so it gets a lower loan limit and the
+        // largest liquidation reward (8%).
+        rows[4] = _row("Yam", CommodityConfig.PriceSource.Local, 60, 120, 180, 4_000, 800, 0, 4e6);
+        rows[5] = _row("Soybeans", CommodityConfig.PriceSource.Global, 180, 360, 540, 5_000, 500, 1_000, 3e6);
     }
 
     /// @dev Grade B is worth 75% of Grade A and Grade C 40%; every commodity liquidates at 80% LTV.
@@ -42,6 +44,7 @@ library CommodityDefaults {
         uint16 _daysToGradeC,
         uint16 _daysToExpiry,
         uint16 _maxLtvBps,
+        uint16 _liquidationBonusBps,
         uint16 _basisBps,
         uint64 _storageFeePerTonMonth
     ) private pure returns (CommodityConfig.Commodity memory) {
@@ -56,6 +59,7 @@ library CommodityDefaults {
             daysToExpiry: _daysToExpiry,
             maxLtvBps: _maxLtvBps,
             liquidationLtvBps: 8_000,
+            liquidationBonusBps: _liquidationBonusBps,
             basisBps: _basisBps,
             storageFeePerTonMonth: _storageFeePerTonMonth
         });

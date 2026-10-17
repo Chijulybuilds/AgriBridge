@@ -229,14 +229,16 @@ contract ProtocolIntegrationTest is ProtocolFixture {
         usdc.mint(liquidator, debt);
         vm.startPrank(liquidator);
         usdc.approve(address(d.pool), debt);
-        d.pool.liquidate(loanId);
+        d.pool.liquidate(loanId, type(uint256).max);
         vm.stopPrank();
 
+        // Cocoa's reward is 5%: half the debt ($1,000) is repaid for $1,050 of cocoa.
         uint256 seized = d.commodityToken.balanceOf(liquidator, lotId);
-        assertEq(seized, (uint256(QUANTITY) * 2_100e6) / 2_380e6, "$2,100 of cocoa");
-        assertEq(d.commodityToken.balanceOf(farmer, lotId), QUANTITY - seized, "the rest goes back");
+        assertEq(seized, (uint256(QUANTITY) * 1_050e6) / 2_380e6, "$1,050 of cocoa");
+        assertEq(d.pool.getLoan(loanId).collateralKg, QUANTITY - seized, "the rest still backs the loan");
+        assertEq(uint8(d.pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.ACTIVE));
+        assertFalse(d.pool.isLiquidatable(loanId), "healthy again: $1,000 against $1,330");
         assertEq(usdc.balanceOf(farmer), 2_000e6, "the farmer keeps the loan");
-        assertEq(uint8(d.pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.LIQUIDATED));
     }
 
     /// @notice An unpaid loan becomes liquidatable a week after maturity; with no outside liquidator,

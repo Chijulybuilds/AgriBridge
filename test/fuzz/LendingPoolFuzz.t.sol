@@ -95,10 +95,11 @@ contract LendingPoolFuzzTest is ProtocolFixture {
     }
 
     /**
-     * @notice Whatever the price drop, a liquidator receives at most debt + 5% of collateral, the
-     *         borrower gets the rest, and investors lose nothing while the collateral covers the debt.
+     * @notice Whatever the price drop and however much a liquidator offers to repay: they receive at
+     *         most what they repaid plus cashew's 7% reward, no kilogram is lost, and investors lose
+     *         nothing while the collateral covers the debt.
      */
-    function testFuzz_LiquidationTakesAtMostDebtPlusBonus(uint256 newPrice) public {
+    function testFuzz_LiquidationTakesAtMostRepaidPlusReward(uint256 newPrice, uint256 maxRepay) public {
         uint256 lotId = _verifiedLot(farmer, CASHEW, 1_000e18, CommodityRegistry.Grade.A);
         _seedPool(100_000e6);
         uint256 loanId = _borrow(farmer, lotId, 1_000e18, 1_500e6, 30);
@@ -108,22 +109,62 @@ contract LendingPoolFuzzTest is ProtocolFixture {
         d.oracle.forcePrice(CASHEW, uint128(newPrice));
         vm.assume(d.pool.isLiquidatable(loanId));
 
-        uint256 debt = d.pool.debtOf(loanId);
-        uint256 value = d.pool.getCollateralValue(lotId, 1_000e18);
+        bool covered = d.pool.getCollateralValue(lotId, 1_000e18) >= d.pool.debtOf(loanId);
         uint256 assetsBefore = d.pool.totalAssets();
+        (uint256 quoted,, bool closes) = d.pool.liquidationQuote(loanId);
+        // A partial liquidation accepts any limit; closing needs at least the full cost.
+        maxRepay = closes ? bound(maxRepay, quoted, type(uint256).max) : bound(maxRepay, 1, type(uint256).max);
 
+        (uint256 paid, uint256 seized) = _liquidateAsOutsider(loanId, lotId, maxRepay);
+
+        assertLe(paid, maxRepay, "never more than offered");
+        assertLe(d.pool.getCollateralValue(lotId, seized), (paid * 10_700) / 10_000 + 1, "at most what was repaid + 7%");
+        LendingPool.Loan memory loan = d.pool.getLoan(loanId);
+        uint256 stillPledged = loan.status == LendingPool.LoanStatus.ACTIVE ? loan.collateralKg : 0;
+        assertEq(seized + d.commodityToken.balanceOf(farmer, lotId) + stillPledged, 1_000e18, "no kilogram is lost");
+        if (covered) assertGe(d.pool.totalAssets(), assetsBefore, "investors are made whole");
+    }
+
+    /// @dev An outside liquidator with plenty of USDC liquidates; returns what they paid and received.
+    function _liquidateAsOutsider(uint256 _loanId, uint256 _lotId, uint256 _maxRepay)
+        internal
+        returns (uint256 paid, uint256 seized)
+    {
         address liquidator = makeAddr("liquidator");
-        usdc.mint(liquidator, debt);
+        usdc.mint(liquidator, 10_000e6);
         vm.startPrank(liquidator);
-        usdc.approve(address(d.pool), debt);
-        d.pool.liquidate(loanId);
+        usdc.approve(address(d.pool), type(uint256).max);
+        d.pool.liquidate(_loanId, _maxRepay);
+        vm.stopPrank();
+        paid = 10_000e6 - usdc.balanceOf(liquidator);
+        seized = d.commodityToken.balanceOf(liquidator, _lotId);
+    }
+
+    /// @notice A partial liquidation always leaves the loan healthier than it found it.
+    function testFuzz_PartialLiquidationAlwaysLeavesTheLoanHealthier(uint256 newPrice, uint256 maxRepay) public {
+        uint256 lotId = _verifiedLot(farmer, CASHEW, 1_000e18, CommodityRegistry.Grade.A);
+        _seedPool(100_000e6);
+        uint256 loanId = _borrow(farmer, lotId, 1_000e18, 1_500e6, 30);
+
+        newPrice = bound(newPrice, 161e6, 187e6); // between debt + 7% and the 80% point
+        // forge-lint: disable-next-line(unsafe-typecast)
+        d.oracle.forcePrice(CASHEW, uint128(newPrice));
+        vm.assume(d.pool.isLiquidatable(loanId));
+        (,, bool closes) = d.pool.liquidationQuote(loanId);
+        vm.assume(!closes);
+        maxRepay = bound(maxRepay, 1e6, type(uint256).max);
+
+        uint256 healthBefore = d.pool.getHealthFactor(loanId);
+        address liquidator = makeAddr("liquidator");
+        usdc.mint(liquidator, 1_500e6);
+        vm.startPrank(liquidator);
+        usdc.approve(address(d.pool), 1_500e6);
+        d.pool.liquidate(loanId, maxRepay);
         vm.stopPrank();
 
-        uint256 seized = d.commodityToken.balanceOf(liquidator, lotId);
-        uint256 seizedValue = d.pool.getCollateralValue(lotId, seized);
-        assertLe(seizedValue, (debt * 10_500) / 10_000 + 1, "at most debt + 5%");
-        assertEq(seized + d.commodityToken.balanceOf(farmer, lotId), 1_000e18, "the rest goes back");
-        if (value >= debt) assertGe(d.pool.totalAssets(), assetsBefore, "investors are made whole");
+        assertEq(uint8(d.pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.ACTIVE), "the loan stays open");
+        assertGt(d.pool.getHealthFactor(loanId), healthBefore, "and is healthier");
+        assertGe(d.pool.debtOf(loanId), d.pool.MIN_BORROW_AMOUNT(), "never leaves dust");
     }
 
     /// @notice Depositing never changes what existing shares are worth (no dilution, no gift).

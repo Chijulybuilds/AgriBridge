@@ -97,6 +97,8 @@ function describe(log: DecodedLog, commodityNames: Map<bigint, string>): string 
       return (a.remainingDebt as bigint) === 0n
         ? `Advance ${a.loanId} was repaid in full (${usd(a.amount as bigint)}); the crop went back`
         : `${usd(a.amount as bigint)} was repaid on advance ${a.loanId}`;
+    case "LoanPartiallyLiquidated":
+      return `Part of advance ${a.loanId} was settled by selling ${kg(a.kgSeized as bigint)} of its crop for ${usd(a.debtRepaid as bigint)}; ${usd(a.remainingDebt as bigint)} is still owed`;
     case "LoanLiquidated":
       return `Advance ${a.loanId} was settled by selling ${kg(a.kgSeized as bigint)} of its crop; ${kg(a.kgReturned as bigint)} went back to the farmer`;
     case "Listed":

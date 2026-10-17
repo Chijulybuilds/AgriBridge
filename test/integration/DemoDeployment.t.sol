@@ -133,11 +133,12 @@ contract DemoDeploymentTest is Test {
 
         vm.startPrank(SAFE);
         usdc.approve(address(d.pool), type(uint256).max);
-        d.pool.liquidate(risky);
+        d.pool.liquidate(risky, type(uint256).max);
         vm.stopPrank();
         uint256 seized = d.commodityToken.balanceOf(SAFE, cashew);
         assertGt(seized, 0);
-        assertEq(d.commodityToken.balanceOf(farmer, cashew), QUANTITY - seized, "leftover returned");
+        assertEq(d.pool.getLoan(risky).collateralKg, QUANTITY - seized, "half settled; the rest still backs the loan");
+        assertFalse(d.pool.isLiquidatable(risky), "and the loan is healthy again");
 
         // Investor withdraws, having earned the first loan's interest.
         uint256 shares = d.shareToken.balanceOf(investor);

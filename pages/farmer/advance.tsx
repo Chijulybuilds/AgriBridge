@@ -187,8 +187,10 @@ export default function Advance() {
             )}
             <Notice tone="warn">
               If the crop&apos;s value falls until the advance is {lot && commodity ? percentFromBps(commodity.liquidationLtvBps) : "80%"} of
-              it, or you are more than 7 days late, part of the crop is sold to repay the advance plus 5%. The rest comes back to you, and
-              you keep the dollars you borrowed.
+              it, part of the crop is sold to repay up to half of the advance, plus a{" "}
+              {lot && commodity ? percentFromBps(commodity.liquidationBonusBps) : "5%"} reward for whoever settles it, and the advance
+              carries on with less owed. If you are more than 7 days late, or the crop no longer covers what you owe, the whole advance
+              is settled. Any crop left over comes back to you, and you keep the dollars you borrowed.
             </Notice>
           </Card>
         </div>

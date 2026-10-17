@@ -178,7 +178,7 @@ test("6. an investor invests, then withdraws part", async ({ browser }) => {
   await expect(page.getByTestId("position")).toContainText("$500");
 });
 
-test("7. a price crash puts an advance at risk; the keeper settles it from the cushion", async ({ browser }) => {
+test("7. a price crash puts an advance at risk; the keeper settles half, and the farmer repays the rest", async ({ browser }) => {
   const farmer = await openAs(browser, "farmer");
   await signIn(farmer, "farmer");
   await farmer.goto("/farmer/advance");
@@ -199,8 +199,12 @@ test("7. a price crash puts an advance at risk; the keeper settles it from the c
   await verifier.getByTestId("run-keeper").click();
   await confirmed(verifier, "Settle with the cushion");
 
+  // Partial settlement: half the $1,000 is repaid from the cushion and the advance carries on.
   await farmer.goto("/farmer/loans");
-  await expect(farmer.getByText("Liquidated")).toBeVisible({ timeout: 30_000 });
+  await expect(farmer.getByTestId("owed")).toContainText("$500.", { timeout: 30_000 });
+  // The farmer repays the rest and gets the cocoa that was not sold back.
+  await farmer.getByTestId("repay-all").click();
+  await expect(farmer.getByTestId("repaid")).toContainText("repaid in full", { timeout: 60_000 });
 });
 
 test("8. the regulator freezes a lot, then unfreezes it", async ({ browser }) => {

@@ -38,6 +38,19 @@
   },
   {
     "type": "function",
+    "name": "MAX_LIQUIDATION_BONUS_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "addCommodity",
     "inputs": [
       {
@@ -92,6 +105,11 @@
           },
           {
             "name": "liquidationLtvBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "liquidationBonusBps",
             "type": "uint16",
             "internalType": "uint16"
           },
@@ -193,6 +211,11 @@
           },
           {
             "name": "liquidationLtvBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "liquidationBonusBps",
             "type": "uint16",
             "internalType": "uint16"
           },
@@ -429,6 +452,11 @@
             "internalType": "uint16"
           },
           {
+            "name": "liquidationBonusBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
             "name": "basisBps",
             "type": "uint16",
             "internalType": "uint16"
@@ -609,6 +637,11 @@
   {
     "type": "error",
     "name": "CommodityConfig__InvalidGradeFactors",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommodityConfig__InvalidLiquidationBonus",
     "inputs": []
   },
   {

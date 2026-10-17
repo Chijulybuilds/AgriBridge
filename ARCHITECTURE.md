@@ -44,7 +44,7 @@ value = oracle price (USD/kg) × kilograms × decay factor × (1 − basis cut)
 | `CommodityToken` | ERC-1155, one token per kilogram, token id = lot id. Only the registry mints and only the warehouse desk burns. Frozen lots can't move, except back from the protocol. Metadata is on-chain. |
 | `CommodityPriceOracle` | USD/kg per crop. Staleness limit per crop; a 10% move cap that holds a bigger jump until a later update agrees; pause as a circuit breaker; the Safe's override; and for local crops, a price only when 2 of the approved reporters agree. |
 | `FunctionsPriceFeeder` | Chainlink Functions: the median of several price APIs for the world-priced crops. Built and tested; switched off for the festival demo. |
-| `LendingPool` | Investors' USDC and AgriShare shares, plus the advances. A borrow is limited by the crop's value at its end date. Interest accrues every second (80% to investors, 20% to the loss cushion). A loan is liquidated at 80% of the crop's value or 7 days overdue: the debt plus 5% is taken and the rest returned. Bad debt hits the cushion first. |
+| `LendingPool` | Investors' USDC and AgriShare shares, plus the advances. A borrow is limited by the crop's value at its end date. Interest accrues every second (80% to investors, 20% to the loss cushion). A loan is liquidated at 80% of the crop's value: up to half the debt is repaid for that much crop plus the crop's reward (5–8%), and the loan carries on. Overdue by 7 days, or no longer covered, it closes in full and any crop left is returned. Bad debt hits the cushion first. |
 | `LiquidationKeeper` | Chainlink Automation upkeep, also callable by anyone, that settles due loans from the cushion. |
 | `Marketplace` | Listings at a fixed price or at a share of today's value, with optional bulk deals and partial buys protected by a price limit. A 1% fee. Clearance: expired stock sold to the protocol 30% below value and relisted for feed buyers. |
 | `WarehouseDesk` | Collecting goods: pickup, or delivery within a budget. Storage is charged pro rata by the day, and the Safe confirms the goods left. |
@@ -63,7 +63,7 @@ prices, hands every role to the Safe, and audits the result: the deployer must k
 | Regulator | `REGULATOR_ROLE` | freeze or unfreeze lots and warehouses |
 | Reporters | `isReporter` on the oracle | post local prices (two must agree) |
 | Keeper | `KEEPER_ROLE` on the pool | settle due loans from the cushion |
-| Anyone | none | deliver, borrow, repay, invest, list, buy, collect, liquidate due loans for the 5% bonus |
+| Anyone | none | deliver, borrow, repay, invest, list, buy, collect, liquidate due loans for the crop's reward |
 
 ## The app
 

@@ -101,6 +101,7 @@ export default function Risk() {
                 <th>Price</th>
                 <th>Borrow limit</th>
                 <th>Settled at</th>
+                <th>Settlement reward</th>
                 <th>Price status</th>
               </tr>
             </thead>
@@ -116,6 +117,7 @@ export default function Risk() {
                   <td>{pricePerKg(c.price)}</td>
                   <td>{percentFromBps(c.maxLtvBps)}</td>
                   <td>{percentFromBps(c.liquidationLtvBps)}</td>
+                  <td>{percentFromBps(c.liquidationBonusBps)}</td>
                   <td>{c.fresh ? <Badge tone="green">Current</Badge> : <Badge tone="gold">Out of date</Badge>}</td>
                 </tr>
               ))}
