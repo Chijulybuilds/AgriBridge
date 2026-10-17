@@ -113,6 +113,15 @@ function describe(log: DecodedLog, commodityNames: Map<bigint, string>): string 
       return `The warehouse released collection request ${a.requestId}`;
     case "PriceUpdated":
       return `${commodityNames.get(a.commodityId as bigint) ?? `Commodity ${a.commodityId}`} is now priced at ${pricePerKg(a.price as bigint)}`;
+    case "PriceHeld":
+      return `A new ${commodityNames.get(a.commodityId as bigint) ?? `commodity ${a.commodityId}`} price of ${pricePerKg(a.heldPrice as bigint)} was held for confirmation, as a big move from ${pricePerKg(a.currentPrice as bigint)}`;
+    // Only the oracle's brake is shown; the pool and the market have their own.
+    case "Paused":
+      return log.address.toLowerCase() === contracts.oracle?.toLowerCase()
+        ? "Prices were paused: nothing can borrow or be settled until they resume"
+        : null;
+    case "Unpaused":
+      return log.address.toLowerCase() === contracts.oracle?.toLowerCase() ? "Prices resumed" : null;
     case "Transfer":
       return `${who("to")} received ${usd(a.value as bigint)} of test dollars`;
     default:
@@ -136,7 +145,7 @@ export function useActivity() {
         (range) => logsClient.getContractEvents({ address: pool!, abi: LendingPoolAbi, ...range }),
         (range) => logsClient.getContractEvents({ address: marketplace!, abi: MarketplaceAbi, ...range }),
         (range) => logsClient.getContractEvents({ address: desk!, abi: WarehouseDeskAbi, ...range }),
-        (range) => logsClient.getContractEvents({ address: oracle!, abi: CommodityPriceOracleAbi, eventName: "PriceUpdated", ...range }),
+        (range) => logsClient.getContractEvents({ address: oracle!, abi: CommodityPriceOracleAbi, ...range }),
         (range) =>
           logsClient.getContractEvents({ address: usdc!, abi: DemoUSDCAbi, eventName: "Transfer", args: { from: zeroAddress }, ...range }),
       ]);

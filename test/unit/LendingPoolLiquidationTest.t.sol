@@ -44,7 +44,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
 
     /// @dev $4,010 of cashew (1,000 kg at $4.01) backs a loan due tomorrow.
     function _openLoan(uint256 _amount) internal returns (uint256 lotId, uint256 loanId) {
-        d.oracle.forcePrice(CASHEW, 401e6);
+        _movePrice(CASHEW, 401e6);
         lotId = _verifiedLot(farmer, CASHEW, KG, CommodityRegistry.Grade.A);
         loanId = _borrow(farmer, lotId, KG, _amount, 1);
     }
@@ -74,7 +74,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
 
     function test_Liquidate_Revert_WhileHealthy() public {
         (, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 251e6); // $2,510: 79.7%, just short of 80%
+        _movePrice(CASHEW, 251e6); // $2,510: 79.7%, just short of 80%
 
         assertFalse(pool.isLiquidatable(loanId));
         vm.expectRevert(LendingPool.LendingPool__PositionHealthy.selector);
@@ -88,7 +88,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     /// @notice The worked example: half the debt is repaid, the loan stays open and is healthy again.
     function test_Liquidate_WorkedExample_RepaysHalfAndLeavesTheLoanHealthy() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 250e6); // $2,500 of collateral against $2,000: 80%
+        _movePrice(CASHEW, 250e6); // $2,500 of collateral against $2,000: 80%
         assertTrue(pool.isLiquidatable(loanId));
         assertEq(pool.getHealthFactor(loanId), 1e18);
 
@@ -111,10 +111,10 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     /// @notice Each partial liquidation leaves the loan healthier; a further fall can be settled again.
     function test_Liquidate_EachSettlementLeavesTheLoanHealthier() public {
         (, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
         _liquidate(loanId);
 
-        d.oracle.forcePrice(CASHEW, 200e6); // 572 kg now worth $1,144 against $1,000: 87%
+        _movePrice(CASHEW, 200e6); // 572 kg now worth $1,144 against $1,000: 87%
         uint256 healthBefore = pool.getHealthFactor(loanId);
         assertTrue(pool.isLiquidatable(loanId));
 
@@ -126,7 +126,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
 
     function test_Liquidate_IsOpenToAnyone() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 240e6);
+        _movePrice(CASHEW, 240e6);
 
         address someone = makeAddr("someone");
         usdc.mint(someone, LOAN);
@@ -142,7 +142,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     /// @notice A liquidator can repay less than the close factor allows.
     function test_Liquidate_RespectsTheRepayLimit() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
 
         uint256 liquidatorUsdcBefore = usdc.balanceOf(liquidator);
         vm.prank(liquidator);
@@ -155,7 +155,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
 
     function test_Liquidate_Revert_ZeroRepayLimit() public {
         (, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
 
         vm.expectRevert(LendingPool.LendingPool__ZeroAmount.selector);
         vm.prank(liquidator);
@@ -169,7 +169,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     /// @notice Below debt + reward, a partial repayment would leave the loan worse: it is closed instead.
     function test_Liquidate_ClosesWhenTheCropNoLongerCoversDebtPlusReward() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 205e6); // $2,050: above the $2,000 debt, below $2,140
+        _movePrice(CASHEW, 205e6); // $2,050: above the $2,000 debt, below $2,140
 
         uint256 assetsBefore = pool.totalAssets();
         _liquidate(loanId);
@@ -185,7 +185,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     /// @notice Closing costs the whole debt, so a lower repay limit is refused rather than ignored.
     function test_Liquidate_Revert_RepayLimitBelowAFullSettlement() public {
         (, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 205e6);
+        _movePrice(CASHEW, 205e6);
 
         vm.expectRevert(abi.encodeWithSelector(LendingPool.LendingPool__RepayLimitTooLow.selector, pool.debtOf(loanId)));
         vm.prank(liquidator);
@@ -195,7 +195,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     /// @notice Half of a $150 loan would leave $75, under the $100 minimum: the loan is closed.
     function test_Liquidate_ClosesWhenTheRemainderWouldBeTooSmall() public {
         (uint256 lotId, uint256 loanId) = _openLoan(150e6);
-        d.oracle.forcePrice(CASHEW, 18e6); // $180 against $150: 83%, and above $150 + 7%
+        _movePrice(CASHEW, 18e6); // $180 against $150: 83%, and above $150 + 7%
 
         uint256 liquidatorUsdcBefore = usdc.balanceOf(liquidator);
         _liquidate(loanId);
@@ -215,7 +215,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     function test_Liquidate_BadDebtIsCoveredByReserves() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
         _seedReserves(1_000e6);
-        d.oracle.forcePrice(CASHEW, 180e6); // $1,800 against $2,000
+        _movePrice(CASHEW, 180e6); // $1,800 against $2,000
 
         uint256 assetsBefore = pool.totalAssets();
         uint256 liquidatorUsdcBefore = usdc.balanceOf(liquidator);
@@ -230,7 +230,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
 
     function test_Liquidate_BadDebtBeyondReservesFallsOnInvestors() public {
         (, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 180e6);
+        _movePrice(CASHEW, 180e6);
 
         uint256 assetsBefore = pool.totalAssets();
         _liquidate(loanId);
@@ -248,7 +248,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
         (uint256 lotId, uint256 loanId) = _openLoan();
 
         vm.warp(block.timestamp + 1 days + 7 days + 1); // maturity plus the grace period
-        d.oracle.forcePrice(CASHEW, 401e6); // a fresh, unchanged price
+        _movePrice(CASHEW, 401e6); // a fresh, unchanged price
         assertGt(pool.getHealthFactor(loanId), 1e18, "still healthy");
         assertTrue(pool.isLiquidatable(loanId), "but overdue");
 
@@ -264,7 +264,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     function test_Liquidate_Revert_DuringTheGracePeriod() public {
         (, uint256 loanId) = _openLoan();
         vm.warp(block.timestamp + 1 days + 7 days);
-        d.oracle.forcePrice(CASHEW, 401e6);
+        _movePrice(CASHEW, 401e6);
 
         vm.expectRevert(LendingPool.LendingPool__PositionHealthy.selector);
         _liquidate(loanId);
@@ -281,13 +281,13 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
         assertEq(kg, 0);
         assertFalse(closes);
 
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
         (repay, kg, closes) = pool.liquidationQuote(loanId);
         assertEq(repay, 1_000e6);
         assertEq(kg, 428e18);
         assertFalse(closes, "partial");
 
-        d.oracle.forcePrice(CASHEW, 205e6);
+        _movePrice(CASHEW, 205e6);
         (repay, kg, closes) = pool.liquidationQuote(loanId);
         assertEq(repay, pool.debtOf(loanId));
         assertEq(kg, KG);
@@ -301,7 +301,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     /// @notice A frozen lot is under investigation: nobody can liquidate it until the regulator lifts it.
     function test_Liquidate_Revert_FrozenLot() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 200e6);
+        _movePrice(CASHEW, 200e6);
         vm.prank(regulator);
         d.registry.setLotFrozen(lotId, true);
 
@@ -313,7 +313,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
 
     function test_Liquidate_Revert_WhenPaused() public {
         (, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 200e6);
+        _movePrice(CASHEW, 200e6);
         pool.pause();
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
@@ -326,7 +326,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
 
     function test_LiquidateWithReserves_KeeperOnly() public {
         (, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -341,7 +341,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     function test_LiquidateWithReserves_MakesInvestorsWholeAndKeepsInventory() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
         _seedReserves(5_000e6);
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
 
         uint256 assetsBefore = pool.totalAssets();
         vm.prank(address(d.keeper));
@@ -357,7 +357,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     function test_LiquidateWithReserves_Revert_NotEnoughReserves() public {
         (, uint256 loanId) = _openLoan();
         _seedReserves(900e6);
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
 
         vm.expectRevert(LendingPool.LendingPool__InsufficientReserves.selector);
         vm.prank(address(d.keeper));
@@ -367,7 +367,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     function test_ReleaseInventory_ToSell() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
         _seedReserves(5_000e6);
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
         vm.prank(address(d.keeper));
         pool.liquidateWithReserves(loanId);
 
@@ -393,7 +393,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     function test_Keeper_FindsAndLiquidatesDueLoans() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
         _seedReserves(5_000e6);
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
 
         (bool needed, bytes memory performData) = d.keeper.checkUpkeep("");
         assertTrue(needed);
@@ -413,7 +413,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     function test_Keeper_RevertsWithoutEnoughGasInsteadOfSkipping() public {
         (uint256 lotId,) = _openLoan();
         _seedReserves(5_000e6);
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
         (, bytes memory performData) = d.keeper.checkUpkeep("");
 
         vm.expectRevert(LiquidationKeeper.LiquidationKeeper__NotEnoughGas.selector);
@@ -428,7 +428,7 @@ contract LendingPoolLiquidationTest is ProtocolFixture {
     function test_Keeper_SkipsLoansNoLongerDue() public {
         (, uint256 loanId) = _openLoan();
         _seedReserves(5_000e6);
-        d.oracle.forcePrice(CASHEW, 250e6);
+        _movePrice(CASHEW, 250e6);
         (, bytes memory performData) = d.keeper.checkUpkeep("");
 
         usdc.mint(farmer, 100e6);

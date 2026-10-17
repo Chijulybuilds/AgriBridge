@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 
 import {CommodityRegistry} from "src/CommodityRegistry.sol";
+import {LendingPool} from "src/LendingPool.sol";
 import {Marketplace} from "src/Marketplace.sol";
 import {DemoUSDC} from "src/demo/DemoUSDC.sol";
 import {DeployDemo} from "script/DeployDemo.s.sol";
@@ -70,14 +71,22 @@ contract SepoliaRehearsal is Test {
         uint256 loanId = d.pool.borrow(cocoa, 1_000e18, 2_000e6, uint64(block.timestamp + 60 days));
         vm.stopPrank();
 
+        // A move over 10% is held, and applies only when the Safe confirms it 10 minutes later.
         vm.prank(SAFE);
-        d.oracle.forcePrice(CommodityDefaults.COCOA, 280e6);
+        d.oracle.setPrice(CommodityDefaults.COCOA, 280e6);
+        (uint256 heldPrice,) = d.oracle.heldPrice(CommodityDefaults.COCOA);
+        assertEq(heldPrice, 280e6, "the crash is held");
+        assertFalse(d.pool.isLiquidatable(loanId), "and no loan is settled on it yet");
+
+        vm.warp(block.timestamp + d.oracle.CONFIRMATION_DELAY());
+        vm.prank(SAFE);
+        d.oracle.setPrice(CommodityDefaults.COCOA, 280e6);
         (bool due, bytes memory performData) = d.keeper.checkUpkeep("");
         assertTrue(due);
         d.keeper.performUpkeep(performData);
         assertGt(d.pool.inventory(cocoa), 0);
-        assertGt(d.commodityToken.balanceOf(farmer, cocoa), 0, "the farmer gets the rest back");
-        loanId;
+        assertEq(uint8(d.pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.ACTIVE), "half settled");
+        assertLt(d.pool.getLoan(loanId).collateralKg, 1_000e18, "the rest still backs the advance");
 
         // Farmer sells maize to a feed mill, which withdraws it; the Safe confirms the release.
         vm.startPrank(farmer);
@@ -90,6 +99,7 @@ contract SepoliaRehearsal is Test {
         usdc.approve(address(d.marketplace), type(uint256).max);
         d.marketplace.buy(listingId, 2_000e18, type(uint256).max);
         d.commodityToken.setApprovalForAll(address(d.desk), true);
+        usdc.approve(address(d.desk), type(uint256).max); // the storage fee for the time stored
         uint256 requestId = d.desk.requestWithdrawal(maize, 2_000e18, 0);
         vm.stopPrank();
 

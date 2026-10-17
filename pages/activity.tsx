@@ -45,6 +45,9 @@ const EVENTS: Record<string, { icon: Icon; tone: "green" | "gold" | "red" | "blu
   Bought: { icon: ShoppingBagIcon, tone: "green", topic: "market" },
   ExpiredStockSold: { icon: TagIcon, tone: "red", topic: "market" },
   PriceUpdated: { icon: ChartBarIcon, tone: "blue", topic: "prices" },
+  PriceHeld: { icon: ClockIcon, tone: "gold", topic: "prices" },
+  Paused: { icon: ExclamationTriangleIcon, tone: "red", topic: "prices" },
+  Unpaused: { icon: ChartBarIcon, tone: "green", topic: "prices" },
 };
 
 const FALLBACK = { icon: ClockIcon, tone: "blue" as const, topic: "crop" as const };

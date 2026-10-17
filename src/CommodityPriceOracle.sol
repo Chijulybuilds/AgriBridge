@@ -19,7 +19,9 @@ import {ICommodityPriceOracle} from "src/interfaces/ICommodityPriceOracle.sol";
  *      larger than `maxMoveBps` is held until a later update, at least CONFIRMATION_DELAY on, agrees
  *      with it; a one-off glitch therefore never reaches a loan. Pausing the oracle is the circuit
  *      breaker: no fresh price is served, so nothing can borrow or be liquidated on a suspect price.
- *      The admin (the Safe) can set a price directly, past the cap, to correct the feed.
+ *      The admin (the Safe) can override a price, past the cap, only while the oracle is paused: an
+ *      override is an emergency step, taken behind the breaker and in public. The one exception is a
+ *      new feed's first price, which no loan can depend on yet.
  */
 contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable {
     /*//////////////////////////////////////////////////////////////
@@ -117,6 +119,7 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     error CommodityPriceOracle__ReporterExists();
     error CommodityPriceOracle__TooManyReporters();
     error CommodityPriceOracle__InvalidParameters();
+    error CommodityPriceOracle__OverrideOnlyWhilePaused();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -187,10 +190,18 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Sets a price directly, past the move cap, to seed or correct a feed. Works while paused.
+    /**
+     * @notice The emergency override: sets a price directly, past the move cap. A price that is already
+     *         live can be overridden only while the oracle is paused, so nothing borrows or is settled
+     *         on it until the admin resumes. A new feed's first price can be set at any time, since no
+     *         loan can be valued without one.
+     */
     function forcePrice(uint256 _commodityId, uint128 _price) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _requireKnown(_commodityId);
         _requireBounds(_price);
+        if (!paused() && s_priceData[_commodityId].updatedAt != 0) {
+            revert CommodityPriceOracle__OverrideOnlyWhilePaused();
+        }
         delete s_held[_commodityId];
         _apply(_commodityId, _price);
     }

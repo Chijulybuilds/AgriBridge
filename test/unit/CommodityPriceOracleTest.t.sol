@@ -244,8 +244,9 @@ contract CommodityPriceOracleTest is Test {
         assertEq(held, 0, "the glitch never applied and is forgotten");
     }
 
-    function test_ForcePrice_BypassesTheCapAndWorksWhilePaused() public {
+    function test_ForcePrice_BypassesTheCapWhilePaused() public {
         _setCocoa(COCOA_PRICE);
+        _setCocoa(COCOA_PRICE * 2); // +100%: held
         vm.startPrank(admin);
         oracle.pause();
         oracle.forcePrice(COCOA, COCOA_PRICE / 2);
@@ -253,6 +254,28 @@ contract CommodityPriceOracleTest is Test {
         vm.stopPrank();
 
         assertEq(oracle.getPriceFresh(COCOA), COCOA_PRICE / 2);
+        (uint256 held,) = oracle.heldPrice(COCOA);
+        assertEq(held, 0, "the override also clears a held move");
+    }
+
+    /// @notice An override of a live price is an emergency step: it needs the brake on first.
+    function test_ForcePrice_Revert_LivePriceWhileNotPaused() public {
+        _setCocoa(COCOA_PRICE);
+        vm.expectRevert(CommodityPriceOracle.CommodityPriceOracle__OverrideOnlyWhilePaused.selector);
+        vm.prank(admin);
+        oracle.forcePrice(COCOA, COCOA_PRICE / 2);
+        assertEq(_price(COCOA), COCOA_PRICE);
+    }
+
+    /// @notice A new feed's first price needs no pause: no loan can depend on it yet.
+    function test_ForcePrice_SetsAFirstPriceWithoutPausing() public {
+        vm.prank(admin);
+        oracle.forcePrice(CASHEW, CASHEW_PRICE); // locally priced, with no reporters' quorum yet
+        assertEq(oracle.getPriceFresh(CASHEW), CASHEW_PRICE);
+
+        vm.expectRevert(CommodityPriceOracle.CommodityPriceOracle__OverrideOnlyWhilePaused.selector);
+        vm.prank(admin);
+        oracle.forcePrice(CASHEW, CASHEW_PRICE / 2); // the second one does
     }
 
     function test_ForcePrice_Revert_NotAdmin() public {

@@ -82,15 +82,20 @@ already includes the discount. Then **Collect → I'll pick it up**: the storage
 > Say: buyers can also resell instead of collecting. That's how stock turns back into cash.
 
 ### 8. A price crash, and what protects investors
-**Verifier → Prices:** set cocoa to **$2.50/kg** (it was about $5.85). **Verifier → Advances:** the
-farmer's advance is now *At risk*. **Settle due advances with the cushion.**
+**Verifier → Prices:** set cocoa to **$2.50/kg** (it was about $5.85). It is *Held*: a move of more
+than 10% waits for confirmation, so one wrong number never reaches an advance. Ten minutes later,
+**Confirm $2.50/kg**. **Verifier → Advances:** the farmer's advance is now *At risk*. **Settle due
+advances with the cushion.**
 
-**Farmer → My advances:** the advance is *Liquidated*. Enough crop was sold to cover the debt plus
-5%, the rest came back, and the farmer keeps the $1,000.
+**Farmer → My advances:** half the advance was settled: enough cocoa was sold to repay $500 plus
+cocoa's 5% reward, and the advance carries on, healthy again, with $500 owed. The farmer keeps the
+$1,000.
 
-> Say: anyone may settle an advance once it reaches 80% of the crop's value. If nobody does, the
-> keeper settles it from the cushion. In production the price comes from Chainlink and local price
-> reporters; for the festival, the Safe sets it.
+> Say: anyone may settle an advance once it reaches 80% of the crop's value, but only up to half of
+> it at a time, so a farmer never loses the whole lot to one dip. If nobody does, the keeper settles
+> it from the cushion. In production the price comes from Chainlink and local price reporters; for
+> the festival, the Safe sets it, and even the Safe can't skip the 10-minute wait without pausing
+> every loan first, in public.
 
 ### 9. The regulator (only once the role is given)
 Nobody holds the regulator role yet; the Safe grants it later, in one transaction (see

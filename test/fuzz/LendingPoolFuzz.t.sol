@@ -106,7 +106,7 @@ contract LendingPoolFuzzTest is ProtocolFixture {
 
         newPrice = bound(newPrice, 1e6, 187e6); // up to $1.87/kg: at or past the 80% point
         // forge-lint: disable-next-line(unsafe-typecast)
-        d.oracle.forcePrice(CASHEW, uint128(newPrice));
+        _movePrice(CASHEW, uint128(newPrice));
         vm.assume(d.pool.isLiquidatable(loanId));
 
         bool covered = d.pool.getCollateralValue(lotId, 1_000e18) >= d.pool.debtOf(loanId);
@@ -148,7 +148,7 @@ contract LendingPoolFuzzTest is ProtocolFixture {
 
         newPrice = bound(newPrice, 161e6, 187e6); // between debt + 7% and the 80% point
         // forge-lint: disable-next-line(unsafe-typecast)
-        d.oracle.forcePrice(CASHEW, uint128(newPrice));
+        _movePrice(CASHEW, uint128(newPrice));
         vm.assume(d.pool.isLiquidatable(loanId));
         (,, bool closes) = d.pool.liquidationQuote(loanId);
         vm.assume(!closes);

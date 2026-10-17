@@ -68,8 +68,9 @@ Every step is a transaction anyone can check on the block explorer.
 ## Status
 
 - **Testnet only, not audited.** Play money (`DemoUSDC`) in the demo.
-- **The festival demo uses prices set by the Safe.** The Chainlink feeder and the local price
-  reporters are built and tested, but switched off.
+- **The festival demo uses prices set by the Safe.** World prices still go through the 10% move
+  cap, and overriding one directly needs the emergency pause first. The Chainlink feeder and the
+  local price reporters are built and tested, but switched off.
 - **Before deploying to Sepolia**, the Safe's owners must replace a leaked owner key; the deploy
   script enforces it. See [RUN_THE_APP.md](RUN_THE_APP.md#3-on-sepolia).
 

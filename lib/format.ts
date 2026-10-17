@@ -136,6 +136,17 @@ export function date(seconds: bigint | number | undefined): string {
   });
 }
 
+/** "12 Mar, 14:02" from unix seconds, in the viewer's time zone. */
+export function dateTime(seconds: bigint | number | undefined): string {
+  if (seconds === undefined || Number(seconds) === 0) return "—";
+  return new Date(Number(seconds) * 1000).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 /** Whole days from now until `seconds` (negative once it has passed). */
 export function daysUntil(seconds: bigint | number): number {
   return Math.floor((Number(seconds) - nowSeconds()) / DAY);

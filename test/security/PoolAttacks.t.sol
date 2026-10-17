@@ -206,7 +206,7 @@ contract PoolAttacksTest is ProtocolFixture {
         _depositAs(investor, 50_000e6);
         uint256 lotId = _verifiedLot(farmer, COCOA, KG, CommodityRegistry.Grade.A);
         uint256 loanId = _borrow(farmer, lotId, KG, 2_000e6, 30);
-        d.oracle.forcePrice(COCOA, 300e6);
+        _movePrice(COCOA, 300e6);
         d.oracle.pause();
 
         vm.expectRevert();

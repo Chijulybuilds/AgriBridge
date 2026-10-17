@@ -34,6 +34,12 @@ async function confirmed(scope: Page | ReturnType<Page["locator"]>, step: string
   if ((await failed.count()) > 0) throw new Error(`"${step}" failed: ${await failed.first().innerText()}`);
 }
 
+/** Moves the local chain's clock on, for waits the contracts measure (a held price's confirmation). */
+async function passMinutes(minutes: number) {
+  await rpc("evm_increaseTime", [minutes * 60]);
+  await rpc("evm_mine", []);
+}
+
 async function openAs(browser: Browser, account: AccountName): Promise<Page> {
   const page = await browser.newPage();
   page.on("console", (message) => {
@@ -192,6 +198,12 @@ test("7. a price crash puts an advance at risk; the keeper settles half, and the
   await verifier.getByTestId("price-1").fill("2.50");
   await verifier.getByTestId("price-1").locator("..").getByRole("button", { name: "Set" }).click();
   await confirmed(verifier, "Set Cocoa");
+  // A fall of more than 10% is held: no advance is settled on one update.
+  await expect(verifier.getByTestId("held-1")).toContainText("$2.50");
+  // Ten minutes on, the Safe confirms it.
+  await passMinutes(10);
+  await verifier.getByTestId("confirm-1").click({ timeout: 30_000 });
+  await confirmed(verifier, "Confirm Cocoa");
 
   await verifier.getByTestId("tab-advances").click();
   await expect(verifier.getByText("At risk")).toBeVisible({ timeout: 30_000 });
@@ -246,6 +258,9 @@ test("9. expired stock is sold to AgriBridge and listed for feed buyers", async 
   await verifier.getByTestId("price-1").fill("5.85");
   await verifier.getByTestId("price-1").locator("..").getByRole("button", { name: "Set" }).click();
   await confirmed(verifier, "Set Cocoa");
+  await passMinutes(10);
+  await verifier.getByTestId("confirm-1").click({ timeout: 30_000 });
+  await confirmed(verifier, "Confirm Cocoa");
   await verifier.getByTestId("tab-clearance").click();
   await verifier.getByLabel("Top up the fund (US$)").fill("5000");
   await verifier.getByRole("button", { name: "Top up" }).click();
@@ -296,5 +311,30 @@ test("11. activity tells the story with links to every transaction", async ({ pa
   await expect(feed).toContainText("The warehouse verified lot 1");
   await expect(feed).toContainText("bought 200 kg");
   await expect(feed).toContainText("settled by selling");
+  await expect(feed).toContainText("was held for confirmation");
   await shot(page, "12-activity");
+});
+
+test("12. in an emergency the Safe pauses prices, overrides one, then resumes", async ({ browser }) => {
+  const verifier = await openVerifier(browser);
+  await verifier.getByTestId("tab-prices").click();
+  // Cashew is priced by local reporters: while prices run, the Safe can't set it.
+  await expect(verifier.getByTestId("price-4-reporters")).toBeVisible();
+  await expect(verifier.getByTestId("price-4")).toHaveCount(0);
+
+  await verifier.getByTestId("price-brake").click();
+  await confirmed(verifier, "Pause prices");
+  await expect(verifier.getByTestId("prices-paused")).toBeVisible();
+  await verifier.getByTestId("price-4").fill("3.10");
+  await verifier.getByTestId("price-4").locator("..").getByRole("button", { name: "Override" }).click();
+  await confirmed(verifier, "Override Cashew");
+
+  await verifier.getByTestId("price-brake").click();
+  await confirmed(verifier, "Resume prices");
+  await expect(verifier.getByTestId("prices-paused")).toHaveCount(0);
+  await expect(verifier.locator("tr", { hasText: "Cashew" })).toContainText("$3.10");
+
+  // The brake is public: anyone can see it was used.
+  await verifier.goto("/activity");
+  await expect(verifier.getByTestId("activity")).toContainText("Prices were paused", { timeout: 30_000 });
 });

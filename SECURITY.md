@@ -45,7 +45,7 @@ dangerous wherever capital can move a price or a share value. Here:
 | **Move cap:** a move over 10% is held until a later update (at least 10 minutes on) agrees | `CommodityPriceOracle._propose` | `test_MoveCap_LargeMoveIsHeld`, `test_MoveCap_GlitchIsDroppedWhenTheNextUpdateIsNormal` |
 | Bounds and a staleness limit per commodity; a stale price blocks borrowing and liquidation | `getPriceFresh`, `setHeartbeat` | `test_GetPriceFresh_RevertsOnceStale`, `test_Borrow_Revert_StalePrice` |
 | **Circuit breaker:** pausing the oracle stops every valuation | `getPriceFresh` is `whenNotPaused` | `test_Pause_IsTheCircuitBreaker`, `test_OracleBreaker_StopsLiquidations` |
-| Only the Safe can set a price directly, e.g. to correct a feed | `forcePrice` (admin only) | `test_ForcePrice_Revert_NotAdmin` |
+| **Emergency override only:** the Safe can override a live price, past the cap, only while the oracle is paused, so nothing borrows or is settled on it until the Safe resumes, and every pause is public. A new feed's first price needs no pause, since no loan can depend on it | `forcePrice` (admin only; `paused()` unless the feed has no price) | `test_ForcePrice_Revert_NotAdmin`, `test_ForcePrice_Revert_LivePriceWhileNotPaused`, `test_ForcePrice_SetsAFirstPriceWithoutPausing` |
 
 ---
 

@@ -112,7 +112,8 @@ abstract contract ProtocolDeployer {
 
     /**
      * @dev Adds the six launch commodities and seeds their starting prices. Seeding uses the admin's
-     *      `forcePrice`, since locally priced crops only otherwise take prices from their reporters.
+     *      `forcePrice`, which may set a new feed's first price without pausing; locally priced crops
+     *      otherwise take prices only from their reporters.
      */
     function _seedCommodities(Deployment memory d) internal {
         CommodityConfig.Commodity[] memory rows = CommodityDefaults.all();

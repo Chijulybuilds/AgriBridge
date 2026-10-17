@@ -126,9 +126,13 @@ contract DemoDeploymentTest is Test {
         vm.prank(farmer);
         uint256 risky = d.pool.borrow(cashew, QUANTITY, 1_400e6, uint64(block.timestamp + 30 days));
 
-        // The demo's price crash: the Safe sets the price directly, past the oracle's move cap.
-        vm.prank(SAFE);
+        // The demo's price crash. Cashew is priced by local reporters and the demo has none yet, so
+        // the Safe takes the emergency path: pause prices, override, resume.
+        vm.startPrank(SAFE);
+        d.oracle.pause();
         d.oracle.forcePrice(CommodityDefaults.CASHEW, 170 * 10 ** 6); // $1.70/kg: $1,700 against $1,400
+        d.oracle.unpause();
+        vm.stopPrank();
         assertLt(d.pool.getHealthFactor(risky), 1e18);
 
         vm.startPrank(SAFE);

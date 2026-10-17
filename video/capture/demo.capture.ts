@@ -44,6 +44,12 @@ async function confirmed(scope: Page | Locator, step: string) {
   if ((await failed.count()) > 0) throw new Error(`"${step}" failed: ${await failed.first().innerText()}`);
 }
 
+/** Moves the local chain's clock on, for waits the contracts measure (a held price's confirmation). */
+async function passMinutes(minutes: number) {
+  await rpc("evm_increaseTime", [minutes * 60]);
+  await rpc("evm_mine", []);
+}
+
 async function openAs(browser: Browser, account: AccountName): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
   const page = await context.newPage();
@@ -231,6 +237,11 @@ test("capture the demo screens", async ({ browser }) => {
   await snap(verifier, "11-price-crash", { price: verifier.getByTestId("price-1") });
   await verifier.getByTestId("price-1").locator("..").getByRole("button", { name: "Set" }).click();
   await confirmed(verifier, "Set Cocoa");
+  // A fall of more than 10% is held; ten minutes on, the Safe confirms it.
+  await snap(verifier, "11-price-held", { held: verifier.getByTestId("held-1") });
+  await passMinutes(10);
+  await verifier.getByTestId("confirm-1").click({ timeout: 30_000 });
+  await confirmed(verifier, "Confirm Cocoa");
   await snap(verifier, "11-price-set", { status: verifier.getByTestId("tx-status") });
   // After: the contracts re-value the collateral at the new price, and the same advance is at risk.
   await farmer.reload();
@@ -242,9 +253,12 @@ test("capture the demo screens", async ({ browser }) => {
   await snap(verifier, "11-at-risk", { atRisk: verifier.getByText("At risk").first(), keeper: verifier.getByTestId("run-keeper") });
   await verifier.getByTestId("run-keeper").click();
   await confirmed(verifier, "Settle with the cushion");
+  // Half the advance is settled, and it carries on with $500 owed; the farmer repays the rest.
   await farmer.goto("/farmer/loans");
-  await expect(farmer.getByText("Liquidated")).toBeVisible({ timeout: 30_000 });
-  await snap(farmer, "11-settled", { settled: farmer.getByText("Liquidated").first() });
+  await expect(farmer.getByTestId("owed")).toContainText("$500.", { timeout: 30_000 });
+  await snap(farmer, "11-settled", { settled: farmer.getByTestId("owed") });
+  await farmer.getByTestId("repay-all").click();
+  await expect(farmer.getByTestId("repaid")).toContainText("repaid in full", { timeout: 60_000 });
 
   // 12. Expired stock (jump past cocoa's 540-day shelf life)
   await rpc("evm_increaseTime", [541 * 86_400]);
@@ -253,6 +267,9 @@ test("capture the demo screens", async ({ browser }) => {
   await verifier.getByTestId("price-1").fill("5.85");
   await verifier.getByTestId("price-1").locator("..").getByRole("button", { name: "Set" }).click();
   await confirmed(verifier, "Set Cocoa");
+  await passMinutes(10);
+  await verifier.getByTestId("confirm-1").click({ timeout: 30_000 });
+  await confirmed(verifier, "Confirm Cocoa");
   await verifier.getByTestId("tab-clearance").click();
   await verifier.getByLabel("Top up the fund (US$)").fill("5000");
   await verifier.getByRole("button", { name: "Top up" }).click();

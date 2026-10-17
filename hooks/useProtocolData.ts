@@ -67,6 +67,9 @@ export type Commodity = {
   priceUpdatedAt?: bigint;
   /** Whether the price is recent enough for loans and the market to use. */
   fresh: boolean;
+  /** A move past the oracle's cap, waiting for a later update to confirm it (8 decimals). */
+  heldPrice?: bigint;
+  heldSince?: bigint;
 };
 
 export function useCommodities() {
@@ -84,10 +87,11 @@ export function useCommodities() {
       });
       return Promise.all(
         ids(count).map(async (id) => {
-          const [row, price, fresh] = await Promise.all([
+          const [row, price, fresh, held] = await Promise.all([
             publicClient.readContract({ address: config!, abi: CommodityConfigAbi, functionName: "getCommodity", args: [id] }),
             orUndefined(publicClient.readContract({ address: oracle!, abi: CommodityPriceOracleAbi, functionName: "getPrice", args: [id] })),
             orUndefined(publicClient.readContract({ address: oracle!, abi: CommodityPriceOracleAbi, functionName: "isFresh", args: [id] })),
+            orUndefined(publicClient.readContract({ address: oracle!, abi: CommodityPriceOracleAbi, functionName: "heldPrice", args: [id] })),
           ]);
           return {
             id,
@@ -95,6 +99,8 @@ export function useCommodities() {
             price: price?.[0],
             priceUpdatedAt: price?.[1],
             fresh: fresh === true,
+            heldPrice: held && held[0] > 0n ? held[0] : undefined,
+            heldSince: held && held[0] > 0n ? held[1] : undefined,
           };
         }),
       );
@@ -102,6 +108,49 @@ export function useCommodities() {
   });
   const byId = useMemo(() => new Map((query.data ?? []).map((c) => [c.id, c])), [query.data]);
   return { commodities: query.data ?? [], byId, isLoading: query.isLoading, error: query.error, refetch: query.refetch };
+}
+
+export type OracleStatus = {
+  /** The emergency brake: while paused, nothing borrows or is settled, and a live price can be overridden. */
+  paused: boolean;
+  /** A world price that moves by more than this is held until it is confirmed. */
+  maxMoveBps: number;
+  /** Seconds a held price waits before it can be confirmed. */
+  confirmationDelay: number;
+  /** How many reporters must agree on a local price. */
+  localQuorum: number;
+  reporterCount: number;
+  /** The chain's time (its latest block), which a held price's wait is measured against. */
+  chainNow: number;
+};
+
+export function useOracleStatus() {
+  const oracle = contracts.oracle;
+  const query = useQuery({
+    queryKey: ["oracle-status", oracle],
+    enabled: Boolean(oracle),
+    refetchInterval: REFRESH,
+    queryFn: async (): Promise<OracleStatus> => {
+      const read = { address: oracle!, abi: CommodityPriceOracleAbi } as const;
+      const [paused, maxMoveBps, confirmationDelay, localQuorum, reporters, block] = await Promise.all([
+        publicClient.readContract({ ...read, functionName: "paused" }),
+        publicClient.readContract({ ...read, functionName: "maxMoveBps" }),
+        publicClient.readContract({ ...read, functionName: "CONFIRMATION_DELAY" }),
+        publicClient.readContract({ ...read, functionName: "localQuorum" }),
+        publicClient.readContract({ ...read, functionName: "reporters" }),
+        publicClient.getBlock(),
+      ]);
+      return {
+        paused,
+        maxMoveBps: Number(maxMoveBps),
+        confirmationDelay: Number(confirmationDelay),
+        localQuorum: Number(localQuorum),
+        reporterCount: reporters.length,
+        chainNow: Number(block.timestamp),
+      };
+    },
+  });
+  return { status: query.data, isLoading: query.isLoading, error: query.error };
 }
 
 /*//////////////////////////////////////////////////////////////

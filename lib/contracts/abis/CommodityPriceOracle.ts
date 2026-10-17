@@ -993,6 +993,11 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "error",
+    "name": "CommodityPriceOracle__OverrideOnlyWhilePaused",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "CommodityPriceOracle__PriceFeedInactive",
     "inputs": []
   },

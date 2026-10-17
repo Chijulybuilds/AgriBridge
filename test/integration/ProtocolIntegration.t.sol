@@ -222,7 +222,7 @@ contract ProtocolIntegrationTest is ProtocolFixture {
     ///         the loan and gets the rest of the lot back.
     function test_LiquidationAfterAPriceCrash() public {
         (uint256 lotId, uint256 loanId) = _openLoan();
-        d.oracle.forcePrice(COCOA, 280e6); // $2,380 of collateral against $2,000: 84%
+        _movePrice(COCOA, 280e6); // $2,380 of collateral against $2,000: 84%
         assertTrue(d.pool.isLiquidatable(loanId));
 
         uint256 debt = d.pool.debtOf(loanId);

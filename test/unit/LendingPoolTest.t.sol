@@ -398,10 +398,10 @@ contract LendingPoolTest is ProtocolFixture {
         assertGt(pool.getHealthFactor(loanId), 1e18);
         assertFalse(pool.isLiquidatable(loanId));
 
-        d.oracle.forcePrice(CASHEW, uint128(tip + 1));
+        _movePrice(CASHEW, uint128(tip + 1));
         assertFalse(pool.isLiquidatable(loanId));
 
-        d.oracle.forcePrice(CASHEW, uint128(tip));
+        _movePrice(CASHEW, uint128(tip));
         assertTrue(pool.isLiquidatable(loanId));
         assertLe(pool.getHealthFactor(loanId), 1e18);
     }

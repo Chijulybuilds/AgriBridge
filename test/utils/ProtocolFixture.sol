@@ -100,4 +100,14 @@ abstract contract ProtocolFixture is Test, ProtocolDeployer {
         d.pool.deposit(_liquidity);
         vm.stopPrank();
     }
+
+    /**
+     * @dev Moves a price straight to `_price`, past the move cap, the only way the oracle allows it:
+     *      pause, override, resume. Tests use it to model a market move without waiting out the cap.
+     */
+    function _movePrice(uint256 _commodityId, uint128 _price) internal {
+        d.oracle.pause();
+        d.oracle.forcePrice(_commodityId, _price);
+        d.oracle.unpause();
+    }
 }
