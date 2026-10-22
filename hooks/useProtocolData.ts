@@ -122,6 +122,8 @@ export type OracleStatus = {
   reporterCount: number;
   /** The chain's time (its latest block), which a held price's wait is measured against. */
   chainNow: number;
+  /** When prices may resume after the last override (0 if there is no wait). */
+  resumableAt: number;
 };
 
 export function useOracleStatus() {
@@ -132,15 +134,18 @@ export function useOracleStatus() {
     refetchInterval: REFRESH,
     queryFn: async (): Promise<OracleStatus> => {
       const read = { address: oracle!, abi: CommodityPriceOracleAbi } as const;
-      const [paused, maxMoveBps, confirmationDelay, localQuorum, reporters, block] = await Promise.all([
+      const [paused, maxMoveBps, confirmationDelay, localQuorum, reporters, block, lastOverrideAt, coolingOff] = await Promise.all([
         publicClient.readContract({ ...read, functionName: "paused" }),
         publicClient.readContract({ ...read, functionName: "maxMoveBps" }),
         publicClient.readContract({ ...read, functionName: "CONFIRMATION_DELAY" }),
         publicClient.readContract({ ...read, functionName: "localQuorum" }),
         publicClient.readContract({ ...read, functionName: "reporters" }),
         publicClient.getBlock(),
+        publicClient.readContract({ ...read, functionName: "lastOverrideAt" }),
+        publicClient.readContract({ ...read, functionName: "COOLING_OFF" }),
       ]);
       return {
+        resumableAt: lastOverrideAt > 0n ? Number(lastOverrideAt + coolingOff) : 0,
         paused,
         maxMoveBps: Number(maxMoveBps),
         confirmationDelay: Number(confirmationDelay),
@@ -501,6 +506,8 @@ export type CreditRecord = {
   bonusBps: number;
   /** Seconds an advance must be open before a repayment counts. */
   minAgeSeconds: number;
+  /** The smallest advance (USDC, 6 decimals) whose repayment counts. */
+  minAmount: bigint;
 };
 
 /** A borrower's on-chain repayment record and what it earns. */
@@ -512,11 +519,12 @@ export function useCredit(account: Address | undefined) {
     refetchInterval: REFRESH,
     queryFn: async (): Promise<CreditRecord> => {
       const read = { address: pool!, abi: LendingPoolAbi } as const;
-      const [[onTime, late, settled, hasBonus], threshold, bonusBps, minAge] = await Promise.all([
+      const [[onTime, late, settled, hasBonus], threshold, bonusBps, minAge, minAmount] = await Promise.all([
         publicClient.readContract({ ...read, functionName: "creditOf", args: [account!] }),
         publicClient.readContract({ ...read, functionName: "CREDIT_THRESHOLD" }),
         publicClient.readContract({ ...read, functionName: "CREDIT_BONUS_BPS" }),
         publicClient.readContract({ ...read, functionName: "MIN_CREDIT_AGE" }),
+        publicClient.readContract({ ...read, functionName: "MIN_CREDIT_AMOUNT" }),
       ]);
       const toGo = Math.max(0, Number(threshold + late + settled - onTime));
       return {
@@ -527,6 +535,7 @@ export function useCredit(account: Address | undefined) {
         toGo: hasBonus ? 0 : toGo,
         bonusBps: Number(bonusBps),
         minAgeSeconds: Number(minAge),
+        minAmount,
       };
     },
   });

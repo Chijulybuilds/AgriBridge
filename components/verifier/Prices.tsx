@@ -51,6 +51,8 @@ export function PricesTab() {
 function Brake({ status }: { status?: OracleStatus }) {
   const tx = useTx();
   const paused = status?.paused === true;
+  // After an override, prices stay paused for the cooling-off, so borrowers can react first.
+  const coolingOff = paused && status !== undefined && status.chainNow < status.resumableAt;
   const cap = status ? percentFromBps(status.maxMoveBps) : "10%";
   const wait = status ? minutes(status.confirmationDelay) : "10 minutes";
 
@@ -83,12 +85,18 @@ function Brake({ status }: { status?: OracleStatus }) {
       <div className="row" style={{ marginTop: 12 }}>
         <button
           className={`btn btn-small${paused ? "" : " btn-danger"}`}
-          disabled={tx.isBusy || !status}
+          disabled={tx.isBusy || !status || coolingOff}
           onClick={() => void toggle()}
           data-testid="price-brake"
         >
           {paused ? "Resume prices" : "Pause prices"}
         </button>
+        {coolingOff && (
+          <span className="muted">
+            Prices can resume from {dateTime(status.resumableAt)}, an hour after the last override, so borrowers see the new price
+            and can repay first.
+          </span>
+        )}
       </div>
       <TxStatus tx={tx} success={tx.step === "Pause prices" ? "Prices paused." : "Prices resumed."} />
     </div>

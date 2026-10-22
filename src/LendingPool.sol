@@ -55,8 +55,9 @@ interface ICommodityToken {
  *      - The keeper (KEEPER_ROLE) can liquidate with protocol reserves instead, so investors are
  *        repaid even when no outside liquidator steps in; the pool keeps that collateral as protocol
  *        inventory for the admin to sell.
- *      - Credit history: each borrower has a record of loans repaid in full on time (after being open
- *        at least MIN_CREDIT_AGE), repaid late, and liquidated (counted once per loan). A borrower
+ *      - Credit history: each borrower has a record of loans repaid in full on time (loans of at least
+ *        MIN_CREDIT_AMOUNT, open at least MIN_CREDIT_AGE), repaid late, and liquidated (counted once
+ *        per loan), so building a record takes real borrowing over weeks. A borrower
  *        whose on-time repayments outnumber the late and liquidated ones by CREDIT_THRESHOLD may
  *        borrow CREDIT_BONUS_BPS more of the collateral's value, but never more than half of the gap
  *        up to the commodity's liquidation point. The record is keyed by address, so it cannot be
@@ -102,8 +103,10 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     uint256 public constant CREDIT_BONUS_BPS = 500; // 5 points
     /// @notice How many more on-time repayments than late or liquidated loans earn the bonus.
     uint256 public constant CREDIT_THRESHOLD = 3;
-    /// @notice A loan repaid sooner than this after opening doesn't count towards the record.
-    uint256 public constant MIN_CREDIT_AGE = 7 days;
+    /// @notice An on-time repayment counts only for a loan open at least this long...
+    uint256 public constant MIN_CREDIT_AGE = 14 days;
+    /// @notice ...and of at least this much.
+    uint256 public constant MIN_CREDIT_AMOUNT = 500e6; // $500
 
     /// @dev Virtual shares and assets (OpenZeppelin ERC-4626 style) blunt share-price manipulation.
     uint256 private constant VIRTUAL_SHARES = 1;
@@ -768,10 +771,10 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         CreditRecord storage credit = s_credit[_loan.borrower];
         if (block.timestamp > _loan.maturity) {
             credit.late++;
-        } else if (block.timestamp >= _loan.openedAt + MIN_CREDIT_AGE) {
+        } else if (block.timestamp >= _loan.openedAt + MIN_CREDIT_AGE && _loan.principal >= MIN_CREDIT_AMOUNT) {
             credit.onTime++;
         } else {
-            return; // too short to say anything about the borrower
+            return; // too short or too small to say anything about the borrower
         }
         emit CreditUpdated(_loan.borrower, _loanId, credit.onTime, credit.late, credit.settled);
     }

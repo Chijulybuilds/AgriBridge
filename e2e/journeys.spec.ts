@@ -112,8 +112,8 @@ test("3. the farmer gets an advance, then repays it and gets the crop back", asy
   await page.goto("/farmer/loans");
   await expect(page.getByTestId("owed")).toContainText("$1,000");
   await shot(page, "05-my-advances");
-  // Repaid on time, after more than a week, so it counts on the farmer's record.
-  await passMinutes(8 * 24 * 60);
+  // A $1,000 advance repaid on time, after more than two weeks, so it counts on the farmer's record.
+  await passMinutes(15 * 24 * 60);
   await page.reload();
   await page.getByTestId("repay-all").click();
   await expect(page.getByTestId("repaid")).toContainText("repaid in full", { timeout: 60_000 });
@@ -202,11 +202,13 @@ test("7. a price crash puts an advance at risk; the keeper settles half, and the
 
   const verifier = await openVerifier(browser);
   await verifier.getByTestId("tab-prices").click();
-  await verifier.getByTestId("price-1").fill("2.50");
+  // $2.70: the aged 500 kg (about $1,120) are past the 80% point but still cover the debt plus the
+  // 5% reward, so half is settled rather than all.
+  await verifier.getByTestId("price-1").fill("2.70");
   await verifier.getByTestId("price-1").locator("..").getByRole("button", { name: "Set" }).click();
   await confirmed(verifier, "Set Cocoa");
   // A fall of more than 10% is held: no advance is settled on one update.
-  await expect(verifier.getByTestId("held-1")).toContainText("$2.50");
+  await expect(verifier.getByTestId("held-1")).toContainText("$2.70");
   // Ten minutes on, the Safe confirms it.
   await passMinutes(10);
   await verifier.getByTestId("confirm-1").click({ timeout: 30_000 });
@@ -336,6 +338,10 @@ test("12. in an emergency the Safe pauses prices, overrides one, then resumes", 
   await verifier.getByTestId("price-4").locator("..").getByRole("button", { name: "Override" }).click();
   await confirmed(verifier, "Override Cashew");
 
+  // Prices stay paused for an hour after an override, so borrowers can react first.
+  await expect(verifier.getByTestId("price-brake")).toBeDisabled();
+  await passMinutes(61);
+  await expect(verifier.getByTestId("price-brake")).toBeEnabled({ timeout: 30_000 });
   await verifier.getByTestId("price-brake").click();
   await confirmed(verifier, "Resume prices");
   await expect(verifier.getByTestId("prices-paused")).toHaveCount(0);

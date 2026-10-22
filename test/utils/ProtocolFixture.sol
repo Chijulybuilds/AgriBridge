@@ -103,11 +103,16 @@ abstract contract ProtocolFixture is Test, ProtocolDeployer {
 
     /**
      * @dev Moves a price straight to `_price`, past the move cap, the only way the oracle allows it:
-     *      pause, override, resume. Tests use it to model a market move without waiting out the cap.
+     *      pause, override, and resume after the cooling-off. Tests use it to model a market move, so
+     *      they skip both waits: the clock steps forward only for the resume, then back, and nothing
+     *      but the oracle is touched in between, so interest and ageing in the test are unchanged.
      */
     function _movePrice(uint256 _commodityId, uint128 _price) internal {
+        uint256 start = block.timestamp;
         d.oracle.pause();
         d.oracle.forcePrice(_commodityId, _price);
+        vm.warp(start + d.oracle.COOLING_OFF());
         d.oracle.unpause();
+        vm.warp(start);
     }
 }

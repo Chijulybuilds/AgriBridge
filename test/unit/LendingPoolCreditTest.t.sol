@@ -10,8 +10,8 @@ import {ProtocolFixture} from "test/utils/ProtocolFixture.sol";
  * @title LendingPoolCreditTest
  * @notice On-chain credit history: what counts on a borrower's record, and the borrow-limit reward a
  *         good record earns.
- * @dev The worked example: a farmer repays three cashew advances in full, each after more than a week
- *      and before its end date. Their record shows three on-time repayments and nothing against them,
+ * @dev The worked example: a farmer repays three $500 cashew advances in full, each after more than
+ *      two weeks and before its end date. Their record shows three on-time repayments and nothing against them,
  *      so their cashew limit rises from 50% to 55% of the crop's value at the end date. Against
  *      1,000 kg of cashew worth about $3,200, that is about $160 more.
  */
@@ -63,7 +63,7 @@ contract LendingPoolCreditTest is ProtocolFixture {
     function _goodRecord(address _who) internal returns (uint256 lotId) {
         lotId = _verifiedLot(_who, CASHEW, KG, CommodityRegistry.Grade.A);
         for (uint256 i = 0; i < 3; i++) {
-            _cycle(_who, lotId, 8);
+            _cycle(_who, lotId, 15);
         }
     }
 
@@ -82,7 +82,7 @@ contract LendingPoolCreditTest is ProtocolFixture {
     function test_Credit_AnOnTimeRepaymentCounts() public {
         uint256 lotId = _verifiedLot(farmer, CASHEW, KG, CommodityRegistry.Grade.A);
         uint256 loanId = _borrow(farmer, lotId, KG, ADVANCE, TERM_DAYS);
-        vm.warp(block.timestamp + 8 days);
+        vm.warp(block.timestamp + 15 days);
 
         vm.expectEmit(true, true, false, true, address(pool));
         emit CreditUpdated(farmer, loanId, 1, 0, 0);
@@ -90,11 +90,22 @@ contract LendingPoolCreditTest is ProtocolFixture {
         pool.repay(loanId, type(uint256).max);
     }
 
-    /// @notice A loan repaid within a week says nothing about the borrower, so the record can't be farmed.
-    function test_Credit_ARepaymentWithinAWeekDoesNotCount() public {
+    /// @notice A loan repaid within two weeks says nothing about the borrower, so the record can't be farmed.
+    function test_Credit_ARepaymentWithinTwoWeeksDoesNotCount() public {
         uint256 lotId = _verifiedLot(farmer, CASHEW, KG, CommodityRegistry.Grade.A);
         _cycle(farmer, lotId, 1);
-        _cycle(farmer, lotId, 6);
+        _cycle(farmer, lotId, 13);
+        (uint256 onTime,,,) = _record(farmer);
+        assertEq(onTime, 0);
+    }
+
+    /// @notice Nor does a small one: building a record takes real borrowing.
+    function test_Credit_AnAdvanceUnder500DoesNotCount() public {
+        uint256 lotId = _verifiedLot(farmer, CASHEW, KG, CommodityRegistry.Grade.A);
+        uint256 loanId = _borrow(farmer, lotId, KG, pool.MIN_CREDIT_AMOUNT() - 1, TERM_DAYS);
+        vm.warp(block.timestamp + 15 days);
+        vm.prank(farmer);
+        pool.repay(loanId, type(uint256).max);
         (uint256 onTime,,,) = _record(farmer);
         assertEq(onTime, 0);
     }
@@ -111,7 +122,7 @@ contract LendingPoolCreditTest is ProtocolFixture {
     function test_Credit_OnlyAFullRepaymentCounts() public {
         uint256 lotId = _verifiedLot(farmer, CASHEW, KG, CommodityRegistry.Grade.A);
         uint256 loanId = _borrow(farmer, lotId, KG, ADVANCE, TERM_DAYS);
-        vm.warp(block.timestamp + 8 days);
+        vm.warp(block.timestamp + 15 days);
         vm.prank(farmer);
         pool.repay(loanId, 100e6);
         (uint256 onTime,,,) = _record(farmer);
@@ -122,7 +133,7 @@ contract LendingPoolCreditTest is ProtocolFixture {
     function test_Credit_GoesToTheBorrowerNotThePayer() public {
         uint256 lotId = _verifiedLot(farmer, CASHEW, KG, CommodityRegistry.Grade.A);
         uint256 loanId = _borrow(farmer, lotId, KG, ADVANCE, TERM_DAYS);
-        vm.warp(block.timestamp + 8 days);
+        vm.warp(block.timestamp + 15 days);
         vm.prank(newcomer);
         pool.repay(loanId, type(uint256).max);
 
@@ -146,7 +157,7 @@ contract LendingPoolCreditTest is ProtocolFixture {
         pool.liquidate(loanId, type(uint256).max);
         assertEq(uint8(pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.ACTIVE), "still open");
 
-        vm.warp(block.timestamp + 8 days);
+        vm.warp(block.timestamp + 15 days);
         vm.prank(farmer);
         pool.repay(loanId, type(uint256).max);
 
@@ -173,14 +184,17 @@ contract LendingPoolCreditTest is ProtocolFixture {
         uint256 raised = pool.maxBorrowFor(farmer, lotId, KG, maturity);
         assertApproxEqAbs(raised, (base * 5_500) / 5_000, 1, "10% more than the base limit");
 
-        // The farmer can borrow above the base limit; a newcomer with the same crop can't.
+        // The farmer can borrow above the base limit; a newcomer can't go past theirs. (The newcomer's
+        // lot is fresher, so it is compared with its own base limit.)
         _borrow(farmer, lotId, KG, base + 50e6, TERM_DAYS);
 
         uint256 newcomerLot = _verifiedLot(newcomer, CASHEW, KG, CommodityRegistry.Grade.A);
+        uint256 newcomerBase = pool.maxBorrow(newcomerLot, KG, maturity);
+        assertEq(pool.maxBorrowFor(newcomer, newcomerLot, KG, maturity), newcomerBase, "no bonus without a record");
         vm.startPrank(newcomer);
         d.commodityToken.setApprovalForAll(address(pool), true);
         vm.expectRevert(LendingPool.LendingPool__ExceedsMaxLTV.selector);
-        pool.borrow(newcomerLot, KG, base + 50e6, maturity);
+        pool.borrow(newcomerLot, KG, newcomerBase + 50e6, maturity);
         vm.stopPrank();
     }
 
@@ -191,7 +205,7 @@ contract LendingPoolCreditTest is ProtocolFixture {
         (,,, bool bonus) = _record(farmer);
         assertFalse(bonus, "3 on time, 1 late: not yet");
 
-        _cycle(farmer, lotId, 8);
+        _cycle(farmer, lotId, 15);
         (,,, bonus) = _record(farmer);
         assertTrue(bonus, "4 on time, 1 late: earned back");
     }

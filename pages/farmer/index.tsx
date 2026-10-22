@@ -94,8 +94,9 @@ export default function FarmerOverview() {
 
       <Card title="Your repayment record" testId="credit-record">
         <p className="text-secondary" style={{ marginTop: 0 }}>
-          Every advance you repay in full by its end date, once it has been open a week, adds to your record. A good record raises
-          how much you can borrow. It is kept on the blockchain in your name and can&apos;t be moved or bought.
+          Every advance of {credit ? usd(credit.minAmount, 0) : "$500"} or more that you repay in full by its end date, once it has
+          been open {credit ? Math.round(credit.minAgeSeconds / 86_400) : 14} days, adds to your record. A good record raises how much
+          you can borrow. It is kept on the blockchain in your name and can&apos;t be moved or bought.
         </p>
         {credit ? (
           <>

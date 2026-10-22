@@ -49,6 +49,19 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "function",
+    "name": "COOLING_OFF",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "DEFAULT_ADMIN_ROLE",
     "inputs": [],
     "outputs": [
@@ -379,6 +392,19 @@ export const CommodityPriceOracleAbi = [
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lastOverrideAt",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -777,6 +803,37 @@ export const CommodityPriceOracleAbi = [
   },
   {
     "type": "event",
+    "name": "PriceOverridden",
+    "inputs": [
+      {
+        "name": "commodityId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "previousPrice",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "price",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "resumableAt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PriceUpdated",
     "inputs": [
       {
@@ -970,6 +1027,17 @@ export const CommodityPriceOracleAbi = [
     "type": "error",
     "name": "CommodityPriceOracle__ArrayLengthMismatch",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CommodityPriceOracle__CoolingOff",
+    "inputs": [
+      {
+        "name": "resumableAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

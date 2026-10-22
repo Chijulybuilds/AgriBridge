@@ -179,6 +179,7 @@ const PLAIN_ERRORS: Record<string, string> = {
   CommodityPriceOracle__PriceStale: "The price for this crop is out of date. Try again once it's updated.",
   CommodityPriceOracle__PriceFeedInactive: "There's no price for this crop yet.",
   CommodityPriceOracle__OverrideOnlyWhilePaused: "Pause prices before overriding a live price.",
+  CommodityPriceOracle__CoolingOff: "Prices can resume one hour after the last override, so borrowers can react first.",
   CommodityPriceOracle__InvalidPrice: "Enter a price between $0.01 and $1,000,000 per kg.",
   CommodityPriceOracle__WrongPriceSource: "This crop's price comes from the local reporters, not from here.",
   CommodityConfig__InvalidLiquidationBonus:

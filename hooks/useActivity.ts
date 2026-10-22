@@ -115,6 +115,8 @@ function describe(log: DecodedLog, commodityNames: Map<bigint, string>): string 
       return `${commodityNames.get(a.commodityId as bigint) ?? `Commodity ${a.commodityId}`} is now priced at ${pricePerKg(a.price as bigint)}`;
     case "CreditUpdated":
       return `${who("borrower")}'s repayment record: ${a.onTime} on time, ${a.late} late, ${a.settled} settled`;
+    case "PriceOverridden":
+      return `The Safe overrode the ${commodityNames.get(a.commodityId as bigint) ?? `commodity ${a.commodityId}`} price from ${pricePerKg(a.previousPrice as bigint)} to ${pricePerKg(a.price as bigint)} while prices were paused`;
     case "PriceHeld":
       return `A new ${commodityNames.get(a.commodityId as bigint) ?? `commodity ${a.commodityId}`} price of ${pricePerKg(a.heldPrice as bigint)} was held for confirmation, as a big move from ${pricePerKg(a.currentPrice as bigint)}`;
     // Only the oracle's brake is shown; the pool and the market have their own.

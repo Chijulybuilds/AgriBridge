@@ -34,6 +34,7 @@ contract CommodityPriceOracleTest is Test {
 
     event PriceUpdated(uint256 indexed commodityId, uint256 price, uint256 timestamp, address indexed updater);
     event PriceHeld(uint256 indexed commodityId, uint256 currentPrice, uint256 heldPrice, address indexed updater);
+    event PriceOverridden(uint256 indexed commodityId, uint256 previousPrice, uint256 price, uint256 resumableAt);
     event PriceFeedStatusChanged(uint256 indexed commodityId, bool active);
     event LocalPriceDisputed(uint256 indexed commodityId, uint256 median, uint256 agreeingReports);
 
@@ -250,6 +251,7 @@ contract CommodityPriceOracleTest is Test {
         vm.startPrank(admin);
         oracle.pause();
         oracle.forcePrice(COCOA, COCOA_PRICE / 2);
+        vm.warp(block.timestamp + oracle.COOLING_OFF());
         oracle.unpause();
         vm.stopPrank();
 
@@ -265,6 +267,39 @@ contract CommodityPriceOracleTest is Test {
         vm.prank(admin);
         oracle.forcePrice(COCOA, COCOA_PRICE / 2);
         assertEq(_price(COCOA), COCOA_PRICE);
+    }
+
+    /// @notice After an override, prices stay paused for the cooling-off, so borrowers can react first.
+    function test_ForcePrice_PricesStayPausedForTheCoolingOff() public {
+        _setCocoa(COCOA_PRICE);
+        vm.startPrank(admin);
+        oracle.pause();
+
+        uint256 resumableAt = block.timestamp + oracle.COOLING_OFF();
+        vm.expectEmit(true, false, false, true, address(oracle));
+        emit PriceOverridden(COCOA, COCOA_PRICE, COCOA_PRICE / 2, resumableAt);
+        oracle.forcePrice(COCOA, COCOA_PRICE / 2);
+
+        vm.warp(resumableAt - 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(CommodityPriceOracle.CommodityPriceOracle__CoolingOff.selector, resumableAt)
+        );
+        oracle.unpause();
+
+        vm.warp(resumableAt);
+        oracle.unpause();
+        vm.stopPrank();
+        assertEq(oracle.getPriceFresh(COCOA), COCOA_PRICE / 2);
+    }
+
+    /// @notice A pause with no override can be lifted straight away.
+    function test_Unpause_NoCoolingOffWithoutAnOverride() public {
+        _setCocoa(COCOA_PRICE);
+        vm.startPrank(admin);
+        oracle.pause();
+        oracle.unpause();
+        vm.stopPrank();
+        assertFalse(oracle.paused());
     }
 
     /// @notice A new feed's first price needs no pause: no loan can depend on it yet.

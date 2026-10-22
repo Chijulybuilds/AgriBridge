@@ -194,6 +194,19 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
+    "name": "MIN_CREDIT_AMOUNT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MIN_LOAN_TERM",
     "inputs": [],
     "outputs": [

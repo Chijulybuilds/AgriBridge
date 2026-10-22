@@ -131,6 +131,7 @@ contract DemoDeploymentTest is Test {
         vm.startPrank(SAFE);
         d.oracle.pause();
         d.oracle.forcePrice(CommodityDefaults.CASHEW, 170 * 10 ** 6); // $1.70/kg: $1,700 against $1,400
+        vm.warp(block.timestamp + d.oracle.COOLING_OFF()); // borrowers get an hour to react
         d.oracle.unpause();
         vm.stopPrank();
         assertLt(d.pool.getHealthFactor(risky), 1e18);

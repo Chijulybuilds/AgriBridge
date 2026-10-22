@@ -20,8 +20,9 @@ import {ICommodityPriceOracle} from "src/interfaces/ICommodityPriceOracle.sol";
  *      with it; a one-off glitch therefore never reaches a loan. Pausing the oracle is the circuit
  *      breaker: no fresh price is served, so nothing can borrow or be liquidated on a suspect price.
  *      The admin (the Safe) can override a price, past the cap, only while the oracle is paused: an
- *      override is an emergency step, taken behind the breaker and in public. The one exception is a
- *      new feed's first price, which no loan can depend on yet.
+ *      override is an emergency step, taken behind the breaker and in public, and the oracle then
+ *      stays paused for COOLING_OFF, so borrowers see the new price and can repay before anything is
+ *      settled on it. The one exception is a new feed's first price, which no loan can depend on yet.
  */
 contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable {
     /*//////////////////////////////////////////////////////////////
@@ -59,6 +60,8 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     uint256 public constant MAX_REPORTERS = 7;
     /// @notice A held price is confirmed only by an update at least this much later.
     uint256 public constant CONFIRMATION_DELAY = 10 minutes;
+    /// @notice After an override, prices stay paused at least this long.
+    uint256 public constant COOLING_OFF = 1 hours;
 
     uint128 private constant MIN_PRICE = 1 * 10 ** 6; // $0.01
     uint128 private constant MAX_PRICE = 1_000_000 * 10 ** 8; // $1,000,000.00
@@ -77,6 +80,8 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
 
     /// @notice Largest move from the current price an update can make on its own (10%).
     uint16 public maxMoveBps = 1_000;
+    /// @notice When a live price was last overridden; the oracle can't resume until COOLING_OFF after it.
+    uint64 public lastOverrideAt;
     /// @notice Fresh local reports needed to agree on a price.
     uint8 public localQuorum = 2;
     /// @notice How close to the median a local report must be to count as agreeing (5%).
@@ -96,6 +101,7 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
 
     event PriceUpdated(uint256 indexed commodityId, uint256 price, uint256 timestamp, address indexed updater);
     event PriceHeld(uint256 indexed commodityId, uint256 currentPrice, uint256 heldPrice, address indexed updater);
+    event PriceOverridden(uint256 indexed commodityId, uint256 previousPrice, uint256 price, uint256 resumableAt);
     event PriceFeedStatusChanged(uint256 indexed commodityId, bool active);
     event HeartbeatSet(uint256 indexed commodityId, uint256 heartbeat);
     event LocalPriceReported(uint256 indexed commodityId, address indexed reporter, uint256 price);
@@ -120,6 +126,7 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     error CommodityPriceOracle__TooManyReporters();
     error CommodityPriceOracle__InvalidParameters();
     error CommodityPriceOracle__OverrideOnlyWhilePaused();
+    error CommodityPriceOracle__CoolingOff(uint256 resumableAt);
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -199,8 +206,11 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
     function forcePrice(uint256 _commodityId, uint128 _price) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _requireKnown(_commodityId);
         _requireBounds(_price);
-        if (!paused() && s_priceData[_commodityId].updatedAt != 0) {
-            revert CommodityPriceOracle__OverrideOnlyWhilePaused();
+        PackedPriceData memory current = s_priceData[_commodityId];
+        if (current.updatedAt != 0) {
+            if (!paused()) revert CommodityPriceOracle__OverrideOnlyWhilePaused();
+            lastOverrideAt = uint64(block.timestamp);
+            emit PriceOverridden(_commodityId, current.answer, _price, block.timestamp + COOLING_OFF);
         }
         delete s_held[_commodityId];
         _apply(_commodityId, _price);
@@ -265,7 +275,10 @@ contract CommodityPriceOracle is ICommodityPriceOracle, AccessControl, Pausable 
         _pause();
     }
 
+    /// @notice Resumes prices; refused until COOLING_OFF after the last override.
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 resumableAt = uint256(lastOverrideAt) + COOLING_OFF;
+        if (block.timestamp < resumableAt) revert CommodityPriceOracle__CoolingOff(resumableAt);
         _unpause();
     }
 

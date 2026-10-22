@@ -47,6 +47,7 @@ const EVENTS: Record<string, { icon: Icon; tone: "green" | "gold" | "red" | "blu
   ExpiredStockSold: { icon: TagIcon, tone: "red", topic: "market" },
   PriceUpdated: { icon: ChartBarIcon, tone: "blue", topic: "prices" },
   PriceHeld: { icon: ClockIcon, tone: "gold", topic: "prices" },
+  PriceOverridden: { icon: ExclamationTriangleIcon, tone: "red", topic: "prices" },
   Paused: { icon: ExclamationTriangleIcon, tone: "red", topic: "prices" },
   Unpaused: { icon: ChartBarIcon, tone: "green", topic: "prices" },
 };
