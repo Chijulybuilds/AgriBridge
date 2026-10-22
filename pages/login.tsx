@@ -10,6 +10,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { SignIn } from "../components/wallet";
 import { APP_ROLES, getStoredRole, homeFor, isAppRole, storeRole, type AppRole } from "../lib/session";
 import { InfoTip } from "../components/help/InfoTip";
+import { usesEmbeddedWallets } from "../components/providers";
 import { TutorialButton } from "../components/help/Tutorial";
 
 const ROLE_DETAILS: Record<AppRole, { icon: typeof SunIcon; line: string }> = {
@@ -58,7 +59,7 @@ export default function Login() {
             </p>
           </div>
           <ul className="stack" style={{ gap: 12, listStyle: "none" }}>
-            {["Sign in with MetaMask: no account or password to create", "Your account is yours: AgriBridge never holds your key", "Every step has a public record you can check"].map((line) => (
+            {[usesEmbeddedWallets ? "Sign in with Google: your account is created for you, no password" : "Sign in with MetaMask: no account or password to create", "Your account is yours: AgriBridge never holds your key", "Every step has a public record you can check"].map((line) => (
               <li key={line} className="row" style={{ gap: 10, fontSize: 15, flexWrap: "nowrap" }}>
                 <CheckIcon aria-hidden="true" style={{ width: 18, height: 18, color: "var(--maize)", flexShrink: 0 }} />
                 {line}
@@ -111,7 +112,16 @@ export default function Login() {
 
             <SignIn />
             <p className="muted" style={{ marginTop: 12, fontSize: 14 }}>
-              What is MetaMask? <InfoTip id="metamask" /> What is a wallet? <InfoTip id="wallet" /> Is there a fee? <InfoTip id="network-fee" />
+              {usesEmbeddedWallets ? (
+                <>
+                  How does Google sign-in work? <InfoTip id="google-sign-in" />{" "}
+                </>
+              ) : (
+                <>
+                  What is MetaMask? <InfoTip id="metamask" />{" "}
+                </>
+              )}
+              What is a wallet? <InfoTip id="wallet" /> Is there a fee? <InfoTip id="network-fee" />
             </p>
 
             <p className="muted" style={{ textAlign: "center", marginTop: 24, fontSize: 14 }}>

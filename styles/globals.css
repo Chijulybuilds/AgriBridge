@@ -2570,6 +2570,18 @@ input[type="radio"] {
   }
 }
 
+/* "Continue with Google": white, with the Google mark, as Google asks sign-in buttons to look. */
+.google-btn {
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #747775;
+  gap: 10px;
+}
+.google-btn:hover {
+  background: #f2f2f2;
+  color: #1f1f1f;
+}
+
 /* An empty screen's drawing. */
 .empty-art {
   display: block;

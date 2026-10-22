@@ -45,13 +45,24 @@ const tutorialButton: TourStep = {
   press: "You can choose the short tour or the full one again.",
 };
 
-const signIn: TourStep = {
+/** Google sign-in (MetaMask Embedded Wallets) is on when a client ID is set; the tests use their own wallet. */
+const GOOGLE = Boolean(process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID) && !process.env.NEXT_PUBLIC_E2E;
+
+const signIn: TourStep = GOOGLE
+  ? {
+      target: "connect-wallet",
+      title: "Sign in with Google",
+      body: "Tap \"Continue with Google\" and choose your Google account. The first time, AgriBridge creates your account for you, a wallet in your name, and connects it. There is no app to install and no new password.",
+      press: "Google's sign-in window opens. Choose your account; a moment later you are in. Prefer MetaMask or email? Use \"Other ways\" below it.",
+      picture: "wallet",
+    }
+  : {
   target: "connect-wallet",
   title: "Sign in with MetaMask",
   body: "MetaMask is a free app that works as your AgriBridge account. It keeps your dollars and your crop, and asks you to say \"yes\" before anything happens. There is no password to remember.",
   press: "MetaMask opens. Check the details, then tap \"Connect\". Install MetaMask first from metamask.io if you don't have it.",
   picture: "wallet",
-};
+    };
 
 const roles: TourStep = {
   target: "role-switch",
@@ -150,11 +161,17 @@ export const APP_TOUR: Tour = {
     helpIcon,
     tutorialButton,
     signIn,
-    {
-      title: "Keep your secret words safe",
-      body: "When you create a MetaMask wallet, it gives you 12 secret words. Write them on paper and keep them safe. Anyone with these words can take everything. Never share them, not even with AgriBridge.",
-      picture: "shield",
-    },
+    GOOGLE
+      ? {
+          title: "Keep your Google account safe",
+          body: "Your AgriBridge wallet opens with your Google account, so protect it: use a strong password and turn on Google's 2-step verification. Never share your password or sign-in codes, not even with AgriBridge.",
+          picture: "shield",
+        }
+      : {
+          title: "Keep your secret words safe",
+          body: "When you create a MetaMask wallet, it gives you 12 secret words. Write them on paper and keep them safe. Anyone with these words can take everything. Never share them, not even with AgriBridge.",
+          picture: "shield",
+        },
     roles,
     testDollars,
     {

@@ -10,8 +10,10 @@ import { injected, safe } from "wagmi/connectors";
  * without touching a public network.
  *
  * There are two wallet setups, kept apart on purpose:
- * - the public app signs people in with MetaMask (`appConfig`; the end-to-end
- *   tests use their own browser test wallet);
+ * - the public app signs people in with Google, email or a phone number (MetaMask Embedded
+ *   Wallets, see components/providers.tsx) when NEXT_PUBLIC_WEB3AUTH_CLIENT_ID is set, with
+ *   MetaMask still on offer; otherwise with MetaMask only (`appConfig`). The end-to-end tests
+ *   always use their own browser test wallet;
  * - the hidden /verifier page only talks to the verifier Safe, opened as a Safe
  *   App (`verifierConfig`), or to a browser wallet for local development.
  */
@@ -49,6 +51,16 @@ export const appConfig = createConfig({
   transports,
   ssr: true,
 });
+
+/**
+ * MetaMask Embedded Wallets client ID, from its developer dashboard. Public, not a secret. The
+ * end-to-end tests (NEXT_PUBLIC_E2E) always use browser wallets, which they can drive.
+ */
+export const web3AuthClientId = process.env.NEXT_PUBLIC_E2E ? undefined : process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID || undefined;
+
+/** "sapphire_devnet" while testing; "sapphire_mainnet" for a real launch. */
+export const web3AuthNetwork =
+  process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK === "sapphire_mainnet" ? "sapphire_mainnet" : "sapphire_devnet";
 
 /** The /verifier page: the Safe (as a Safe App), or a browser wallet for local development. */
 export const verifierConfig = createConfig({

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
 import { useConnection } from "wagmi";
 
+import { usesEmbeddedWallets } from "./providers";
 
 /**
  * Shows its children only to someone signed in, and sends everyone else to the
@@ -19,7 +20,8 @@ export function RequireWallet({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isConnected) return;
-    const timer = setTimeout(() => setPatienceOver(true), 1_200);
+    // The embedded wallets SDK starts up first, so it takes longer to reconnect.
+    const timer = setTimeout(() => setPatienceOver(true), usesEmbeddedWallets ? 4_000 : 1_200);
     return () => clearTimeout(timer);
   }, [isConnected]);
 

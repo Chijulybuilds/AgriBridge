@@ -51,6 +51,13 @@ export const HELP = {
     why: "You need it to sign in and to confirm each action, such as taking an advance or buying crop.",
     todo: "Install MetaMask from metamask.io (only from there), create a wallet, then tap \"Connect MetaMask\" on the sign-in page.",
   },
+  "google-sign-in": {
+    group: "Getting started",
+    title: "Continue with Google",
+    what: "Sign in with your Google account. The first time, AgriBridge creates your account, a wallet in your name, and connects it for you. There is nothing to install and no new password.",
+    why: "Your wallet holds your dollars and your crop. Its key is split between your Google sign-in, your device and MetaMask's key service, so nobody, not even AgriBridge, can use it without you.",
+    todo: "Tap \"Continue with Google\" and choose your Google account. Next time, sign in with the same Google account to get the same wallet back.",
+  },
   "sign-in": {
     group: "Getting started",
     title: "Sign in",

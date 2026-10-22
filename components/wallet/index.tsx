@@ -1,12 +1,23 @@
+import dynamic from "next/dynamic";
 import { useConnection, useDisconnect } from "wagmi";
 
 import { shortAddress } from "../../lib/format";
+import { usesEmbeddedWallets } from "../providers";
 import { MetaMaskSignIn } from "./MetaMaskSignIn";
 
-/* Sign-in controls for the public app, which signs people in with MetaMask. */
+/*
+ * Sign-in controls for both wallet setups (see components/providers.tsx): Google, email or phone
+ * when MetaMask Embedded Wallets is configured, MetaMask otherwise.
+ */
+
+const Embedded = {
+  SignIn: dynamic(() => import("./EmbeddedWallet").then((m) => m.EmbeddedSignIn), { ssr: false }),
+  SignOut: dynamic(() => import("./EmbeddedWallet").then((m) => m.EmbeddedSignOut), { ssr: false }),
+  AccountName: dynamic(() => import("./EmbeddedWallet").then((m) => m.EmbeddedAccountName), { ssr: false }),
+};
 
 export function SignIn() {
-  return <MetaMaskSignIn />;
+  return usesEmbeddedWallets ? <Embedded.SignIn /> : <MetaMaskSignIn />;
 }
 
 /**
@@ -14,6 +25,11 @@ export function SignIn() {
  * again, rather than reconnecting on its own), then the app disconnects.
  */
 export function SignOut({ className }: { className?: string }) {
+  if (usesEmbeddedWallets) return <Embedded.SignOut className={className} />;
+  return <MetaMaskSignOut className={className} />;
+}
+
+function MetaMaskSignOut({ className }: { className?: string }) {
   const { connector } = useConnection();
   const { mutate: disconnect } = useDisconnect();
   async function signOut() {
@@ -34,5 +50,6 @@ export function SignOut({ className }: { className?: string }) {
 
 export function AccountName() {
   const { address } = useConnection();
+  if (usesEmbeddedWallets) return <Embedded.AccountName address={address} />;
   return <span title={address}>{shortAddress(address)}</span>;
 }
