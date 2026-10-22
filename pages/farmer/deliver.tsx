@@ -12,6 +12,7 @@ import { useTx } from "../../hooks/useTx";
 import { CommodityRegistryAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
 import { bytes32ToText, date, harvestTimestamp, isoDay, kg, nowSeconds, parseKg } from "../../lib/format";
+import { InfoTip } from "../../components/help/InfoTip";
 
 /**
  * Book a delivery: the farmer says what they are bringing and where. The
@@ -78,14 +79,14 @@ export default function Deliver() {
 
   return (
     <AppLayout role="farmer" title="Deliver a crop">
-      <PageHeader
+      <PageHeader section="deliver"
         eyebrow="Farmer"
         title="Deliver a crop"
         subtitle="Tell us what you're bringing. At the warehouse it's weighed and graded, and then it appears in My stock, ready to borrow against or sell."
       />
 
       <div className="grid-2">
-        <Card title="Book a delivery">
+        <Card title="Book a delivery" tour="deliver-form" help="deliver">
           <form onSubmit={submit} noValidate>
             <div className="field">
               <label htmlFor="commodity">Crop</label>
@@ -99,7 +100,9 @@ export default function Deliver() {
               </select>
             </div>
             <div className="field">
-              <label htmlFor="warehouse">Warehouse</label>
+              <label htmlFor="warehouse">
+                Warehouse <InfoTip id="warehouse" />
+              </label>
               <select id="warehouse" className="select" data-testid="warehouse" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
                 <option value="">Choose…</option>
                 {openWarehouses.map((w) => (
@@ -123,7 +126,7 @@ export default function Deliver() {
                 {formError}
               </p>
             )}
-            <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-delivery">
+            <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-delivery" data-tour="deliver-submit">
               {tx.isBusy ? "Booking…" : "Book delivery"}
             </button>
             <TxStatus tx={tx} success="Delivery booked. Bring the crop to the warehouse for weighing and grading." />
@@ -140,7 +143,7 @@ export default function Deliver() {
         </Card>
       </div>
 
-      <Card title="My deliveries" testId="deliveries">
+      <Card title="My deliveries" testId="deliveries" tour="deliveries-list" help="pending">
         {mine.length === 0 ? (
           <EmptyState icon={TruckIcon} title="No deliveries yet">
             Your bookings appear here, with the weight and grade once the warehouse has checked them.

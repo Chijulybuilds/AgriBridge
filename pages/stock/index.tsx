@@ -35,16 +35,16 @@ export default function MyStock() {
 
   return (
     <AppLayout role={role} title="My stock">
-      <PageHeader
+      <PageHeader section="stock"
         eyebrow="Your stock"
         title="My stock"
         subtitle="Crop you own in the warehouses, delivered or bought. One unit is one kilogram, and its value falls slowly as it ages."
       />
 
-      <div className="grid-4">
-        <Stat lead icon={BanknotesIcon} label="Worth today" value={usd(total)} testId="stock-value" />
-        <Stat icon={ScaleIcon} label="Kilograms held" value={kg(totalKg)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} />
-        <Stat icon={ClockIcon} label="Expiring within 30 days" value={String(expiring.length)} sub="Sell or collect these first" />
+      <div className="grid-4" data-tour="stock-summary">
+        <Stat lead icon={BanknotesIcon} label="Worth today" help="worth-today" value={usd(total)} testId="stock-value" />
+        <Stat icon={ScaleIcon} label="Kilograms held" help="stock" value={kg(totalKg)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} />
+        <Stat icon={ClockIcon} label="Expiring within 30 days" help="expiry" value={String(expiring.length)} sub="Sell or collect these first" />
       </div>
 
       {expiring.length > 0 && (
@@ -53,7 +53,7 @@ export default function MyStock() {
         </Notice>
       )}
 
-      <Card title="Lots" testId="stock">
+      <Card title="Lots" testId="stock" tour="lot-list" help="lot">
         {isLoading ? (
           <Skeleton rows={4} />
         ) : held.length === 0 ? (

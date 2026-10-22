@@ -7,20 +7,30 @@ import {
 } from "@heroicons/react/24/outline";
 import { m } from "motion/react";
 
+import { InfoTip } from "./help/InfoTip";
+import { PageTourButton, useSectionTour } from "./help/Tutorial";
+import type { HelpId } from "../lib/help";
+import type { SectionId } from "../lib/tours";
+
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 type Tone = "green" | "gold" | "red" | "blue" | "muted";
 
-/** Page title, with a small eyebrow above it and one plain-language line on what the page is for. */
+/**
+ * Page title, with a small eyebrow above it and one plain-language line on what the page is for.
+ * `section` adds the page's "How this page works" button, and plays that guide on a first visit.
+ */
 export function PageHeader({
   eyebrow,
   title,
   subtitle,
   actions,
+  section,
 }: {
   eyebrow?: string;
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  section?: SectionId;
 }) {
   return (
     <div className="page-header spread" style={{ alignItems: "flex-end", flexWrap: "wrap" }}>
@@ -29,22 +39,41 @@ export function PageHeader({
         <h1>{title}</h1>
         {subtitle && <p>{subtitle}</p>}
       </div>
-      {actions && <div className="row">{actions}</div>}
+      {(actions || section) && (
+        <div className="row">
+          {section && <SectionTour section={section} />}
+          {actions}
+        </div>
+      )}
     </div>
   );
 }
 
-export function Card({ title, children, actions, testId }: {
+function SectionTour({ section }: { section: SectionId }) {
+  useSectionTour(section);
+  return <PageTourButton section={section} />;
+}
+
+/** `help` puts an "i" button after the title; `tour` names the card for the tutorials. */
+export function Card({ title, children, actions, testId, help, tour }: {
   title?: string;
   children: ReactNode;
   actions?: ReactNode;
   testId?: string;
+  help?: HelpId;
+  tour?: string;
 }) {
   return (
-    <section className="card" data-testid={testId}>
+    <section className="card" data-testid={testId} data-tour={tour}>
       {(title || actions) && (
         <div className="spread" style={{ marginBottom: 16, flexWrap: "wrap" }}>
-          {title && <h2 style={{ marginBottom: 0 }}>{title}</h2>}
+          {title && (
+            // The "i" sits beside the heading, not inside it, so the heading keeps its own name.
+            <span className="with-info">
+              <h2 style={{ marginBottom: 0 }}>{title}</h2>
+              {help && <InfoTip id={help} />}
+            </span>
+          )}
           {actions}
         </div>
       )}
@@ -67,6 +96,8 @@ export function Stat({
   lead,
   alert,
   testId,
+  help,
+  tour,
 }: {
   label: string;
   value: ReactNode;
@@ -75,13 +106,18 @@ export function Stat({
   lead?: boolean;
   alert?: boolean;
   testId?: string;
+  /** An "i" button after the label. */
+  help?: HelpId;
+  /** Names the figure for the tutorials. */
+  tour?: string;
 }) {
   const changes = useChangeCount(value);
   return (
-    <div className={`stat${lead ? " stat-lead" : ""}${alert ? " stat-alert" : ""}`}>
+    <div className={`stat${lead ? " stat-lead" : ""}${alert ? " stat-alert" : ""}`} data-tour={tour}>
       <div className="stat-label">
         {IconComponent && <IconComponent aria-hidden="true" />}
         {label}
+        {help && <InfoTip id={help} />}
       </div>
       <div className="stat-value" data-testid={testId}>
         <span key={changes} className={changes ? "value-changed" : undefined}>
@@ -176,10 +212,13 @@ export function Skeleton({ rows = 3, height = 18 }: { rows?: number; height?: nu
   );
 }
 
-export function KeyValue({ label, value, testId }: { label: string; value: ReactNode; testId?: string }) {
+export function KeyValue({ label, value, testId, help }: { label: string; value: ReactNode; testId?: string; help?: HelpId }) {
   return (
     <div className="kv">
-      <span>{label}</span>
+      <span>
+        {label}
+        {help && <InfoTip id={help} />}
+      </span>
       <span data-testid={testId}>{value}</span>
     </div>
   );

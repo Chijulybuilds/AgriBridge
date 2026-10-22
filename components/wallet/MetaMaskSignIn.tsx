@@ -52,7 +52,7 @@ export function MetaMaskSignIn() {
       const here = `${window.location.host}${window.location.pathname}${window.location.search}`;
       return (
         <div className="stack" style={{ gap: 8 }}>
-          <a className="btn btn-block" href={`https://metamask.app.link/dapp/${here}`} data-testid="open-in-metamask">
+          <a className="btn btn-block" href={`https://metamask.app.link/dapp/${here}`} data-testid="open-in-metamask" data-tour="connect-wallet">
             Open in MetaMask
           </a>
           <p className="hint">
@@ -73,7 +73,7 @@ export function MetaMaskSignIn() {
 
   return (
     <div className="stack" style={{ gap: 8 }}>
-      <button className="btn btn-block" data-testid="connect-wallet" disabled={isPending} onClick={() => connect({ connector })}>
+      <button className="btn btn-block" data-testid="connect-wallet" data-tour="connect-wallet" disabled={isPending} onClick={() => connect({ connector })}>
         {isPending ? "Connecting…" : "Connect MetaMask"}
       </button>
       {error && (

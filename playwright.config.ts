@@ -28,6 +28,9 @@ export default defineConfig({
 
   use: {
     baseURL: BASE_URL,
+    // The tutorials offer themselves on a first visit; the journeys drive the screens, so they start
+    // with that turned off (the tutorial has its own tests).
+    storageState: { cookies: [], origins: [{ origin: BASE_URL, localStorage: [{ name: "agribridge.tutorial.off", value: "1" }] }] },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

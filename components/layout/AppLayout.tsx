@@ -27,6 +27,7 @@ import {
   TruckIcon,
   WalletIcon,
   XMarkIcon,
+  QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
 
 import { REGULATOR_ROLE } from "../../lib/contracts/config";
@@ -34,6 +35,8 @@ import { usd } from "../../lib/format";
 import { APP_ROLES, storeRole, type AppRole } from "../../lib/session";
 import { useHasRegistryRole, useUsdc } from "../../hooks/useProtocolData";
 import { DemoFaucet } from "../DemoFaucet";
+import { InfoTip } from "../help/InfoTip";
+import { TutorialButton } from "../help/Tutorial";
 import { Logo, LogoMark } from "../Logo";
 import { NetworkGuard } from "../NetworkGuard";
 import { RequireWallet } from "../RequireWallet";
@@ -168,11 +171,15 @@ export default function AppLayout({
               <LogoMark size={30} />
             </Link>
             <div className="row" style={{ marginLeft: "auto", gap: 8, flexWrap: "nowrap" }}>
-              <DemoFaucet />
+              <TutorialButton />
+              <span data-tour="test-dollars" style={{ display: "inline-flex" }}>
+                <DemoFaucet />
+              </span>
               {isConnected && (
-                <span className="chip hide-mobile" data-testid="usdc-balance" title="Your dollars (USDC)">
+                <span className="chip hide-mobile" data-testid="usdc-balance" data-tour="dollar-balance" title="Your dollars (USDC)">
                   <WalletIcon style={{ width: 15, height: 15, color: "var(--brand)" }} />
                   <span className="num">{usd(balance)}</span>
+                  <InfoTip id="dollar-balance" />
                 </span>
               )}
               <ThemeToggle />
@@ -219,7 +226,7 @@ function Sidebar({ role, onNavigate, closable }: { role: AppRole; onNavigate: ()
       </div>
 
       {/* Everyone can play every role; this switches which tools are shown. */}
-      <nav className="segmented role-switch" aria-label="Role" style={{ margin: "4px 14px 18px" }}>
+      <nav className="segmented role-switch" aria-label="Role" style={{ margin: "4px 14px 18px" }} data-tour="role-switch">
         {APP_ROLES.map((r) => (
           <Link
             key={r.id}
@@ -233,7 +240,7 @@ function Sidebar({ role, onNavigate, closable }: { role: AppRole; onNavigate: ()
         ))}
       </nav>
 
-      <nav aria-label="Pages" style={{ padding: "0 12px", flex: 1, overflowY: "auto" }}>
+      <nav aria-label="Pages" style={{ padding: "0 12px", flex: 1, overflowY: "auto" }} data-tour="nav">
         {nav.map((item) => {
           const Icon = item.icon;
           return (
@@ -252,6 +259,10 @@ function Sidebar({ role, onNavigate, closable }: { role: AppRole; onNavigate: ()
       </nav>
 
       <div style={{ padding: 14, borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+        <Link href="/help" className="nav-item" onClick={onNavigate} aria-current={router.pathname === "/help" ? "page" : undefined}>
+          <QuestionMarkCircleIcon />
+          Help
+        </Link>
         <Link href="/" className="nav-item" onClick={onNavigate}>
           <HomeIcon />
           Home

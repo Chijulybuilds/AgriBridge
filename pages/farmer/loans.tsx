@@ -13,6 +13,7 @@ import { useTx } from "../../hooks/useTx";
 import { LendingPoolAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
 import { date, kg, parseUsd, pricePerKg, relativeDays, usd } from "../../lib/format";
+import { InfoTip } from "../../components/help/InfoTip";
 
 /** The farmer's advances: what is owed, how safe each one is, and repayment. */
 export default function MyAdvances() {
@@ -29,7 +30,7 @@ export default function MyAdvances() {
 
   return (
     <AppLayout role="farmer" title="My advances">
-      <PageHeader
+      <PageHeader section="loans"
         eyebrow="Farmer"
         title="My advances"
         subtitle="Repay before the end date to get your crop back. Interest builds up every second, so repaying early costs less."
@@ -53,7 +54,7 @@ export default function MyAdvances() {
           </EmptyState>
         </Card>
       ) : (
-        <div className="stack">
+        <div className="stack" data-tour="loans-list">
           {active.map((loan) => {
             const lot = lotById.get(loan.lotId);
             const commodity = lot ? commodities.get(lot.commodityId) : undefined;
@@ -134,15 +135,21 @@ function AdvanceCard({
   }
 
   return (
-    <Card title={name} actions={<Badge tone={health.tone}>{health.label}</Badge>} testId={`advance-${loan.id}`}>
+    <Card title={name} actions={
+        <span className="with-info" data-tour="loan-safety">
+          <Badge tone={health.tone}>{health.label}</Badge>
+          <InfoTip id="safety-level" />
+        </span>
+      } testId={`advance-${loan.id}`}>
       <div className="grid-2" style={{ marginBottom: 0 }}>
         <div>
           <KeyValue label="Owed now" value={usd(loan.debt)} testId="owed" />
           <KeyValue label="Borrowed" value={usd(loan.principal)} />
           <KeyValue label="Crop held as security" value={kg(loan.collateralKg)} />
-          <KeyValue label="Repay by" value={`${date(loan.maturity)} (${relativeDays(loan.maturity)})`} />
+          <KeyValue label="Repay by" help="end-date" value={`${date(loan.maturity)} (${relativeDays(loan.maturity)})`} />
           <KeyValue
             label="Sold if the price falls below"
+            help="sell-price"
             value={loan.liquidationPrice !== undefined ? `${pricePerKg(loan.liquidationPrice)} (now ${pricePerKg(todayPrice)})` : "—"}
           />
         </div>
@@ -157,7 +164,7 @@ function AdvanceCard({
             </div>
             <span className="hint">You have {usd(balance)}.</span>
           </div>
-          <button className="btn btn-block" disabled={tx.isBusy} onClick={() => void repay(true)} data-testid="repay-all">
+          <button className="btn btn-block" disabled={tx.isBusy} onClick={() => void repay(true)} data-testid="repay-all" data-tour="repay-all">
             Repay all and get my crop back
           </button>
           <TxStatus tx={tx} success="Repaid. Your crop is back in My stock." />

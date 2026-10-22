@@ -38,13 +38,13 @@ export default function FarmerOverview() {
 
   return (
     <AppLayout role="farmer" title="Farmer">
-      <PageHeader eyebrow="Farmer" title="Farmer overview" subtitle="Your crop in storage, your advances, and what to do next." />
+      <PageHeader section="farmer" eyebrow="Farmer" title="Farmer overview" subtitle="Your crop in storage, your advances, and what to do next." />
 
-      <div className="grid-4">
-        <Stat lead icon={ArchiveBoxIcon} label="Crop in storage" value={usd(stockValue)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} testId="stat-stock" />
-        <Stat icon={ClockIcon} label="Waiting for checks" value={String(pending.length)} sub="Deliveries not yet graded" />
-        <Stat icon={BanknotesIcon} label="Owed on advances" value={usd(owed)} sub={`${active.length} active`} />
-        <Stat icon={BuildingLibraryIcon} label="Pool cash available" value={usd(stats?.availableCash)} sub="What can be advanced now" />
+      <div className="grid-4" data-tour="farmer-stats">
+        <Stat lead icon={ArchiveBoxIcon} label="Crop in storage" help="worth-today" value={usd(stockValue)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} testId="stat-stock" />
+        <Stat icon={ClockIcon} label="Waiting for checks" help="pending" value={String(pending.length)} sub="Deliveries not yet graded" />
+        <Stat icon={BanknotesIcon} label="Owed on advances" help="advance" value={usd(owed)} sub={`${active.length} active`} />
+        <Stat icon={BuildingLibraryIcon} label="Pool cash available" help="available-cash" value={usd(stats?.availableCash)} sub="What can be advanced now" />
       </div>
 
       <div className="grid-2 grid-2-lead">
@@ -78,7 +78,7 @@ export default function FarmerOverview() {
           </Link>
         </Card>
 
-        <section className="card island">
+        <section className="card island" data-tour="next-step">
           <span className="page-eyebrow">Next step</span>
           <h2 className="display" style={{ fontSize: 34, margin: "2px 0 12px" }}>
             {next.cta}
@@ -92,7 +92,7 @@ export default function FarmerOverview() {
         </section>
       </div>
 
-      <Card title="Your repayment record" testId="credit-record">
+      <Card title="Your repayment record" testId="credit-record" tour="credit-record" help="record">
         <p className="text-secondary" style={{ marginTop: 0 }}>
           Every advance of {credit ? usd(credit.minAmount, 0) : "$500"} or more that you repay in full by its end date, once it has
           been open {credit ? Math.round(credit.minAgeSeconds / 86_400) : 14} days, adds to your record. A good record raises how much

@@ -20,6 +20,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { CropSeal } from "../components/ui";
 import { useCommodities, useLots, usePoolStats } from "../hooks/useProtocolData";
 import { kg, percentFromBps, percentFromWad, pricePerKg, usd } from "../lib/format";
+import { TutorialButton } from "../components/help/Tutorial";
 
 const STEPS: Array<{ role: string; tone: string; steps: Array<[string, string]> }> = [
   {
@@ -125,6 +126,7 @@ export default function Home() {
             <Link href="/market">Market</Link>
           </div>
           <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
+            <TutorialButton />
             <ThemeToggle />
             <Link className="btn btn-secondary btn-small" href="/login">
               Sign in

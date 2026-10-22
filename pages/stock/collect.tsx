@@ -86,7 +86,7 @@ export default function Collect() {
 
   return (
     <AppLayout role={role} title="Collect">
-      <PageHeader
+      <PageHeader section="collect"
         eyebrow="Your stock"
         title="Collect from the warehouse"
         subtitle="Take your goods out of storage: pick them up yourself, or have the warehouse deliver them. Storage is paid when you collect."
@@ -96,7 +96,7 @@ export default function Collect() {
       <TxStatus tx={tx} success="Request sent. The warehouse confirms when the goods leave; you can cancel until then." />
 
       <div className="grid-2">
-        <Card title="Ask to collect">
+        <Card title="Ask to collect" tour="collect-form" help="collect">
           {collectable.length === 0 ? (
             <EmptyState icon={TruckIcon} title="Nothing to collect">
               Stock you hold in a warehouse can be picked up or delivered from here.

@@ -9,6 +9,8 @@ import { Logo } from "../components/Logo";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { SignIn } from "../components/wallet";
 import { APP_ROLES, getStoredRole, homeFor, isAppRole, storeRole, type AppRole } from "../lib/session";
+import { InfoTip } from "../components/help/InfoTip";
+import { TutorialButton } from "../components/help/Tutorial";
 
 const ROLE_DETAILS: Record<AppRole, { icon: typeof SunIcon; line: string }> = {
   farmer: { icon: SunIcon, line: "Store your crop, get a cash advance against it, or sell it." },
@@ -70,7 +72,8 @@ export default function Login() {
             <span className="login-mobile-logo">
               <Logo size={28} />
             </span>
-            <span style={{ marginLeft: "auto" }}>
+            <span className="row" style={{ marginLeft: "auto", gap: 8, flexWrap: "nowrap" }}>
+              <TutorialButton />
               <ThemeToggle />
             </span>
           </div>
@@ -79,9 +82,13 @@ export default function Login() {
             <h1 style={{ fontSize: 44, marginBottom: 10 }}>Sign in</h1>
             <p className="text-secondary" style={{ marginBottom: 24 }}>
               Choose what you want to do first. You can switch at any time.
+              <InfoTip id="roles" />
+            </p>
+            <p className="help-hint" data-testid="help-hint">
+              New here? Tap a small <InfoTip id="info-icon" /> next to any word to see what it means, in simple words.
             </p>
 
-            <fieldset className="stack" style={{ gap: 10, marginBottom: 24, border: "none" }}>
+            <fieldset className="stack" style={{ gap: 10, marginBottom: 24, border: "none" }} data-tour="role-switch">
               <legend className="visually-hidden">What do you want to do first?</legend>
               {APP_ROLES.map((r) => {
                 const Icon = ROLE_DETAILS[r.id].icon;
@@ -103,6 +110,9 @@ export default function Login() {
             </fieldset>
 
             <SignIn />
+            <p className="muted" style={{ marginTop: 12, fontSize: 14 }}>
+              What is MetaMask? <InfoTip id="metamask" /> What is a wallet? <InfoTip id="wallet" /> Is there a fee? <InfoTip id="network-fee" />
+            </p>
 
             <p className="muted" style={{ textAlign: "center", marginTop: 24, fontSize: 14 }}>
               Just looking?{" "}

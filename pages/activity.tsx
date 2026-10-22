@@ -70,6 +70,8 @@ export default function Activity() {
     <AppLayout role={role} title="Activity" requireWallet={false}>
       <PageHeader eyebrow="Public record" title="Activity" subtitle="Every delivery, advance, sale and price change, read straight from the blockchain." />
       <Card
+        tour="activity-feed"
+        help="public-record"
         testId="activity"
         actions={
           <Segmented

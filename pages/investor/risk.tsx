@@ -31,20 +31,20 @@ export default function Risk() {
 
   return (
     <AppLayout role="investor" title="Risk">
-      <PageHeader
+      <PageHeader section="risk"
         eyebrow="Investor"
         title="Risk"
         subtitle="Every advance the pool has made, how safe each one is, and the prices behind them."
       />
 
       <div className="grid-4">
-        <Stat lead alert={atRisk.length > 0} icon={ExclamationTriangleIcon} label="At risk or overdue" value={String(atRisk.length)} />
+        <Stat lead alert={atRisk.length > 0} icon={ExclamationTriangleIcon} label="At risk or overdue" help="safety-level" value={String(atRisk.length)} />
         <Stat icon={DocumentTextIcon} label="Active advances" value={String(loans.length)} sub={`${usd(totalDebt)} owed`} />
         <Stat icon={ScaleIcon} label="Average loan-to-value" value={averageLtv !== undefined ? percentFromBps(averageLtv, 1) : "—"} sub="Settled at 80%" />
-        <Stat icon={ShieldCheckIcon} label="Loss cushion" value={usd(stats?.reserves)} sub={stats ? `${percentFromWad(stats.utilization, 0)} of the pool lent out` : undefined} />
+        <Stat icon={ShieldCheckIcon} label="Loss cushion" help="cushion" value={usd(stats?.reserves)} sub={stats ? `${percentFromWad(stats.utilization, 0)} of the pool lent out` : undefined} />
       </div>
 
-      <Card title="Active advances">
+      <Card title="Active advances" tour="risk-table" help="risk">
         {loans.length === 0 ? (
           <EmptyState icon={DocumentTextIcon} title="No active advances">
             When farmers borrow, every advance and its health appears here.
@@ -92,7 +92,7 @@ export default function Risk() {
 
       <div style={{ height: 28 }} />
 
-      <Card title="Prices the pool uses">
+      <Card title="Prices the pool uses" tour="crop-rules" help="prices">
         <div className="table-scroll">
           <table className="table">
             <thead>

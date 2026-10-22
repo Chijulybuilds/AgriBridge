@@ -78,7 +78,7 @@ export default function Market() {
 
   return (
     <AppLayout role={role} title="Market" requireWallet={false}>
-      <PageHeader
+      <PageHeader section="market"
         eyebrow="Buy and sell"
         title="Market"
         subtitle="Graded crop stored in our warehouses, sold by the kilogram. Lower grades cost less, which suits feed makers. Buy, then collect it or resell it."
@@ -112,7 +112,7 @@ export default function Market() {
         onSelectWarehouse={setWarehouseFilter}
       />
 
-      <Card title="Filter">
+      <Card title="Filter" tour="market-filters" help="market">
         <div className="grid-3" style={{ marginBottom: 0 }}>
           <select className="select" value={commodityFilter} onChange={(e) => setCommodityFilter(e.target.value)} data-testid="filter-commodity">
             <option value="">All crops</option>
@@ -143,7 +143,7 @@ export default function Market() {
 
       <div style={{ height: 28 }} />
 
-      <Card title="For sale" testId="listings">
+      <Card title="For sale" testId="listings" tour="listings" help="buy">
         {isLoading ? (
           <Skeleton rows={4} />
         ) : forSale.length === 0 ? (

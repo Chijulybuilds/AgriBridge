@@ -39,8 +39,10 @@ export async function rpc(method: string, params: unknown[] = []): Promise<unkno
  * included, to the local Anvil chain, which signs for its unlocked accounts. So
  * the app is driven end to end with real transactions and no private keys.
  */
-export async function installMockWallet(page: Page, account: AccountName = "farmer") {
+export async function installMockWallet(page: Page, account: AccountName = "farmer", options: { tutorials?: boolean } = {}) {
   await page.exposeFunction("__anvilRpc", (method: string, params: unknown[]) => rpc(method, params));
+  // The tutorials offer themselves on a first visit; tests that drive the screens turn that off.
+  if (!options.tutorials) await page.addInitScript(() => localStorage.setItem("agribridge.tutorial.off", "1"));
 
   await page.addInitScript(
     ({ address, chainIdHex }) => {

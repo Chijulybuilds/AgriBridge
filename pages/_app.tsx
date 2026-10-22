@@ -6,6 +6,7 @@ import { LazyMotion, MotionConfig, domMax } from "motion/react";
 
 import "../styles/globals.css";
 
+import { TutorialProvider } from "../components/help/Tutorial";
 import { AppProviders, VerifierProviders } from "../components/providers";
 import { ThemeProvider } from "../lib/theme";
 
@@ -62,7 +63,9 @@ export default function App({ Component, pageProps }: AppProps) {
       </Head>
       <div className={`app-root ${display.variable} ${stencil.variable} ${sans.variable}`}>
         <Providers>
-          <Component {...pageProps} />
+          <TutorialProvider>
+            <Component {...pageProps} />
+          </TutorialProvider>
         </Providers>
       </div>
       </LazyMotion>

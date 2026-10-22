@@ -105,7 +105,7 @@ export default function Advance() {
 
   return (
     <AppLayout role="farmer" title="Get an advance">
-      <PageHeader
+      <PageHeader section="advance"
         eyebrow="Farmer"
         title="Get an advance"
         subtitle="Borrow dollars against crop in storage. The crop stays in the warehouse as security and comes back to you when you repay."
@@ -130,7 +130,7 @@ export default function Advance() {
         </Card>
       ) : (
         <div className="grid-2">
-          <Card title="Your advance">
+          <Card title="Your advance" tour="advance-form" help="advance">
             <form onSubmit={submit} noValidate>
               <div className="field">
                 <label htmlFor="lot">Crop</label>
@@ -166,24 +166,25 @@ export default function Advance() {
                     Max
                   </button>
                 </div>
-                <span className="hint" data-testid="max-advance">
+                <span className="hint" data-testid="max-advance" data-tour="advance-limit">
                   {maxBorrow !== undefined ? `Up to ${usd(maxBorrow)} for this crop and date.` : "Choose the crop, kilograms and date to see your limit."}
                 </span>
               </div>
               {formError && <p className="form-error" role="alert" data-testid="form-error">{formError}</p>}
-              <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-advance">
+              <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-advance" data-tour="advance-submit">
                 {tx.isBusy ? "Working…" : "Get the advance"}
               </button>
             </form>
           </Card>
 
-          <Card title="How it works">
+          <Card title="How it works" tour="advance-rules">
             {lot && commodity && (
               <div style={{ marginBottom: 14 }}>
                 <KeyValue label="Crop" value={<><GradeBadge grade={lot.currentGrade} /> {commodity.name}</>} />
-                <KeyValue label="Worth today" value={usd(lotValue(lot, commodity, kgAmount ?? 0n))} />
+                <KeyValue label="Worth today" help="worth-today" value={usd(lotValue(lot, commodity, kgAmount ?? 0n))} />
                 <KeyValue
                   label="Borrow limit"
+                  help="borrow-limit"
                   testId="borrow-limit"
                   value={
                     recordBonus > 0
@@ -191,7 +192,7 @@ export default function Advance() {
                       : `${percentFromBps(commodity.maxLtvBps)} of its value on the end date`
                   }
                 />
-                <KeyValue label="Interest now" value={stats ? `${percentFromWad(stats.borrowRate)} a year` : "—"} />
+                <KeyValue label="Interest now" help="interest" value={stats ? `${percentFromWad(stats.borrowRate)} a year` : "—"} />
                 {interest !== undefined && days > 0 && <KeyValue label={`Interest for ${days} days (estimate)`} value={usd(interest)} />}
               </div>
             )}

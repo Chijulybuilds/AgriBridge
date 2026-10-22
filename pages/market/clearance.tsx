@@ -83,7 +83,7 @@ export default function Clearance() {
       )}
 
       {isConnected && (
-        <Card title="Sell expired stock to AgriBridge">
+        <Card title="Sell expired stock to AgriBridge" help="expired-stock">
           {expired.length === 0 ? (
             <EmptyState icon={CheckBadgeIcon} title="You have no expired stock">
               Nothing you hold is past its shelf life. If some ever is, you can sell it to AgriBridge here.

@@ -1986,3 +1986,321 @@ input[type="radio"] {
     gap: 8px;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Help: the "i" button, its note, and the tutorial
+   The "i" is a small round button beside a word. Its hit area is
+   larger than it looks (a pseudo-element), so it is easy to tap.
+   ───────────────────────────────────────────────────────────── */
+.with-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.info-tip {
+  position: relative;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--info);
+  background: var(--info-soft);
+  color: var(--info);
+  font: 700 11px/1 Georgia, "Times New Roman", serif;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  margin-inline-start: 4px;
+  vertical-align: middle;
+  cursor: pointer;
+  transition-property: background-color, color;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-out);
+}
+.info-tip::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+.info-tip:hover,
+.info-tip[aria-expanded="true"] {
+  background: var(--info);
+  color: var(--bg-card);
+}
+.info-tip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+/* On the dark sidebar and green islands, keep the button readable. */
+.island .info-tip,
+.sidebar .info-tip {
+  border-color: currentColor;
+  background: transparent;
+  color: inherit;
+}
+
+.info-card {
+  position: fixed;
+  z-index: 1200;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  padding: 14px 16px 12px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  text-align: start;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  white-space: normal;
+}
+.info-card:focus {
+  outline: none;
+}
+.info-card-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+.info-card dl {
+  margin: 0;
+}
+.info-card dt {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--info);
+  margin-top: 8px;
+}
+.info-card dt:first-child {
+  margin-top: 0;
+}
+.info-card dd {
+  margin: 2px 0 0;
+  text-wrap: pretty;
+}
+.info-card-more {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 13.5px;
+}
+
+/* ── The tutorial ── */
+.tutorial-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+}
+.tour-dim {
+  background: oklch(0.15 0.02 158 / 0.62);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+/* The ring: a bright outline around the real button, with the rest of the page dimmed around it. */
+.tour-ring {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 4px var(--maize),
+    0 0 0 9999px oklch(0.15 0.02 158 / 0.62);
+  pointer-events: none;
+  transition-property: top, left, width, height;
+  transition-duration: var(--dur-standard);
+  transition-timing-function: var(--ease-out);
+}
+
+.tour-card {
+  position: fixed;
+  width: min(400px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  padding: 16px 18px 14px;
+}
+.tour-card:focus {
+  outline: none;
+}
+.tour-card-center {
+  position: relative;
+  width: min(460px, 100%);
+}
+.tour-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tour-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.tour-close {
+  width: 34px;
+  height: 34px;
+}
+.tour-close svg {
+  width: 18px;
+  height: 18px;
+}
+.tour-progress {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--bg-sunken);
+  margin: 8px 0 12px;
+  overflow: hidden;
+}
+.tour-progress span {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  transition-property: width;
+  transition-duration: var(--dur-standard);
+  transition-timing-function: var(--ease-out);
+}
+.tour-art {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  margin: 0 auto 10px;
+}
+.tour-shot {
+  display: block;
+  width: 100%;
+  border-radius: 10px;
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  margin-bottom: 12px;
+}
+.tour-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1.1;
+  margin: 0 0 8px;
+  text-wrap: balance;
+}
+.tour-body {
+  font-size: 16px;
+  line-height: 1.55;
+}
+.tour-body p {
+  margin: 0 0 8px;
+  text-wrap: pretty;
+}
+.tour-press {
+  background: var(--maize-soft);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.tour-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.tour-actions .btn svg {
+  width: 16px;
+  height: 16px;
+}
+.tour-choices {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 8px;
+}
+.tour-choice-note {
+  font-weight: 400;
+  opacity: 0.8;
+  margin-inline-start: 6px;
+}
+.tour-foot {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+}
+
+/* A slow, gentle pulse draws the eye to the circled button; it stays still for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .tour-ring::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    border: 3px solid var(--maize);
+    animation: tour-pulse 1.8s var(--ease-out) infinite;
+  }
+}
+@keyframes tour-pulse {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-ring,
+  .tour-progress span,
+  .info-tip {
+    transition: none;
+  }
+}
+
+/* The sign-in page's "New here?" line, pointing at the "i" buttons. */
+.help-hint {
+  background: var(--info-soft);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 0 0 20px;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+/* ── The help page ── */
+.help-list {
+  display: grid;
+  gap: 12px;
+}
+.help-item h3 {
+  font-size: 17px;
+  margin: 0 0 4px;
+}
+.help-item dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.help-item dt {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.help-item dd {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .help-item dl {
+    grid-template-columns: 1fr;
+  }
+  .help-item dd {
+    margin-bottom: 6px;
+  }
+}

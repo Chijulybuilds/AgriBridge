@@ -67,21 +67,21 @@ export default function InvestorOverview() {
 
   return (
     <AppLayout role="investor" title="Investor">
-      <PageHeader
+      <PageHeader section="investor"
         eyebrow="Investor"
         title="Investor overview"
         subtitle="Your money is lent to farmers against crop held in warehouses. Interest is added every second; 80% goes to investors and 20% builds a cushion that absorbs losses first."
       />
 
-      <div className="grid-4">
-        <Stat lead icon={WalletIcon} label="Your money in the pool" value={usd(position?.value)} sub={earned !== undefined ? `${usd(earned)} earned so far` : undefined} testId="position" />
-        <Stat icon={ArrowTrendingUpIcon} label="Investors earn now" value={stats ? `${percentFromWad(stats.supplyRate)} a year` : "—"} sub="Changes with how much is lent out" />
-        <Stat icon={BuildingLibraryIcon} label="Pool size" value={usd(stats?.totalAssets)} sub={stats ? `${percentFromWad(stats.utilization, 0)} lent to farmers` : undefined} />
-        <Stat icon={ShieldCheckIcon} label="Loss cushion" value={usd(stats?.reserves)} sub="Covers bad debt before investors" />
+      <div className="grid-4" data-tour="investor-stats">
+        <Stat lead icon={WalletIcon} label="Your money in the pool" help="shares" tour="position" value={usd(position?.value)} sub={earned !== undefined ? `${usd(earned)} earned so far` : undefined} testId="position" />
+        <Stat icon={ArrowTrendingUpIcon} label="Investors earn now" help="earnings" value={stats ? `${percentFromWad(stats.supplyRate)} a year` : "—"} sub="Changes with how much is lent out" />
+        <Stat icon={BuildingLibraryIcon} label="Pool size" help="pool" value={usd(stats?.totalAssets)} sub={stats ? `${percentFromWad(stats.utilization, 0)} lent to farmers` : undefined} />
+        <Stat icon={ShieldCheckIcon} label="Loss cushion" help="cushion" value={usd(stats?.reserves)} sub="Covers bad debt before investors" />
       </div>
 
       <div className="grid-2">
-        <Card title={mode === "invest" ? "Invest" : "Withdraw"}>
+        <Card title={mode === "invest" ? "Invest" : "Withdraw"} tour="invest-form" help={mode === "invest" ? "invest" : "withdraw"}>
           <div style={{ marginBottom: 14 }}>
             <Segmented
               options={[

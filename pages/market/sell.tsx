@@ -22,6 +22,7 @@ import { MarketplaceAbi } from "../../lib/contracts/abis";
 import { contracts, PriceMode } from "../../lib/contracts/config";
 import { date, kg, kgInput, parseKg, parseKgUpTo, parsePercentToBps, parseUsd, percentFromBps, usdPerKg } from "../../lib/format";
 import { useRememberedRole } from "../../lib/session";
+import { InfoTip } from "../../components/help/InfoTip";
 
 type Pricing = "market" | "fixed";
 
@@ -62,8 +63,8 @@ function useTerms(defaultPricing: Pricing = "market", idPrefix = "") {
   const fields = (referencePerKg: bigint | undefined) => (
     <>
       <div className="field">
-        <span className="field-label" id={`${idPrefix}pricing`}>
-          Price
+        <span className="field-label" id={`${idPrefix}pricing`} data-tour="price-mode">
+          Price <InfoTip id="market-price" />
         </span>
         <Segmented
           options={[
@@ -96,7 +97,8 @@ function useTerms(defaultPricing: Pricing = "market", idPrefix = "") {
       )}
       <label className="row" style={{ fontSize: 14, gap: 8, minHeight: 40, marginBottom: 10, cursor: "pointer" }}>
         <input type="checkbox" checked={bulk} onChange={(e) => setBulk(e.target.checked)} data-testid="bulk-toggle" />
-        Offer a bulk deal to large buyers
+        <span data-tour="bulk-deal">Offer a bulk deal to large buyers</span>
+        <InfoTip id="bulk-deal" />
       </label>
       {bulk && (
         <div className="grid-2" style={{ marginBottom: 6 }}>
@@ -175,7 +177,7 @@ export default function Sell() {
 
   return (
     <AppLayout role={role} title="Sell">
-      <PageHeader
+      <PageHeader section="sell"
         eyebrow="Market"
         title="Sell"
         subtitle="Put your crop on the market. Buyers can take any part of it. Selling early gets more, since the crop's value falls as it ages."
@@ -185,7 +187,7 @@ export default function Sell() {
       <TxStatus tx={tx} success="Listed. Buyers can see it on the market now." />
 
       <div className="grid-2">
-        <Card title="New listing">
+        <Card title="New listing" tour="sell-form" help="sell">
           {sellable.length === 0 ? (
             <EmptyState
               icon={TagIcon}
