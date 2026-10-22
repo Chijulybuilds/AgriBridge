@@ -49,7 +49,7 @@ export default function MyAdvances() {
         </Card>
       ) : loans.length === 0 ? (
         <Card>
-          <EmptyState icon={DocumentTextIcon} title="No advances yet">
+          <EmptyState art="advance" icon={DocumentTextIcon} title="No advances yet">
             Advances you take against your crop appear here, with what you owe and how safe each one is.
           </EmptyState>
         </Card>

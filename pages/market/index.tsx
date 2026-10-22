@@ -147,7 +147,7 @@ export default function Market() {
         {isLoading ? (
           <Skeleton rows={4} />
         ) : forSale.length === 0 ? (
-          <EmptyState icon={BuildingStorefrontIcon} title="Nothing for sale matches">
+          <EmptyState art="market" icon={BuildingStorefrontIcon} title="Nothing for sale matches">
             Check back soon, or change the filters. Farmers list straight from their stock.
           </EmptyState>
         ) : (
@@ -237,7 +237,7 @@ export default function Market() {
 
       <Card title="Stock in the warehouses" testId="stock-overview">
         {stock.length === 0 ? (
-          <EmptyState icon={ArchiveBoxIcon}>No verified stock yet.</EmptyState>
+          <EmptyState art="warehouse" icon={ArchiveBoxIcon}>No verified stock yet.</EmptyState>
         ) : (
           <div className="table-scroll">
             <table className="table">

@@ -45,7 +45,7 @@ export default function Reporter() {
       )}
       {!isLoading && !isReporter && (
         <Card>
-          <EmptyState icon={MegaphoneIcon} title="Only approved reporters can post prices">
+          <EmptyState art="info" icon={MegaphoneIcon} title="Only approved reporters can post prices">
             The AgriBridge Safe approves local market reporters. Everyone can see their reports below.
           </EmptyState>
         </Card>

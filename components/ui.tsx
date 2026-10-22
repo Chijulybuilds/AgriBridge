@@ -7,6 +7,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { m } from "motion/react";
 
+import { Illustration, type IllustrationName } from "./help/Illustration";
 import { InfoTip } from "./help/InfoTip";
 import { PageTourButton, useSectionTour } from "./help/Tutorial";
 import type { HelpId } from "../lib/help";
@@ -181,15 +182,21 @@ export function Notice({ tone = "info", children, testId }: {
 }
 
 /** What a list shows when it has nothing in it: an icon, a line, and the next step if there is one. */
-export function EmptyState({ children, icon: IconComponent, title, action }: {
+/** An empty screen that points forward. `art` shows the guide's drawing for it instead of the icon. */
+export function EmptyState({ children, icon: IconComponent, title, action, art }: {
   children?: ReactNode;
   icon?: Icon;
   title?: string;
   action?: ReactNode;
+  art?: IllustrationName;
 }) {
   return (
     <div className="empty">
-      {IconComponent && (
+      {art ? (
+        <span className="empty-art">
+          <Illustration name={art} />
+        </span>
+      ) : IconComponent && (
         <span className="empty-icon">
           <IconComponent />
         </span>

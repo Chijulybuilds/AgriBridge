@@ -189,7 +189,7 @@ export default function Sell() {
       <div className="grid-2">
         <Card title="New listing" tour="sell-form" help="sell">
           {sellable.length === 0 ? (
-            <EmptyState
+            <EmptyState art="market"
               icon={TagIcon}
               title="Nothing to sell yet"
               action={
@@ -243,7 +243,7 @@ export default function Sell() {
 
       <Card title="My listings">
         {mine.length === 0 ? (
-          <EmptyState icon={BuildingStorefrontIcon}>No open listings. What you list shows here, where you can change its price or take it down.</EmptyState>
+          <EmptyState art="market" icon={BuildingStorefrontIcon}>No open listings. What you list shows here, where you can change its price or take it down.</EmptyState>
         ) : (
           <div className="stack">
             {mine.map((listing) => (

@@ -57,7 +57,7 @@ export default function MyStock() {
         {isLoading ? (
           <Skeleton rows={4} />
         ) : held.length === 0 ? (
-          <EmptyState
+          <EmptyState art="warehouse"
             icon={ArchiveBoxIcon}
             title="Nothing in storage yet"
             action={

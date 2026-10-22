@@ -39,7 +39,7 @@ export default function Help() {
       </div>
       {shown.length === 0 ? (
         <Card>
-          <EmptyState title={`Nothing matches "${query}"`}>Try a shorter word, or clear the search to see everything.</EmptyState>
+          <EmptyState art="info" title={`Nothing matches "${query}"`}>Try a shorter word, or clear the search to see everything.</EmptyState>
         </Card>
       ) : (
         HELP_GROUPS.map((group) => {

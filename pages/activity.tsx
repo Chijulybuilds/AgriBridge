@@ -96,7 +96,7 @@ export default function Activity() {
             {(error as Error).message}
           </EmptyState>
         ) : items.length === 0 ? (
-          <EmptyState icon={ClockIcon}>{topic === "all" ? "Nothing has happened yet." : "Nothing of this kind yet."}</EmptyState>
+          <EmptyState art="shield" icon={ClockIcon}>{topic === "all" ? "Nothing has happened yet." : "Nothing of this kind yet."}</EmptyState>
         ) : (
           <Feed items={items} explorer={explorer} />
         )}

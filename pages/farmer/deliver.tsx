@@ -145,7 +145,7 @@ export default function Deliver() {
 
       <Card title="My deliveries" testId="deliveries" tour="deliveries-list" help="pending">
         {mine.length === 0 ? (
-          <EmptyState icon={TruckIcon} title="No deliveries yet">
+          <EmptyState art="deliver" icon={TruckIcon} title="No deliveries yet">
             Your bookings appear here, with the weight and grade once the warehouse has checked them.
           </EmptyState>
         ) : (

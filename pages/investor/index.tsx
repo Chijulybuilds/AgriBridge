@@ -136,7 +136,7 @@ export default function InvestorOverview() {
 
       <Card title="Your history">
         {!history || history.length === 0 ? (
-          <EmptyState icon={ClockIcon} title="No position yet">
+          <EmptyState art="invest" icon={ClockIcon} title="No position yet">
             Your investments and withdrawals will show here.
           </EmptyState>
         ) : (

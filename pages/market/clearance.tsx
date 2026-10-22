@@ -85,7 +85,7 @@ export default function Clearance() {
       {isConnected && (
         <Card title="Sell expired stock to AgriBridge" help="expired-stock">
           {expired.length === 0 ? (
-            <EmptyState icon={CheckBadgeIcon} title="You have no expired stock">
+            <EmptyState art="clock" icon={CheckBadgeIcon} title="You have no expired stock">
               Nothing you hold is past its shelf life. If some ever is, you can sell it to AgriBridge here.
             </EmptyState>
           ) : (
@@ -124,7 +124,7 @@ export default function Clearance() {
 
       <Card title="Feed-grade stock for sale">
         {clearanceListings.length === 0 ? (
-          <EmptyState icon={TagIcon} title="None right now">
+          <EmptyState art="market" icon={TagIcon} title="None right now">
             AgriBridge lists the expired stock it buys here, at a low fixed price, for buyers such as animal-feed makers.
           </EmptyState>
         ) : (

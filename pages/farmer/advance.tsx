@@ -117,7 +117,7 @@ export default function Advance() {
 
       {eligible.length === 0 ? (
         <Card>
-          <EmptyState
+          <EmptyState art="advance"
             icon={BanknotesIcon}
             title="Nothing free to borrow against"
             action={

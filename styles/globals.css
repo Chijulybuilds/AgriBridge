@@ -2570,6 +2570,17 @@ input[type="radio"] {
   }
 }
 
+/* An empty screen's drawing. */
+.empty-art {
+  display: block;
+  width: min(300px, 100%);
+  margin-bottom: 4px;
+}
+.empty-art .tour-art {
+  margin: 0;
+  max-width: none;
+}
+
 /* The sign-in page's "New here?" line, pointing at the "i" buttons. */
 .help-hint {
   background: var(--info-soft);

@@ -46,7 +46,7 @@ export default function Risk() {
 
       <Card title="Active advances" tour="risk-table" help="risk">
         {loans.length === 0 ? (
-          <EmptyState icon={DocumentTextIcon} title="No active advances">
+          <EmptyState art="shield" icon={DocumentTextIcon} title="No active advances">
             When farmers borrow, every advance and its health appears here.
           </EmptyState>
         ) : (

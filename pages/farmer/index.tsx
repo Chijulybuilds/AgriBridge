@@ -52,7 +52,7 @@ export default function FarmerOverview() {
           {isLoading ? (
             <Skeleton rows={4} />
           ) : mine.length === 0 ? (
-            <EmptyState icon={TruckIcon} title="No deliveries yet">
+            <EmptyState art="deliver" icon={TruckIcon} title="No deliveries yet">
               Book one and bring the crop to the warehouse.
             </EmptyState>
           ) : (

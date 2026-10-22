@@ -98,7 +98,7 @@ export default function Collect() {
       <div className="grid-2">
         <Card title="Ask to collect" tour="collect-form" help="collect">
           {collectable.length === 0 ? (
-            <EmptyState icon={TruckIcon} title="Nothing to collect">
+            <EmptyState art="warehouse" icon={TruckIcon} title="Nothing to collect">
               Stock you hold in a warehouse can be picked up or delivered from here.
             </EmptyState>
           ) : (
@@ -163,7 +163,7 @@ export default function Collect() {
 
         <Card title="My requests">
           {requests.length === 0 ? (
-            <EmptyState icon={ClipboardDocumentListIcon}>No requests yet.</EmptyState>
+            <EmptyState art="record" icon={ClipboardDocumentListIcon}>No requests yet.</EmptyState>
           ) : (
             <div className="table-scroll">
               <table className="table">
