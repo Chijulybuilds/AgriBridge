@@ -37,6 +37,9 @@ AgriBridge is the team's entry for the STEM Festival brief *"The Agri-Token Exch
    - **Collect** it from the warehouse, paying for the storage used.
 4. **Investors** put dollars into the lending pool and earn the interest farmers pay. A loss
    cushion, filled by 20% of the interest, absorbs bad debt first.
+   **Farmers build a credit history:** every advance repaid on time adds to an on-chain record in
+   their name, and three more on-time repayments than late or settled ones raise their borrow limit
+   by 5 points.
 5. **Crop ages.** Its value falls a little each day, from Grade A to B to C, until it expires.
    Expired stock is bought by AgriBridge at a discount and resold for animal feed.
 6. **If an advance's crop falls in value** until the advance is 80% of it, enough crop is sold to

@@ -64,6 +64,32 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
+    "name": "CREDIT_BONUS_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "CREDIT_THRESHOLD",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "DEFAULT_ADMIN_ROLE",
     "inputs": [],
     "outputs": [
@@ -143,6 +169,19 @@ export const LendingPoolAbi = [
   {
     "type": "function",
     "name": "MIN_BORROW_AMOUNT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MIN_CREDIT_AGE",
     "inputs": [],
     "outputs": [
       {
@@ -286,6 +325,40 @@ export const LendingPoolAbi = [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "creditOf",
+    "inputs": [
+      {
+        "name": "_borrower",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "onTime",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "late",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "settled",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "hasBonus",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -445,6 +518,11 @@ export const LendingPoolAbi = [
             "name": "status",
             "type": "uint8",
             "internalType": "enum LendingPool.LoanStatus"
+          },
+          {
+            "name": "settled",
+            "type": "bool",
+            "internalType": "bool"
           },
           {
             "name": "lotId",
@@ -855,6 +933,64 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
+    "name": "maxBorrowFor",
+    "inputs": [
+      {
+        "name": "_borrower",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_kg",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_maturity",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxLtvFor",
+    "inputs": [
+      {
+        "name": "_borrower",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "onERC1155BatchReceived",
     "inputs": [
       {
@@ -1175,6 +1311,43 @@ export const LendingPoolAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "CreditUpdated",
+    "inputs": [
+      {
+        "name": "borrower",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "loanId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "onTime",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "late",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "settled",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",

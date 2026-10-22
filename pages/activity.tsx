@@ -40,6 +40,7 @@ const EVENTS: Record<string, { icon: Icon; tone: "green" | "gold" | "red" | "blu
   LoanRepaid: { icon: BanknotesIcon, tone: "green", topic: "money" },
   LoanLiquidated: { icon: ExclamationTriangleIcon, tone: "red", topic: "money" },
   LoanPartiallyLiquidated: { icon: ExclamationTriangleIcon, tone: "red", topic: "money" },
+  CreditUpdated: { icon: BanknotesIcon, tone: "green", topic: "money" },
   Transfer: { icon: CurrencyDollarIcon, tone: "gold", topic: "money" },
   Listed: { icon: TagIcon, tone: "gold", topic: "market" },
   Bought: { icon: ShoppingBagIcon, tone: "green", topic: "market" },

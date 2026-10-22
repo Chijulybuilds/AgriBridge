@@ -5,9 +5,9 @@ import { ArchiveBoxIcon, ArrowRightIcon, BanknotesIcon, BuildingLibraryIcon, Clo
 
 import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, LotLabel } from "../../components/lots";
-import { Card, EmptyState, PageHeader, Skeleton, Stat, StatusBadge } from "../../components/ui";
-import { lotValue, useCommodities, useLoans, useLots, usePoolStats, useWarehouses } from "../../hooks/useProtocolData";
-import { date, kg, usd } from "../../lib/format";
+import { Badge, Card, EmptyState, KeyValue, PageHeader, Skeleton, Stat, StatusBadge } from "../../components/ui";
+import { lotValue, useCommodities, useCredit, useLoans, useLots, usePoolStats, useWarehouses } from "../../hooks/useProtocolData";
+import { date, kg, percentFromBps, usd } from "../../lib/format";
 
 /** The farmer's home: what is stored, what is owed, and the next thing to do. */
 export default function FarmerOverview() {
@@ -17,6 +17,7 @@ export default function FarmerOverview() {
   const { lots, isLoading } = useLots(address);
   const { loans } = useLoans(address);
   const { stats } = usePoolStats();
+  const { data: credit } = useCredit(address);
 
   const mine = lots.filter((l) => address && l.farmer.toLowerCase() === address.toLowerCase());
   const held = lots.filter((l) => l.balanceKg > 0n);
@@ -90,6 +91,34 @@ export default function FarmerOverview() {
           </Link>
         </section>
       </div>
+
+      <Card title="Your repayment record" testId="credit-record">
+        <p className="text-secondary" style={{ marginTop: 0 }}>
+          Every advance you repay in full by its end date, once it has been open a week, adds to your record. A good record raises
+          how much you can borrow. It is kept on the blockchain in your name and can&apos;t be moved or bought.
+        </p>
+        {credit ? (
+          <>
+            <KeyValue label="Repaid on time" value={String(credit.onTime)} testId="credit-on-time" />
+            <KeyValue label="Repaid late" value={String(credit.late)} />
+            <KeyValue label="Had to be settled" value={String(credit.settled)} />
+            <p style={{ margin: "12px 0 0" }} data-testid="credit-status">
+              {credit.hasBonus ? (
+                <>
+                  <Badge tone="green">Limit raised</Badge> Your record adds up to {percentFromBps(credit.bonusBps)} to your borrow limit on every crop.
+                </>
+              ) : (
+                <>
+                  {credit.toGo} more on-time repayment{credit.toGo === 1 ? "" : "s"} to raise your borrow limit by up to{" "}
+                  {percentFromBps(credit.bonusBps)}. Late or settled advances count against on-time ones.
+                </>
+              )}
+            </p>
+          </>
+        ) : (
+          <Skeleton rows={3} />
+        )}
+      </Card>
     </AppLayout>
   );
 }

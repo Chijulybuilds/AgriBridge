@@ -8,7 +8,7 @@ import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, lotName } from "../../components/lots";
 import { TxStatus } from "../../components/TxStatus";
 import { Card, EmptyState, KeyValue, Notice, PageHeader } from "../../components/ui";
-import { lotValue, useCommodities, useLots, useMaxBorrow, usePoolStats } from "../../hooks/useProtocolData";
+import { lotValue, useCommodities, useLots, useMaxBorrow, useMaxLtvFor, usePoolStats } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { LendingPoolAbi } from "../../lib/contracts/abis";
 import { contracts, WAD } from "../../lib/contracts/config";
@@ -68,7 +68,9 @@ export default function Advance() {
   const maxDay = lot?.expiresAt ? isoDay(Number(lot.expiresAt) - (MATURITY_BUFFER_DAYS + 1) * SECONDS_PER_DAY) : undefined;
   const kgAmount = lot ? parseKgUpTo(quantity, lot.balanceKg) : undefined;
   const maturity = endDay ? maturityTimestamp(endDay) : undefined;
-  const { data: maxBorrow } = useMaxBorrow(lot?.id, kgAmount, maturity);
+  const { data: maxBorrow } = useMaxBorrow(lot?.id, kgAmount, maturity, address);
+  const { data: myLtv } = useMaxLtvFor(address, lot?.id);
+  const recordBonus = commodity && myLtv !== undefined ? myLtv - commodity.maxLtvBps : 0;
   const advance = parseUsd(amount);
 
   const days = maturity ? Math.max(0, Math.round((maturity - nowSeconds()) / SECONDS_PER_DAY)) : 0;
@@ -180,7 +182,15 @@ export default function Advance() {
               <div style={{ marginBottom: 14 }}>
                 <KeyValue label="Crop" value={<><GradeBadge grade={lot.currentGrade} /> {commodity.name}</>} />
                 <KeyValue label="Worth today" value={usd(lotValue(lot, commodity, kgAmount ?? 0n))} />
-                <KeyValue label="Borrow limit" value={`${percentFromBps(commodity.maxLtvBps)} of its value on the end date`} />
+                <KeyValue
+                  label="Borrow limit"
+                  testId="borrow-limit"
+                  value={
+                    recordBonus > 0
+                      ? `${percentFromBps(myLtv, 1)} of its value on the end date (${percentFromBps(commodity.maxLtvBps)}, plus ${percentFromBps(recordBonus, 1)} for your repayment record)`
+                      : `${percentFromBps(commodity.maxLtvBps)} of its value on the end date`
+                  }
+                />
                 <KeyValue label="Interest now" value={stats ? `${percentFromWad(stats.borrowRate)} a year` : "—"} />
                 {interest !== undefined && days > 0 && <KeyValue label={`Interest for ${days} days (estimate)`} value={usd(interest)} />}
               </div>

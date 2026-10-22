@@ -55,6 +55,12 @@ interface ICommodityToken {
  *      - The keeper (KEEPER_ROLE) can liquidate with protocol reserves instead, so investors are
  *        repaid even when no outside liquidator steps in; the pool keeps that collateral as protocol
  *        inventory for the admin to sell.
+ *      - Credit history: each borrower has a record of loans repaid in full on time (after being open
+ *        at least MIN_CREDIT_AGE), repaid late, and liquidated (counted once per loan). A borrower
+ *        whose on-time repayments outnumber the late and liquidated ones by CREDIT_THRESHOLD may
+ *        borrow CREDIT_BONUS_BPS more of the collateral's value, but never more than half of the gap
+ *        up to the commodity's liquidation point. The record is keyed by address, so it cannot be
+ *        transferred or bought.
  *      Accounting: cash is tracked internally, so USDC sent straight to the pool changes nothing.
  *      Debt is scaled by a borrow index, so interest counts continuously: the pool's value (cash plus
  *      debt, less reserves) grows smoothly rather than jumping when a loan is repaid, which leaves
@@ -92,6 +98,13 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     uint256 public constant MAX_BORROW_AMOUNT = 10_000_000e6; // $10M
     uint256 public constant MAX_RESERVE_FACTOR = 50e16; // 50%
 
+    /// @notice Extra loan-to-value a borrower with a good record may take (see the contract notes).
+    uint256 public constant CREDIT_BONUS_BPS = 500; // 5 points
+    /// @notice How many more on-time repayments than late or liquidated loans earn the bonus.
+    uint256 public constant CREDIT_THRESHOLD = 3;
+    /// @notice A loan repaid sooner than this after opening doesn't count towards the record.
+    uint256 public constant MIN_CREDIT_AGE = 7 days;
+
     /// @dev Virtual shares and assets (OpenZeppelin ERC-4626 style) blunt share-price manipulation.
     uint256 private constant VIRTUAL_SHARES = 1;
     uint256 private constant VIRTUAL_ASSETS = 1;
@@ -111,12 +124,21 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         uint64 openedAt;
         uint64 maturity;
         LoanStatus status;
+        /// @dev Set once the loan is liquidated, in part or in full, so it counts against the record once.
+        bool settled;
         uint256 lotId;
         uint256 collateralKg;
         /// @dev USDC borrowed, kept for display.
         uint256 principal;
         /// @dev Debt divided by the borrow index; times the current index gives what is owed now.
         uint256 scaledDebt;
+    }
+
+    /// @dev A borrower's repayment record; packed into one storage slot.
+    struct CreditRecord {
+        uint32 onTime;
+        uint32 late;
+        uint32 settled;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -149,6 +171,8 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     mapping(address => uint256[]) private s_borrowerLoans;
     uint256[] private s_activeLoans;
     mapping(uint256 => uint256) private s_activeIndex; // loanId => position + 1
+
+    mapping(address => CreditRecord) private s_credit;
 
     /// @notice Kilograms of each lot the pool owns outright, from reserve-funded liquidations.
     mapping(uint256 => uint256) public inventory;
@@ -187,6 +211,9 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         uint256 debtRepaid,
         uint256 kgSeized,
         uint256 remainingDebt
+    );
+    event CreditUpdated(
+        address indexed borrower, uint256 indexed loanId, uint256 onTime, uint256 late, uint256 settled
     );
     event ReservesUsed(uint256 indexed loanId, uint256 amount);
     event ReservesDeposited(address indexed from, uint256 amount);
@@ -328,7 +355,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         if (i_commodityToken.balanceOf(msg.sender, _lotId) < _collateralKg) {
             revert LendingPool__InsufficientCollateralBalance();
         }
-        if (_amount * BPS > _valueAt(_lotId, _collateralKg, _maturity) * _commodity(_lotId).maxLtvBps) {
+        if (_amount * BPS > _valueAt(_lotId, _collateralKg, _maturity) * _maxLtvFor(msg.sender, _commodity(_lotId))) {
             revert LendingPool__ExceedsMaxLTV();
         }
 
@@ -339,6 +366,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
             openedAt: uint64(block.timestamp),
             maturity: _maturity,
             status: LoanStatus.ACTIVE,
+            settled: false,
             lotId: _lotId,
             collateralKg: _collateralKg,
             principal: _amount,
@@ -378,6 +406,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         if (loan.scaledDebt == 0) {
             loan.status = LoanStatus.REPAID;
             _removeActive(_loanId);
+            _recordRepayment(_loanId, loan);
             i_commodityToken.safeTransferFrom(address(this), loan.borrower, loan.lotId, loan.collateralKg, "");
         }
 
@@ -564,9 +593,36 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         return _valueAt(_lotId, _quantity, block.timestamp);
     }
 
-    /// @notice Most a borrower could take against `_kg` of a lot until `_maturity`.
+    /// @notice Most anyone could take against `_kg` of a lot until `_maturity`, before any credit bonus.
     function maxBorrow(uint256 _lotId, uint256 _kg, uint64 _maturity) external view returns (uint256) {
         return (_valueAt(_lotId, _kg, _maturity) * _commodity(_lotId).maxLtvBps) / BPS;
+    }
+
+    /// @notice Most `_borrower` could take against `_kg` of a lot until `_maturity`, with their credit bonus.
+    function maxBorrowFor(address _borrower, uint256 _lotId, uint256 _kg, uint64 _maturity)
+        external
+        view
+        returns (uint256)
+    {
+        return (_valueAt(_lotId, _kg, _maturity) * _maxLtvFor(_borrower, _commodity(_lotId))) / BPS;
+    }
+
+    /// @notice `_borrower`'s loan-to-value limit for a lot's commodity, in basis points, with their credit bonus.
+    function maxLtvFor(address _borrower, uint256 _lotId) external view returns (uint256) {
+        return _maxLtvFor(_borrower, _commodity(_lotId));
+    }
+
+    /**
+     * @notice A borrower's record: loans repaid on time and late, loans that had to be liquidated, and
+     *         whether the record earns the credit bonus.
+     */
+    function creditOf(address _borrower)
+        external
+        view
+        returns (uint256 onTime, uint256 late, uint256 settled, bool hasBonus)
+    {
+        CreditRecord memory credit = s_credit[_borrower];
+        return (credit.onTime, credit.late, credit.settled, _hasCreditBonus(credit));
     }
 
     /**
@@ -706,6 +762,40 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         }
     }
 
+    /// @dev Counts a loan repaid in full: on time if by maturity and open long enough, late if after.
+    function _recordRepayment(uint256 _loanId, Loan storage _loan) internal {
+        if (_loan.settled) return; // already counted against the record
+        CreditRecord storage credit = s_credit[_loan.borrower];
+        if (block.timestamp > _loan.maturity) {
+            credit.late++;
+        } else if (block.timestamp >= _loan.openedAt + MIN_CREDIT_AGE) {
+            credit.onTime++;
+        } else {
+            return; // too short to say anything about the borrower
+        }
+        emit CreditUpdated(_loan.borrower, _loanId, credit.onTime, credit.late, credit.settled);
+    }
+
+    /// @dev Counts a liquidated loan once, however many times it is liquidated in part.
+    function _recordSettlement(uint256 _loanId, Loan storage _loan) internal {
+        if (_loan.settled) return;
+        _loan.settled = true;
+        CreditRecord storage credit = s_credit[_loan.borrower];
+        credit.settled++;
+        emit CreditUpdated(_loan.borrower, _loanId, credit.onTime, credit.late, credit.settled);
+    }
+
+    function _hasCreditBonus(CreditRecord memory _credit) internal pure returns (bool) {
+        return _credit.onTime >= CREDIT_THRESHOLD + _credit.late + _credit.settled;
+    }
+
+    /// @dev The commodity's limit, plus the credit bonus capped at half the gap to the liquidation point.
+    function _maxLtvFor(address _borrower, CommodityConfig.Commodity memory _c) internal view returns (uint256) {
+        if (!_hasCreditBonus(s_credit[_borrower])) return _c.maxLtvBps;
+        uint256 halfGap = (uint256(_c.liquidationLtvBps) - _c.maxLtvBps) / 2;
+        return _c.maxLtvBps + (CREDIT_BONUS_BPS < halfGap ? CREDIT_BONUS_BPS : halfGap);
+    }
+
     /// @dev Repays part of the debt and hands over part of the collateral; the loan stays open.
     function _settlePartialLiquidation(
         uint256 _loanId,
@@ -714,6 +804,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         uint256 _payment,
         uint256 _seizedKg
     ) internal {
+        _recordSettlement(_loanId, _loan);
         // Rounded down, so the borrower is never credited with more than was paid.
         uint256 scaledRepaid = _toScaledDown(_payment);
         _loan.scaledDebt -= scaledRepaid;
@@ -736,6 +827,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         uint256 _seizedKg,
         uint256 _shortfall
     ) internal {
+        _recordSettlement(_loanId, _loan);
         totalScaledDebt -= _loan.scaledDebt;
         _loan.scaledDebt = 0;
         _loan.status = LoanStatus.LIQUIDATED;

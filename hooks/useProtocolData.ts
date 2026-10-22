@@ -458,18 +458,77 @@ export function useLoans(borrower: Address | "all-active" | undefined) {
 }
 
 /** The most a lot can borrow against `kg` until `maturity` (USDC, 6 decimals). */
-export function useMaxBorrow(lotId: bigint | undefined, kgAmount: bigint | undefined, maturity: number | undefined) {
+/** The most `account` can borrow against part of a lot until `maturity`, including their credit bonus. */
+export function useMaxBorrow(
+  lotId: bigint | undefined,
+  kgAmount: bigint | undefined,
+  maturity: number | undefined,
+  account: Address | undefined,
+) {
   const pool = contracts.pool;
   return useQuery({
-    queryKey: ["max-borrow", pool, lotId?.toString(), kgAmount?.toString(), maturity],
-    enabled: Boolean(pool && lotId && kgAmount && maturity),
+    queryKey: ["max-borrow", pool, account, lotId?.toString(), kgAmount?.toString(), maturity],
+    enabled: Boolean(pool && account && lotId && kgAmount && maturity),
     queryFn: () =>
       publicClient.readContract({
         address: pool!,
         abi: LendingPoolAbi,
-        functionName: "maxBorrow",
-        args: [lotId!, kgAmount!, BigInt(maturity!)],
+        functionName: "maxBorrowFor",
+        args: [account!, lotId!, kgAmount!, BigInt(maturity!)],
       }),
+  });
+}
+
+/** `account`'s borrow limit for a lot's crop, in basis points, including their credit bonus. */
+export function useMaxLtvFor(account: Address | undefined, lotId: bigint | undefined) {
+  const pool = contracts.pool;
+  return useQuery({
+    queryKey: ["max-ltv", pool, account, lotId?.toString()],
+    enabled: Boolean(pool && account && lotId),
+    queryFn: async () =>
+      Number(await publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "maxLtvFor", args: [account!, lotId!] })),
+  });
+}
+
+export type CreditRecord = {
+  onTime: number;
+  late: number;
+  settled: number;
+  /** Whether the record raises the borrower's limit. */
+  hasBonus: boolean;
+  /** On-time repayments still needed for the bonus (0 once earned). */
+  toGo: number;
+  bonusBps: number;
+  /** Seconds an advance must be open before a repayment counts. */
+  minAgeSeconds: number;
+};
+
+/** A borrower's on-chain repayment record and what it earns. */
+export function useCredit(account: Address | undefined) {
+  const pool = contracts.pool;
+  return useQuery({
+    queryKey: ["credit", pool, account],
+    enabled: Boolean(pool && account),
+    refetchInterval: REFRESH,
+    queryFn: async (): Promise<CreditRecord> => {
+      const read = { address: pool!, abi: LendingPoolAbi } as const;
+      const [[onTime, late, settled, hasBonus], threshold, bonusBps, minAge] = await Promise.all([
+        publicClient.readContract({ ...read, functionName: "creditOf", args: [account!] }),
+        publicClient.readContract({ ...read, functionName: "CREDIT_THRESHOLD" }),
+        publicClient.readContract({ ...read, functionName: "CREDIT_BONUS_BPS" }),
+        publicClient.readContract({ ...read, functionName: "MIN_CREDIT_AGE" }),
+      ]);
+      const toGo = Math.max(0, Number(threshold + late + settled - onTime));
+      return {
+        onTime: Number(onTime),
+        late: Number(late),
+        settled: Number(settled),
+        hasBonus,
+        toGo: hasBonus ? 0 : toGo,
+        bonusBps: Number(bonusBps),
+        minAgeSeconds: Number(minAge),
+      };
+    },
   });
 }
 

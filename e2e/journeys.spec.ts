@@ -112,9 +112,16 @@ test("3. the farmer gets an advance, then repays it and gets the crop back", asy
   await page.goto("/farmer/loans");
   await expect(page.getByTestId("owed")).toContainText("$1,000");
   await shot(page, "05-my-advances");
+  // Repaid on time, after more than a week, so it counts on the farmer's record.
+  await passMinutes(8 * 24 * 60);
+  await page.reload();
   await page.getByTestId("repay-all").click();
   await expect(page.getByTestId("repaid")).toContainText("repaid in full", { timeout: 60_000 });
   await expect(page.getByText("Closed advances")).toBeVisible();
+
+  await page.goto("/farmer");
+  await expect(page.getByTestId("credit-on-time")).toContainText("1", { timeout: 30_000 });
+  await expect(page.getByTestId("credit-status")).toContainText("2 more on-time repayments");
 });
 
 test("4. the farmer lists half with a bulk deal, and a buyer buys 200 kg", async ({ browser }) => {
