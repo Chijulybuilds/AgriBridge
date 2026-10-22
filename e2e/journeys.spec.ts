@@ -351,3 +351,119 @@ test("12. in an emergency the Safe pauses prices, overrides one, then resumes", 
   await verifier.goto("/activity");
   await expect(verifier.getByTestId("activity")).toContainText("Prices were paused", { timeout: 30_000 });
 });
+
+/** The farmer books 1,000 kg of cashew and the Safe grades it A: a fresh lot to sell or borrow against. */
+async function freshCashewLot(browser: Browser, inspection: string): Promise<Page> {
+  const farmer = await openAs(browser, "farmer");
+  await signIn(farmer, "farmer");
+  await farmer.goto("/farmer/deliver");
+  await farmer.getByTestId("commodity").selectOption({ label: "Cashew" });
+  await farmer.getByTestId("warehouse").selectOption({ index: 1 });
+  await farmer.getByTestId("quantity").fill("1000");
+  await farmer.getByTestId("harvest-date").fill(isoDay(0));
+  await farmer.getByTestId("submit-delivery").click();
+  await confirmed(farmer, "Book the delivery");
+
+  const verifier = await openVerifier(browser);
+  const queue = verifier.getByTestId("verifier-intake");
+  await expect(queue).toContainText("Cashew", { timeout: 30_000 });
+  const item = queue.locator('[data-testid^="intake-"]').first();
+  await item.getByTestId("measured-kg").fill("1000");
+  await item.getByTestId("grade").selectOption({ label: "Grade A" });
+  await item.getByTestId("evidence-ref").fill(inspection);
+  await item.getByTestId("approve").click();
+  await expect(queue).toContainText("No deliveries waiting", { timeout: 60_000 });
+  await verifier.close();
+  return farmer;
+}
+
+/** The buyer takes `amount` kg of the cashew for sale and waits for the purchase to land. */
+async function buyCashew(buyer: Page, amount: string, expected: string) {
+  await buyer.goto("/market");
+  const row = buyer.locator("tr", { hasText: "Cashew" }).first();
+  await row.locator('[data-testid^="buy-"]').click();
+  const panel = buyer.locator('[data-testid^="buy-panel-"]');
+  await panel.locator("input").fill(amount);
+  await expect(panel.getByTestId("buy-total")).toContainText("$");
+  await panel.getByTestId("confirm-buy").click();
+  await expect(buyer.getByTestId("purchase-done")).toContainText(`Bought ${expected}`, { timeout: 60_000 });
+}
+
+test("13. get paid today: the farmer lists cashew and takes an advance; each sale repays its share", async ({ browser }) => {
+  const farmer = await freshCashewLot(browser, "INSP-2026-0013");
+  await farmer.goto("/market/sell");
+  const option = farmer.getByTestId("lot").locator("option", { hasText: "Cashew" }).first();
+  await farmer.getByTestId("lot").selectOption((await option.getAttribute("value")) ?? "");
+  await farmer.locator("#kg").fill("1000");
+  await farmer.getByTestId("pricing-fixed").click();
+  await farmer.locator("#fixed").fill("3.40");
+  await farmer.getByTestId("advance-toggle").check();
+  await expect(farmer.getByTestId("advance-limit")).toContainText("Up to $", { timeout: 30_000 });
+  await farmer.getByTestId("advance-amount").fill("1000");
+  // $1,000 across 1,000 kg, with 10% to spare.
+  await expect(farmer.getByTestId("advance-min-price")).toContainText("$1.10");
+  await expect(farmer.getByTestId("advance-summary")).toContainText("$3,400");
+  await shot(farmer, "13-get-paid-today");
+  await farmer.getByTestId("submit-listing").click();
+  await confirmed(farmer, "List and get paid today");
+
+  await farmer.goto("/farmer/loans");
+  await expect(farmer.getByTestId("advance-listed")).toBeVisible({ timeout: 30_000 });
+  await expect(farmer.getByTestId("owed")).toContainText("$1,000");
+
+  // Half sells: $1,700 plus the $17 fee. Half the advance is repaid out of it.
+  const buyer = await openAs(browser, "buyer");
+  await signIn(buyer, "buyer");
+  await buyer.goto("/market");
+  const row = buyer.locator("tr", { hasText: "Cashew" }).first();
+  await row.locator('[data-testid^="buy-"]').click();
+  const panel = buyer.locator('[data-testid^="buy-panel-"]');
+  await panel.locator("input").fill("500");
+  await expect(panel.getByTestId("buy-fee")).toContainText("$17.00");
+  await expect(panel.getByTestId("buy-total")).toContainText("$1,717.00");
+  await panel.getByTestId("confirm-buy").click();
+  await expect(buyer.getByTestId("purchase-done")).toContainText("Bought 500 kg", { timeout: 60_000 });
+
+  await farmer.reload();
+  await expect(farmer.getByTestId("owed")).toContainText("$500.", { timeout: 30_000 });
+
+  // The rest sells, and the advance is repaid in full.
+  await buyCashew(buyer, "500", "500 kg");
+  await farmer.reload();
+  await expect(farmer.getByTestId("owed")).toHaveCount(0, { timeout: 30_000 });
+
+  // Investors got half of each fee.
+  const investor = await openAs(browser, "investor");
+  await signIn(investor, "investor");
+  await investor.goto("/investor");
+  await expect(investor.getByTestId("fee-income")).not.toContainText("$0.00", { timeout: 30_000 });
+});
+
+test("14. the advance at the gate: cash on delivery, then the crop sells at the farmer's price to repay it", async ({ browser }) => {
+  const farmer = await freshCashewLot(browser, "INSP-2026-0014");
+  await farmer.goto("/farmer");
+  await expect(farmer.getByTestId("sell-or-wait")).toBeVisible({ timeout: 30_000 });
+  await expect(farmer.getByTestId("break-even")).toContainText(/Needs prices up|Pays even/);
+  await expect(farmer.getByTestId("gate-amount")).toContainText("Take up to $", { timeout: 30_000 });
+  await shot(farmer, "14-gate-offer");
+  await farmer.getByTestId("gate-take").click();
+  await confirmed(farmer, "Take the advance");
+
+  await farmer.goto("/farmer/loans");
+  await farmer.getByTestId("sell-to-repay").click();
+  await expect(farmer.getByTestId("sell-advance-crop")).toBeVisible({ timeout: 30_000 });
+  await expect(farmer.getByTestId("advance-min-price")).toContainText("$");
+  // Follow the market at 100% of today's value.
+  await farmer.getByTestId("submit-advance-listing").click();
+  await confirmed(farmer, "List the advance's crop");
+
+  const buyer = await openAs(browser, "buyer");
+  await signIn(buyer, "buyer");
+  const before = await buyer.getByTestId("usdc-balance").innerText();
+  await buyer.getByTestId("demo-faucet").click();
+  await expect(buyer.getByTestId("usdc-balance")).not.toHaveText(before, { timeout: 60_000 });
+  await buyCashew(buyer, "1000", "1,000 kg");
+
+  await farmer.goto("/farmer/loans");
+  await expect(farmer.getByTestId("owed")).toHaveCount(0, { timeout: 30_000 });
+});

@@ -29,12 +29,30 @@ export const MarketplaceAbi = [
         "internalType": "address"
       },
       {
+        "name": "_pool",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "_feeRecipient",
         "type": "address",
         "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "ADVANCE_PRICE_HEADROOM_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -116,6 +134,25 @@ export const MarketplaceAbi = [
   },
   {
     "type": "function",
+    "name": "availableKg",
+    "inputs": [
+      {
+        "name": "_listingId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "buy",
     "inputs": [
       {
@@ -136,7 +173,7 @@ export const MarketplaceAbi = [
     ],
     "outputs": [
       {
-        "name": "cost",
+        "name": "paid",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -324,6 +361,11 @@ export const MarketplaceAbi = [
             "name": "bulkDiscountBps",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "loanId",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -406,6 +448,19 @@ export const MarketplaceAbi = [
   },
   {
     "type": "function",
+    "name": "i_pool",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IMarketLendingPool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "i_registry",
     "inputs": [],
     "outputs": [
@@ -439,6 +494,19 @@ export const MarketplaceAbi = [
         "name": "",
         "type": "address",
         "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "investorShareBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -518,8 +586,125 @@ export const MarketplaceAbi = [
   },
   {
     "type": "function",
+    "name": "listCollateral",
+    "inputs": [
+      {
+        "name": "_loanId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_mode",
+        "type": "uint8",
+        "internalType": "enum Marketplace.PriceMode"
+      },
+      {
+        "name": "_price",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_bulkMinKg",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_bulkDiscountBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "listingId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "listWithAdvance",
+    "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_kg",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_mode",
+        "type": "uint8",
+        "internalType": "enum Marketplace.PriceMode"
+      },
+      {
+        "name": "_price",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_bulkMinKg",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_bulkDiscountBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_advance",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_maturity",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "listingId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "loanId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "listingCount",
     "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "listingOfLoan",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -672,6 +857,35 @@ export const MarketplaceAbi = [
   },
   {
     "type": "function",
+    "name": "quoteWithFee",
+    "inputs": [
+      {
+        "name": "_listingId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_kg",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "cost",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "fee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "referencePricePerKg",
     "inputs": [
       {
@@ -807,6 +1021,19 @@ export const MarketplaceAbi = [
   },
   {
     "type": "function",
+    "name": "setInvestorShare",
+    "inputs": [
+      {
+        "name": "_investorShareBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "supportsInterface",
     "inputs": [
       {
@@ -848,6 +1075,25 @@ export const MarketplaceAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "AdvanceListed",
+    "inputs": [
+      {
+        "name": "listingId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "loanId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -988,6 +1234,31 @@ export const MarketplaceAbi = [
   },
   {
     "type": "event",
+    "name": "FeeShared",
+    "inputs": [
+      {
+        "name": "listingId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toInvestors",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toTreasury",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "FeesUpdated",
     "inputs": [
       {
@@ -1004,6 +1275,19 @@ export const MarketplaceAbi = [
       },
       {
         "name": "clearanceDiscountBps",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "InvestorShareUpdated",
+    "inputs": [
+      {
+        "name": "investorShareBps",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1267,6 +1551,11 @@ export const MarketplaceAbi = [
   },
   {
     "type": "error",
+    "name": "Marketplace__LoanAlreadyListed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "Marketplace__LotNotExpired",
     "inputs": []
   },
@@ -1284,6 +1573,17 @@ export const MarketplaceAbi = [
     "type": "error",
     "name": "Marketplace__PriceAboveLimit",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Marketplace__PriceBelowAdvance",
+    "inputs": [
+      {
+        "name": "minPricePerKg",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

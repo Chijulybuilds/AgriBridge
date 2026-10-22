@@ -3,10 +3,13 @@ import { useConnection } from "wagmi";
 
 import { ArchiveBoxIcon, ArrowRightIcon, BanknotesIcon, BuildingLibraryIcon, ClockIcon, TruckIcon } from "@heroicons/react/24/outline";
 
+import { bestFreeLot, GATE_ADVANCE_DONE, GateAdvance, SellOrWait } from "../../components/advanceOffers";
 import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, LotLabel } from "../../components/lots";
 import { Badge, Card, EmptyState, KeyValue, PageHeader, Skeleton, Stat, StatusBadge } from "../../components/ui";
+import { TxStatus } from "../../components/TxStatus";
 import { lotValue, useCommodities, useCredit, useLoans, useLots, usePoolStats, useWarehouses } from "../../hooks/useProtocolData";
+import { useTx } from "../../hooks/useTx";
 import { date, kg, naira, percentFromBps, usd } from "../../lib/format";
 
 /** The farmer's home: what is stored, what is owed, and the next thing to do. */
@@ -26,6 +29,9 @@ export default function FarmerOverview() {
   const active = loans.filter((l) => l.status === "Active");
   const owed = active.reduce((sum, l) => sum + l.debt, 0n);
   const usable = held.filter((l) => l.usable);
+  // The advance at the gate: verified crop the farmer still holds freely can be borrowed against today.
+  const offerLot = bestFreeLot(held, commodities);
+  const gateTx = useTx();
 
   const next =
     mine.length === 0
@@ -39,6 +45,8 @@ export default function FarmerOverview() {
   return (
     <AppLayout role="farmer" title="Farmer">
       <PageHeader section="farmer" eyebrow="Farmer" title="Farmer overview" subtitle="Your crop in storage, your advances, and what to do next." />
+
+      <TxStatus tx={gateTx} success={GATE_ADVANCE_DONE} />
 
       <div className="grid-4" data-tour="farmer-stats">
         <Stat lead icon={ArchiveBoxIcon} label="Crop in storage" help="worth-today" value={usd(stockValue)} sub={`${naira(stockValue)} · ${held.length} lot${held.length === 1 ? "" : "s"}`} testId="stat-stock" />
@@ -78,24 +86,30 @@ export default function FarmerOverview() {
           </Link>
         </Card>
 
-        <section className="card island" data-tour="next-step">
-          <span className="page-eyebrow">Next step</span>
-          <h2 className="display" style={{ fontSize: 34, margin: "2px 0 12px" }}>
-            {next.cta}
-          </h2>
-          <p className="text-secondary" style={{ marginBottom: 18, lineHeight: 1.6 }}>
-            {next.text}
-          </p>
-          <Link className="btn btn-block" href={next.href} data-testid="next-step">
-            {next.cta} <ArrowRightIcon />
-          </Link>
-        </section>
+        {offerLot ? (
+          <GateAdvance key={offerLot.id.toString()} lot={offerLot} commodity={commodities.get(offerLot.commodityId)} tx={gateTx} />
+        ) : (
+          <section className="card island" data-tour="next-step">
+            <span className="page-eyebrow">Next step</span>
+            <h2 className="display" style={{ fontSize: 34, margin: "2px 0 12px" }}>
+              {next.cta}
+            </h2>
+            <p className="text-secondary" style={{ marginBottom: 18, lineHeight: 1.6 }}>
+              {next.text}
+            </p>
+            <Link className="btn btn-block" href={next.href} data-testid="next-step">
+              {next.cta} <ArrowRightIcon />
+            </Link>
+          </section>
+        )}
       </div>
+
+      {offerLot && <SellOrWait key={`wait-${offerLot.id}`} lot={offerLot} commodity={commodities.get(offerLot.commodityId)} />}
 
       <Card title="Your repayment record" testId="credit-record" tour="credit-record" help="record">
         <p className="text-secondary" style={{ marginTop: 0 }}>
           Every advance of {credit ? usd(credit.minAmount, 0) : "$500"} or more that you repay in full by its end date, once it has
-          been open {credit ? Math.round(credit.minAgeSeconds / 86_400) : 14} days, adds to your record. A good record raises how much
+          been open {credit ? Math.round(credit.minAgeSeconds / 86_400) : 14}{" "}days, adds to your record. A good record raises how much
           you can borrow. It is kept on the blockchain in your name and can&apos;t be moved or bought.
         </p>
         {credit ? (

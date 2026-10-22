@@ -39,7 +39,7 @@ export default function Reporter() {
       {status && (
         <Notice>
           A new price is used once {status.localQuorum} of the {reporters.length || "approved"} reporters agree, within{" "}
-          {percentFromBps(500)} of each other. Reports older than a day don&apos;t count. A jump of more than{" "}
+          {percentFromBps(500)}{" "}of each other. Reports older than a day don&apos;t count. A jump of more than{" "}
           {percentFromBps(status.maxMoveBps)} is held until it is confirmed later, like every price.
         </Notice>
       )}

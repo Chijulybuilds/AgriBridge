@@ -105,6 +105,14 @@ function describe(log: DecodedLog, commodityNames: Map<bigint, string>): string 
       return `${who("seller")} listed ${kg(a.kg as bigint)} of lot ${a.lotId} for sale`;
     case "Bought":
       return `${who("buyer")} bought ${kg(a.kg as bigint)} of lot ${a.lotId} for ${usd(a.cost as bigint)}`;
+    case "AdvanceListed":
+      return `Listing ${a.listingId} sells the crop behind advance ${a.loanId}: each sale repays its share first`;
+    case "CollateralSold":
+      return (a.remainingDebt as bigint) === 0n
+        ? `A sale of ${kg(a.kg as bigint)} repaid advance ${a.loanId} in full (${usd(a.repaid as bigint)})`
+        : `A sale of ${kg(a.kg as bigint)} repaid ${usd(a.repaid as bigint)} of advance ${a.loanId}; ${usd(a.remainingDebt as bigint)} is still owed`;
+    case "IncomeAdded":
+      return `Investors earned ${usd(a.amount as bigint)} from marketplace fees`;
     case "ExpiredStockSold":
       return `${who("seller")} sold ${kg(a.kg as bigint)} of expired lot ${a.lotId} to AgriBridge for ${usd(a.paid as bigint)}`;
     case "WithdrawalRequested":
@@ -175,6 +183,22 @@ export function useActivity() {
         if (items.length >= MAX_ITEMS) break;
       }
       return withTimes(items);
+    },
+  });
+}
+
+/** Everything investors have earned from marketplace fees so far (USDC, 6 decimals). */
+export function useFeeIncome() {
+  const pool = contracts.pool;
+  return useQuery({
+    queryKey: ["fee-income", pool, DEPLOY_BLOCK?.toString()],
+    enabled: Boolean(pool),
+    refetchInterval: 30_000,
+    queryFn: async (): Promise<bigint> => {
+      const logs = await scanLogs([
+        (range) => logsClient.getContractEvents({ address: pool!, abi: LendingPoolAbi, eventName: "IncomeAdded", ...range }),
+      ]);
+      return logs.reduce((sum, log) => sum + (log.args.amount as bigint), 0n);
     },
   });
 }

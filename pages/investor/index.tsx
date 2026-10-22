@@ -5,7 +5,7 @@ import { ArrowTrendingUpIcon, BuildingLibraryIcon, ClockIcon, ShieldCheckIcon, W
 import AppLayout from "../../components/layout/AppLayout";
 import { TxStatus } from "../../components/TxStatus";
 import { Card, EmptyState, KeyValue, PageHeader, Segmented, Stat } from "../../components/ui";
-import { usePoolHistory } from "../../hooks/useActivity";
+import { useFeeIncome, usePoolHistory } from "../../hooks/useActivity";
 import { useInvestorPosition, usePoolStats, useUsdc } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { LendingPoolAbi } from "../../lib/contracts/abis";
@@ -25,6 +25,7 @@ export default function InvestorOverview() {
   const { position } = useInvestorPosition(address);
   const { balance } = useUsdc(address);
   const { data: history } = usePoolHistory(address);
+  const { data: feeIncome } = useFeeIncome();
   const tx = useTx();
 
   const [mode, setMode] = useState<Mode>("invest");
@@ -75,7 +76,7 @@ export default function InvestorOverview() {
 
       <div className="grid-4" data-tour="investor-stats">
         <Stat lead icon={WalletIcon} label="Your money in the pool" help="shares" tour="position" value={usd(position?.value)} sub={earned !== undefined ? `${naira(position?.value)} · ${usd(earned)} earned so far` : naira(position?.value)} testId="position" />
-        <Stat icon={ArrowTrendingUpIcon} label="Investors earn now" help="earnings" value={stats ? `${percentFromWad(stats.supplyRate)} a year` : "—"} sub="Changes with how much is lent out" />
+        <Stat icon={ArrowTrendingUpIcon} label="Investors earn now" help="earnings" value={stats ? `${percentFromWad(stats.supplyRate)} a year` : "—"} sub="From farmers' interest, plus half of every market fee" />
         <Stat icon={BuildingLibraryIcon} label="Pool size" help="pool" value={usd(stats?.totalAssets)} sub={stats ? `${percentFromWad(stats.utilization, 0)} lent to farmers` : undefined} />
         <Stat icon={ShieldCheckIcon} label="Loss cushion" help="cushion" value={usd(stats?.reserves)} sub="Covers bad debt before investors" />
       </div>
@@ -131,6 +132,8 @@ export default function InvestorOverview() {
           <KeyValue label="Crop values" value="come from set prices and fall as the crop ages" />
           <KeyValue label="Losses are covered by" value="the loss cushion first, then investors" />
           <KeyValue label="Borrowers pay now" value={stats ? `${percentFromWad(stats.borrowRate)} a year` : "—"} />
+          <KeyValue label="Earned from market fees" help="fee-share" value={usd(feeIncome)} testId="fee-income" />
+          <KeyValue label="Still counting in" value={stats ? `${usd(stats.lockedIncome)}, spread over 7 days` : "—"} />
         </Card>
       </div>
 

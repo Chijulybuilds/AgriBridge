@@ -4,27 +4,70 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useConnection } from "wagmi";
 import { BuildingStorefrontIcon, TagIcon } from "@heroicons/react/24/outline";
 
+import { lotNow } from "../../components/advanceOffers";
 import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, LotLabel, lotName } from "../../components/lots";
 import { BulkDealNote, ListingPrice } from "../../components/market";
 import { TxStatus } from "../../components/TxStatus";
-import { Card, EmptyState, KeyValue, Notice, PageHeader, Segmented } from "../../components/ui";
+import { Badge, Card, EmptyState, KeyValue, Notice, PageHeader, Segmented } from "../../components/ui";
 import {
   referenceValuePerKg,
   useCommodities,
   useListings,
+  useLoans,
   useLots,
   useMarketSettings,
+  useMaxBorrow,
+  usePoolStats,
+  type Commodity,
   type Listing,
+  type Loan,
+  type Lot,
 } from "../../hooks/useProtocolData";
 import { useTx, type Tx } from "../../hooks/useTx";
 import { MarketplaceAbi } from "../../lib/contracts/abis";
-import { contracts, PriceMode } from "../../lib/contracts/config";
-import { date, kg, kgInput, parseKg, parseKgUpTo, parsePercentToBps, parseUsd, percentFromBps, usdPerKg } from "../../lib/format";
+import { contracts, PriceMode, WAD } from "../../lib/contracts/config";
+import {
+  date,
+  isoDay,
+  kg,
+  kgInput,
+  maturityTimestamp,
+  naira,
+  nowSeconds,
+  parseKg,
+  parseKgUpTo,
+  parsePercentToBps,
+  parseUsd,
+  percentFromBps,
+  percentFromWad,
+  SECONDS_PER_DAY,
+  usd,
+  usdPerKg,
+} from "../../lib/format";
 import { useRememberedRole } from "../../lib/session";
 import { InfoTip } from "../../components/help/InfoTip";
 
 type Pricing = "market" | "fixed";
+
+/** Marketplace.ADVANCE_PRICE_HEADROOM_BPS: with an advance, ask at least 110% of its share of each kilogram. */
+const ADVANCE_HEADROOM_BPS = 11_000n;
+const MIN_ADVANCE = 100n * 10n ** 6n; // LendingPool.MIN_BORROW_AMOUNT
+const MATURITY_BUFFER_DAYS = 30; // LendingPool.MATURITY_BUFFER
+const DEFAULT_TERM_DAYS = 60;
+const ONE_KG = 10n ** 18n;
+
+/** The lowest asking price per kilogram that covers `owed` across `kgAmount`, with the market's headroom. */
+function minPricePerKg(owed: bigint, kgAmount: bigint): bigint {
+  const numerator = owed * ADVANCE_HEADROOM_BPS * ONE_KG;
+  const denominator = 10_000n * kgAmount;
+  return (numerator + denominator - 1n) / denominator;
+}
+
+/** Dollars for an input, rounded down to the cent so "Max" never asks for more than the limit. */
+function usdInput(value: bigint): string {
+  return (Number(value / 10_000n) / 100).toFixed(2);
+}
 
 /**
  * Terms a seller sets: a price (fixed, or a share of today's value) and an optional bulk deal.
@@ -58,6 +101,15 @@ function useTerms(defaultPricing: Pricing = "market", idPrefix = "") {
       off = BigInt(offBps);
     }
     return { args: [pricing === "fixed" ? PriceMode.Fixed : PriceMode.Reference, price, minKg, off] };
+  }
+
+  /** The lowest price a buyer could pay per kilogram today under these terms, after any bulk deal. */
+  function lowestPerKg(referencePerKg: bigint | undefined): bigint | undefined {
+    const result = read();
+    if ("error" in result) return undefined;
+    const [mode, price, , off] = result.args;
+    const perKg = mode === PriceMode.Fixed ? price : referencePerKg === undefined ? undefined : (referencePerKg * price) / 10_000n;
+    return perKg === undefined ? undefined : (perKg * (10_000n - off)) / 10_000n;
   }
 
   const fields = (referencePerKg: bigint | undefined) => (
@@ -115,13 +167,18 @@ function useTerms(defaultPricing: Pricing = "market", idPrefix = "") {
     </>
   );
 
-  return { read, fields };
+  return { read, lowestPerKg, fields };
 }
 
+const LIST_WITH_ADVANCE = "List and get paid today";
+const STOP_SELLING = "Stop selling";
+
 /**
- * Sell crop on the market: list all or part of a lot at a fixed price or a share
- * of its value today, with an optional bulk deal. The crop is held by the market
- * until it sells or the listing is taken down.
+ * Sell crop on the market: list all or part of a lot at a fixed price or a share of its value
+ * today, with an optional bulk deal. "Get paid today" also takes an advance against the listed
+ * crop, so the farmer can hold out for their price: each sale repays its share of the advance
+ * and pays the farmer the rest. With ?loan=ID the page lists the crop behind an advance taken
+ * earlier, such as at the warehouse gate.
  */
 export default function Sell() {
   const router = useRouter();
@@ -130,7 +187,9 @@ export default function Sell() {
   const { byId: commodities } = useCommodities();
   const { lots } = useLots(address);
   const { listings } = useListings();
+  const { loans } = useLoans(address);
   const { settings } = useMarketSettings();
+  const { stats } = usePoolStats();
   const tx = useTx();
   // A listing leaves "My listings" once it is taken down, so its status lives on the card.
   const listingTx = useTx();
@@ -139,10 +198,18 @@ export default function Sell() {
   const sellable = lots.filter((l) => l.usable && l.balanceKg > 0n);
   const [lotId, setLotId] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [withAdvance, setWithAdvance] = useState(false);
+  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [endDay, setEndDay] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const lot = sellable.find((l) => l.id.toString() === lotId);
-  const referencePerKg = lot ? referenceValuePerKg(lot, commodities.get(lot.commodityId)) : undefined;
+  const commodity = lot ? commodities.get(lot.commodityId) : undefined;
+  const referencePerKg = lot ? referenceValuePerKg(lot, commodity) : undefined;
   const mine = listings.filter((l) => l.active && !l.clearance && address && l.seller.toLowerCase() === address.toLowerCase());
+
+  // ?loan=ID: sell the crop behind that advance instead.
+  const loanQuery = typeof router.query.loan === "string" ? router.query.loan : undefined;
+  const advanceLoan = loanQuery ? loans.find((l) => l.id.toString() === loanQuery && l.status === "Active") : undefined;
 
   useEffect(() => {
     if (lotId || sellable.length === 0) return;
@@ -152,24 +219,67 @@ export default function Sell() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- defaults depend on data that arrives after mount
     setLotId(pick.id.toString());
     setQuantity(kgInput(pick.balanceKg));
-  }, [sellable, lotId, router.query.lot]);
+    if (router.query.advance === "1") setWithAdvance(true);
+  }, [sellable, lotId, router.query.lot, router.query.advance]);
+
+  const minDay = isoDay(nowSeconds() + 2 * SECONDS_PER_DAY);
+  const maxDay = lot?.expiresAt ? isoDay(Number(lot.expiresAt) - (MATURITY_BUFFER_DAYS + 1) * SECONDS_PER_DAY) : undefined;
+  useEffect(() => {
+    if (!lot || endDay || !maxDay) return;
+    const preferred = isoDay(lotNow(lot) + DEFAULT_TERM_DAYS * SECONDS_PER_DAY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the default end date depends on the chosen lot
+    setEndDay(preferred < maxDay ? preferred : maxDay);
+  }, [lot, endDay, maxDay]);
+
+  const kgAmount = lot ? parseKgUpTo(quantity, lot.balanceKg) : undefined;
+  const maturity = endDay ? maturityTimestamp(endDay) : undefined;
+  const { data: maxBorrow } = useMaxBorrow(withAdvance ? lot?.id : undefined, kgAmount, maturity, address);
+  const advance = parseUsd(advanceAmount);
+  const floor = withAdvance && advance && kgAmount ? minPricePerKg(advance, kgAmount) : undefined;
+  const lowest = terms.lowestPerKg(referencePerKg);
+  const totalAtPrice = lowest !== undefined && kgAmount ? (lowest * kgAmount) / ONE_KG : undefined;
+  const monthInterest = advance && stats ? (advance * stats.borrowRate * 30n) / (WAD * 365n) : undefined;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setFormError(null);
     if (!lot) return setFormError("Choose what to sell.");
-    const kgAmount = parseKgUpTo(quantity, lot.balanceKg);
     if (!kgAmount || kgAmount > lot.balanceKg) return setFormError(`Enter up to ${kg(lot.balanceKg)}.`);
     const result = terms.read();
     if ("error" in result) return setFormError(result.error);
     const [mode, price, bulkMinKg, bulkDiscountBps] = result.args;
 
+    if (withAdvance) {
+      if (!advance || advance < MIN_ADVANCE) return setFormError("Advances start at $100.");
+      if (maxBorrow !== undefined && advance > maxBorrow) return setFormError(`The most you can take for these kilograms is ${usd(maxBorrow)}.`);
+      if (stats && advance > stats.availableCash) return setFormError(`The pool has ${usd(stats.availableCash)} available right now.`);
+      if (!maturity || !maxDay || endDay < minDay || endDay > maxDay) {
+        return setFormError(`Choose a repay date between ${date(maturityTimestamp(minDay))} and ${date(maturityTimestamp(maxDay ?? minDay))}.`);
+      }
+      if (floor !== undefined && lowest !== undefined && lowest < floor) {
+        return setFormError(`With a ${usd(advance)} advance, ask at least ${usdPerKg(floor)} a kilogram, after any bulk deal.`);
+      }
+    }
+
     try {
       await tx.ensureCropApproval(contracts.marketplace!);
-      await tx.send(
-        { address: contracts.marketplace!, abi: MarketplaceAbi, functionName: "list", args: [lot.id, kgAmount, mode, price, bulkMinKg, bulkDiscountBps] },
-        "List for sale",
-      );
+      if (withAdvance) {
+        await tx.send(
+          {
+            address: contracts.marketplace!,
+            abi: MarketplaceAbi,
+            functionName: "listWithAdvance",
+            args: [lot.id, kgAmount, mode, price, bulkMinKg, bulkDiscountBps, advance!, BigInt(maturity!)],
+          },
+          LIST_WITH_ADVANCE,
+        );
+        setAdvanceAmount("");
+      } else {
+        await tx.send(
+          { address: contracts.marketplace!, abi: MarketplaceAbi, functionName: "list", args: [lot.id, kgAmount, mode, price, bulkMinKg, bulkDiscountBps] },
+          "List for sale",
+        );
+      }
     } catch {
       // Shown by TxStatus.
     }
@@ -180,63 +290,161 @@ export default function Sell() {
       <PageHeader section="sell"
         eyebrow="Market"
         title="Sell"
-        subtitle="Put your crop on the market. Buyers can take any part of it. Selling early gets more, since the crop's value falls as it ages."
+        subtitle="Put your crop on the market at your price. Buyers can take any part of it. Need cash now? Get paid today and keep your price."
       />
 
       {/* Outside the form, which empties once all the stock is listed. */}
-      <TxStatus tx={tx} success="Listed. Buyers can see it on the market now." />
+      <TxStatus
+        tx={tx}
+        success={
+          tx.step === LIST_WITH_ADVANCE
+            ? "Listed, and the advance is in your account. Each sale pays back its share of the advance first; you get the rest as it sells."
+            : "Listed. Buyers can see it on the market now."
+        }
+      />
 
       <div className="grid-2">
-        <Card title="New listing" tour="sell-form" help="sell">
-          {sellable.length === 0 ? (
-            <EmptyState art="market"
-              icon={TagIcon}
-              title="Nothing to sell yet"
-              action={
-                <Link className="btn btn-small" href="/farmer/deliver">
-                  Deliver a crop
-                </Link>
-              }
-            >
-              You have no verified stock to sell. Crop shows up here once the warehouse has weighed and graded it, or after you buy on the market.
-            </EmptyState>
+        {loanQuery ? (
+          advanceLoan ? (
+            <SellAdvanceCrop
+              loan={advanceLoan}
+              lot={lots.find((l) => l.id === advanceLoan.lotId)}
+              commodities={commodities}
+            />
           ) : (
-            <form onSubmit={submit} noValidate>
-              <div className="field">
-                <label htmlFor="lot">Stock</label>
-                <select id="lot" className="select" value={lotId} onChange={(e) => setLotId(e.target.value)} data-testid="lot">
-                  <option value="">Choose…</option>
-                  {sellable.map((l) => (
-                    <option key={l.id.toString()} value={l.id.toString()}>
-                      {lotName(l, commodities)}, Grade {l.currentGrade}, {kg(l.balanceKg)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="kg">Kilograms to sell</label>
-                <input id="kg" className="input" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-              </div>
-              {terms.fields(referencePerKg)}
-              {formError && <p className="form-error" role="alert" data-testid="form-error">{formError}</p>}
-              <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-listing">
-                {tx.isBusy ? "Listing…" : "List for sale"}
-              </button>
-            </form>
-          )}
-        </Card>
+            <Card title="Sell the crop behind an advance">
+              <EmptyState art="market" icon={TagIcon} title="That advance is not open">
+                It may have been repaid already. <Link className="link" href="/farmer/loans">See My advances</Link>.
+              </EmptyState>
+            </Card>
+          )
+        ) : (
+          <Card title="New listing" tour="sell-form" help="sell">
+            {sellable.length === 0 ? (
+              <EmptyState art="market"
+                icon={TagIcon}
+                title="Nothing to sell yet"
+                action={
+                  <Link className="btn btn-small" href="/farmer/deliver">
+                    Deliver a crop
+                  </Link>
+                }
+              >
+                You have no verified stock to sell. Crop shows up here once the warehouse has weighed and graded it, or after you buy on the market.
+              </EmptyState>
+            ) : (
+              <form onSubmit={submit} noValidate>
+                <div className="field">
+                  <label htmlFor="lot">Stock</label>
+                  <select id="lot" className="select" value={lotId} onChange={(e) => setLotId(e.target.value)} data-testid="lot">
+                    <option value="">Choose…</option>
+                    {sellable.map((l) => (
+                      <option key={l.id.toString()} value={l.id.toString()}>
+                        {lotName(l, commodities)}, Grade {l.currentGrade}, {kg(l.balanceKg)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="kg">Kilograms to sell</label>
+                  <input id="kg" className="input" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+                </div>
+                {terms.fields(referencePerKg)}
+
+                <label className="row" style={{ fontSize: 14, gap: 8, minHeight: 40, marginBottom: 10, cursor: "pointer" }}>
+                  <input type="checkbox" checked={withAdvance} onChange={(e) => setWithAdvance(e.target.checked)} data-testid="advance-toggle" />
+                  <span data-tour="get-paid-today">
+                    <strong>Get paid today:</strong> take part of the money now
+                  </span>
+                  <InfoTip id="get-paid-today" />
+                </label>
+                {withAdvance && (
+                  <div className="card-sunken" style={{ marginBottom: 12 }} data-testid="advance-fields">
+                    <div className="field">
+                      <label htmlFor="advance-amount">Take now (US$)</label>
+                      <div className="row" style={{ flexWrap: "nowrap" }}>
+                        <input
+                          id="advance-amount"
+                          className="input"
+                          inputMode="decimal"
+                          value={advanceAmount}
+                          onChange={(e) => setAdvanceAmount(e.target.value)}
+                          data-testid="advance-amount"
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          disabled={!maxBorrow}
+                          onClick={() => maxBorrow && setAdvanceAmount(usdInput(maxBorrow))}
+                          data-testid="advance-max"
+                        >
+                          Max
+                        </button>
+                      </div>
+                      <span className="hint" data-testid="advance-limit">
+                        {maxBorrow !== undefined
+                          ? `Up to ${usd(maxBorrow)} (${naira(maxBorrow)}) for these kilograms.`
+                          : "Choose the stock and kilograms to see how much you can take."}
+                      </span>
+                    </div>
+                    <div className="field">
+                      <label htmlFor="advance-end">If it hasn&apos;t all sold, repay by</label>
+                      <input
+                        id="advance-end"
+                        className="input"
+                        type="date"
+                        min={minDay}
+                        max={maxDay}
+                        value={endDay}
+                        onChange={(e) => setEndDay(e.target.value)}
+                        data-testid="advance-end-date"
+                      />
+                      <span className="hint">Each sale pays back its share first. Whatever is still owed on this date, you repay yourself.</span>
+                    </div>
+                    {floor !== undefined && (
+                      <p className="hint" style={{ margin: 0 }} data-testid="advance-min-price">
+                        With this advance, ask at least {usdPerKg(floor)} a kilogram.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {formError && <p className="form-error" role="alert" data-testid="form-error">{formError}</p>}
+                <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-listing">
+                  {tx.isBusy ? "Listing…" : withAdvance ? "List and get paid today" : "List for sale"}
+                </button>
+              </form>
+            )}
+          </Card>
+        )}
 
         <Card title="Good to know">
-          {lot && (
+          {lot && !loanQuery && (
             <div style={{ marginBottom: 12 }}>
               <KeyValue label="Crop" value={<><GradeBadge grade={lot.currentGrade} /> {lotName(lot, commodities)}</>} />
               <KeyValue label="Value today" value={referencePerKg !== undefined ? usdPerKg(referencePerKg) : "Price out of date"} />
               <KeyValue label="Expires" value={date(lot.expiresAt)} />
+              {withAdvance && advance !== undefined && totalAtPrice !== undefined && (
+                <div data-testid="advance-summary">
+                  <KeyValue label="Paid to you today" value={`${usd(advance)} (${naira(advance)})`} />
+                  <KeyValue label="If it all sells at your price" value={usd(totalAtPrice)} />
+                  <KeyValue
+                    label="Then paid to you as it sells"
+                    value={totalAtPrice > advance ? `about ${usd(totalAtPrice - advance)}, less interest` : "—"}
+                  />
+                  <KeyValue
+                    label="Interest"
+                    help="interest"
+                    value={stats ? `${percentFromWad(stats.borrowRate)} a year, only until it sells (about ${usd(monthInterest)} a month)` : "—"}
+                  />
+                </div>
+              )}
             </div>
           )}
           <Notice>
-            AgriBridge keeps {settings ? percentFromBps(settings.feeBps) : "1%"} of each sale. You get the rest in dollars straight away.
-            Unsold crop comes back when you take the listing down.
+            Buyers pay AgriBridge&apos;s {settings ? percentFromBps(settings.feeBps) : "1%"}{" "}fee on top of your price, so you get your full
+            price, in dollars, as it sells. Half the fee goes to the investors whose money funds farmers&apos; advances. Unsold crop comes
+            back when you take the listing down.
           </Notice>
         </Card>
       </div>
@@ -255,14 +463,23 @@ export default function Sell() {
                   <LotLabel
                     lot={lots.find((l) => l.id === listing.lotId) ?? { id: listing.lotId, commodityId: 0n }}
                     commodities={commodities}
-                    sub={`${kg(listing.kgRemaining)} left · listing ${listing.id}`}
+                    sub={`${kg(listing.availableKg)} left · listing ${listing.id}`}
                   />
                 }
               />
             ))}
           </div>
         )}
-        <TxStatus tx={listingTx} success={listingTx.step === "Take down" ? "Taken down. The unsold crop is back in your stock." : "Price changed."} />
+        <TxStatus
+          tx={listingTx}
+          success={
+            listingTx.step === "Take down"
+              ? "Taken down. The unsold crop is back in your stock."
+              : listingTx.step === STOP_SELLING
+                ? "Stopped selling. The crop stays as security for your advance; repay it or list it again."
+                : "Price changed."
+          }
+        />
         {mine.length > 0 && (
           <p className="hint" style={{ marginTop: 12 }}>
             Each sale is paid to you as it happens; Activity shows every sale.
@@ -273,10 +490,70 @@ export default function Sell() {
   );
 }
 
+/**
+ * Lists the crop behind an advance the farmer already has (one taken at the warehouse gate, say):
+ * each sale repays its share of the advance first, and the farmer gets the rest at once.
+ */
+function SellAdvanceCrop({ loan, lot, commodities }: { loan: Loan; lot: Lot | undefined; commodities: Map<bigint, Commodity> }) {
+  const tx = useTx();
+  const terms = useTerms("market", "advance-");
+  const [error, setError] = useState<string | null>(null);
+  const referencePerKg = lot ? referenceValuePerKg(lot, commodities.get(lot.commodityId)) : undefined;
+  const floor = loan.collateralKg > 0n ? minPricePerKg(loan.debt, loan.collateralKg) : undefined;
+  const listed = loan.listingId !== 0n;
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    const result = terms.read();
+    if ("error" in result) return setError(result.error);
+    const lowest = terms.lowestPerKg(referencePerKg);
+    if (floor !== undefined && lowest !== undefined && lowest < floor) {
+      return setError(`Ask at least ${usdPerKg(floor)} a kilogram, after any bulk deal, so each sale can pay back its share of the advance.`);
+    }
+    try {
+      await tx.send(
+        { address: contracts.marketplace!, abi: MarketplaceAbi, functionName: "listCollateral", args: [loan.id, ...result.args] },
+        "List the advance's crop",
+      );
+    } catch {
+      // Shown by TxStatus.
+    }
+  }
+
+  return (
+    <Card title="Sell the crop behind your advance" testId="sell-advance-crop" tour="sell-form" help="get-paid-today">
+      {lot && <LotLabel lot={lot} commodities={commodities} sub={`Advance ${loan.id}`} />}
+      <div style={{ margin: "12px 0" }}>
+        <KeyValue label="Crop held as security" value={kg(loan.collateralKg)} />
+        <KeyValue label="Owed now" value={`${usd(loan.debt)} (${naira(loan.debt)})`} />
+        {floor !== undefined && <KeyValue label="Lowest price you can ask" value={usdPerKg(floor)} testId="advance-min-price" />}
+      </div>
+      {listed ? (
+        <Notice tone="ok">This crop is already for sale (listing {loan.listingId.toString()}). Change its price under My listings.</Notice>
+      ) : (
+        <form onSubmit={submit} noValidate>
+          <p className="hint" style={{ marginTop: 0 }}>
+            Each sale pays back its share of the advance first, and you get the rest at once. When the last kilogram sells, the advance
+            is repaid in full and counts on your record.
+          </p>
+          {terms.fields(referencePerKg)}
+          {error && <p className="form-error" role="alert" data-testid="form-error">{error}</p>}
+          <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-advance-listing">
+            {tx.isBusy ? "Listing…" : "List for sale"}
+          </button>
+        </form>
+      )}
+      <TxStatus tx={tx} success="Listed. Each sale pays back its share of your advance first; you get the rest at once." />
+    </Card>
+  );
+}
+
 function MyListing({ tx, listing, label }: { tx: Tx; listing: Listing; label: ReactNode }) {
   const [editing, setEditing] = useState(false);
   const terms = useTerms(listing.mode === PriceMode.Fixed ? "fixed" : "market", `listing-${listing.id}-`);
   const [error, setError] = useState<string | null>(null);
+  const backsAdvance = listing.loanId !== 0n;
 
   async function reprice() {
     setError(null);
@@ -295,19 +572,28 @@ function MyListing({ tx, listing, label }: { tx: Tx; listing: Listing; label: Re
 
   async function cancel() {
     try {
-      await tx.send({ address: contracts.marketplace!, abi: MarketplaceAbi, functionName: "cancel", args: [listing.id] }, "Take down");
+      await tx.send(
+        { address: contracts.marketplace!, abi: MarketplaceAbi, functionName: "cancel", args: [listing.id] },
+        backsAdvance ? STOP_SELLING : "Take down",
+      );
     } catch {
       // Shown by TxStatus.
     }
   }
 
   return (
-    <div className="card-sunken">
+    <div className="card-sunken" data-testid={`my-listing-${listing.id}`}>
       <div className="spread" style={{ flexWrap: "wrap" }}>
         <div>
           {label}
-          <div style={{ marginLeft: 43 }}>
+          <div style={{ marginLeft: 43 }} className="row">
             <BulkDealNote listing={listing} />
+            {backsAdvance && (
+              <span className="with-info" data-testid="pays-back-advance">
+                <Badge tone="green">Pays back advance {listing.loanId.toString()}</Badge>
+                <InfoTip id="get-paid-today" />
+              </span>
+            )}
           </div>
         </div>
         <ListingPrice listing={listing} />
@@ -316,7 +602,7 @@ function MyListing({ tx, listing, label }: { tx: Tx; listing: Listing; label: Re
             {editing ? "Close" : "Change price"}
           </button>
           <button className="btn btn-danger btn-small" disabled={tx.isBusy} onClick={() => void cancel()}>
-            Take down
+            {backsAdvance ? "Stop selling" : "Take down"}
           </button>
         </div>
       </div>

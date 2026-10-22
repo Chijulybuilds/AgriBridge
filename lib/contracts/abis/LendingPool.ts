@@ -116,7 +116,33 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
+    "name": "INCOME_UNLOCK_PERIOD",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "KEEPER_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MARKETPLACE_ROLE",
     "inputs": [],
     "outputs": [
       {
@@ -233,6 +259,19 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
+    "name": "addIncome",
+    "inputs": [
+      {
+        "name": "_amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "availableCash",
     "inputs": [],
     "outputs": [
@@ -248,6 +287,45 @@ export const LendingPoolAbi = [
     "type": "function",
     "name": "borrow",
     "inputs": [
+      {
+        "name": "_lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_collateralKg",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_maturity",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "loanId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "borrowFor",
+    "inputs": [
+      {
+        "name": "_borrower",
+        "type": "address",
+        "internalType": "address"
+      },
       {
         "name": "_lotId",
         "type": "uint256",
@@ -755,6 +833,19 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
+    "name": "incomeUnlocksAt",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "inventory",
     "inputs": [
       {
@@ -904,7 +995,54 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
+    "name": "loanCollateral",
+    "inputs": [
+      {
+        "name": "_loanId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "borrower",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "lotId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "kg",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "loanCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "lockedIncome",
     "inputs": [],
     "outputs": [
       {
@@ -1205,6 +1343,64 @@ export const LendingPoolAbi = [
   },
   {
     "type": "function",
+    "name": "saleShare",
+    "inputs": [
+      {
+        "name": "_loanId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_kg",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "sellCollateral",
+    "inputs": [
+      {
+        "name": "_loanId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_kg",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_buyer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_proceeds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "repaid",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setReserveFactor",
     "inputs": [
       {
@@ -1327,6 +1523,43 @@ export const LendingPoolAbi = [
   },
   {
     "type": "event",
+    "name": "CollateralSold",
+    "inputs": [
+      {
+        "name": "loanId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "buyer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "kg",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "repaid",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "remainingDebt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "CreditUpdated",
     "inputs": [
       {
@@ -1355,6 +1588,31 @@ export const LendingPoolAbi = [
       },
       {
         "name": "settled",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "IncomeAdded",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "unlocksAt",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1915,6 +2173,17 @@ export const LendingPoolAbi = [
   {
     "type": "error",
     "name": "LendingPool__RepayLimitTooLow",
+    "inputs": [
+      {
+        "name": "required",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LendingPool__SaleBelowDebtShare",
     "inputs": [
       {
         "name": "required",

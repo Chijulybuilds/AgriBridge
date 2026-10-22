@@ -33,7 +33,7 @@ export default function MyAdvances() {
       <PageHeader section="loans"
         eyebrow="Farmer"
         title="My advances"
-        subtitle="Repay before the end date to get your crop back. Interest builds up every second, so repaying early costs less."
+        subtitle="Repay before the end date to get your crop back, or sell the crop at your price and let each sale repay it. Interest builds up every second, so repaying early costs less."
         actions={<Link className="btn" href="/farmer/advance">New advance</Link>}
       />
 
@@ -167,6 +167,24 @@ function AdvanceCard({
           <button className="btn btn-block" disabled={tx.isBusy} onClick={() => void repay(true)} data-testid="repay-all" data-tour="repay-all">
             Repay all and get my crop back
           </button>
+          {loan.listingId !== 0n ? (
+            <p className="hint" style={{ marginTop: 10 }} data-testid="advance-listed">
+              For sale on the market (listing {loan.listingId.toString()}): each sale pays back its share of this advance.{" "}
+              <Link className="link" href="/market/sell">
+                My listings
+              </Link>
+            </p>
+          ) : (
+            <Link
+              className="btn btn-secondary btn-block"
+              style={{ marginTop: 8 }}
+              href={`/market/sell?loan=${loan.id}`}
+              data-testid="sell-to-repay"
+              data-tour="sell-to-repay"
+            >
+              Sell this crop at my price
+            </Link>
+          )}
           <TxStatus tx={tx} success="Repaid. Your crop is back in My stock." />
         </div>
       </div>

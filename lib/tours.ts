@@ -270,7 +270,8 @@ const section = (id: SectionId, title: string, steps: TourStep[]): Tour => ({ id
 export const SECTION_TOURS: Record<SectionId, Tour> = {
   farmer: section("farmer", "Farmer overview", [
     { target: "farmer-stats", title: "Your farm at a glance", body: "How much your stored crop is worth, deliveries waiting to be checked, what you owe, and how much the pool can lend right now.", picture: "warehouse" },
-    { target: "next-step", title: "What to do next", body: "This box always suggests your next step, like booking a delivery or getting an advance.", press: "It takes you straight to that page." },
+    { target: "next-step", title: "What to do next", body: "This box suggests your next step. Once your crop is verified, it shows how much you can take today, in one press.", press: "The dollars arrive in your wallet. Sell the crop later at your price: each sale pays the advance back first." },
+    { target: "sell-or-wait", title: "Sell now or wait?", body: "Compares selling today with keeping the crop a few months on an advance. It shows how much prices would need to rise for waiting to pay.", picture: "clock" },
     { target: "credit-record", title: "Your repayment record", body: "Good repayments raise how much you can borrow. This shows your progress.", picture: "record" },
     { target: "nav", title: "The menu", body: "Use the menu to move between your pages: deliver a crop, my stock, get an advance, my advances, sell, the market and activity." },
     helpIcon,
@@ -297,11 +298,13 @@ export const SECTION_TOURS: Record<SectionId, Tour> = {
     { target: "loans-list", title: "What you owe", body: "Each advance shows what you owe now, the date to repay by, and how safe it is.", picture: "record" },
     { target: "loan-safety", title: "Healthy or at risk", body: "\"Healthy\" is safe. \"At risk\" means prices have fallen a lot: repay some of the advance to make it safe again." },
     { target: "repay-all", title: "Repay and get your crop back", body: "Pays everything you owe and releases your crop to you.", press: "MetaMask asks you to confirm, and may first ask once to allow AgriBridge to take the payment." },
+    { target: "sell-to-repay", title: "Or sell to repay", body: "Put the crop behind an advance on the market at your price. Each sale pays back its share of the advance, and you get the rest at once." },
   ]),
   sell: section("sell", "Selling crop", [
     { target: "sell-form", title: "Put crop up for sale", body: "Choose the lot and the kilograms to sell.", picture: "market" },
     { target: "price-mode", title: "Choose your price", body: "\"Follow the market\" keeps your price in line with today's crop price. \"Fixed price\" stays the same until you change it." },
     { target: "bulk-deal", title: "Reward big buyers", body: "Optional: a discount for buyers who buy a lot at once, for example 10% off orders of 200 kg or more." },
+    { target: "get-paid-today", title: "Get paid today", body: "Tick this to take part of the money now while your crop waits at your price. Each sale pays the advance back first, and you get the rest. No need to sell cheap to get cash quickly.", picture: "advance" },
   ]),
   market: section("market", "The market", [
     { target: "market-filters", title: "Find the crop you want", body: "Filter by crop, grade and warehouse.", picture: "market" },

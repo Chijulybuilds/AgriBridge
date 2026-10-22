@@ -173,7 +173,7 @@ function OwnerScreen({ owner, safe }: { owner: Address; safe: Address }) {
         </span>
         <h1 style={{ fontSize: 34, margin: "16px 0 10px" }}>Open the console inside Safe{"{"}Wallet{"}"}</h1>
         <p className="text-secondary" style={{ marginBottom: 18 }}>
-          Your wallet {shortAddress(owner)} is one of the verifier Safe&apos;s owners. Verifier actions have to come from the Safe
+          Your wallet {shortAddress(owner)}{" "}is one of the verifier Safe&apos;s owners. Verifier actions have to come from the Safe
           itself, so the console runs inside Safe{"{"}Wallet{"}"}, where each action waits for the owners to confirm it.
         </p>
         <ol className="text-secondary" style={{ paddingLeft: 18, lineHeight: 1.9, marginBottom: 22, fontSize: 13.5 }}>

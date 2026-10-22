@@ -348,6 +348,8 @@ export type PoolStats = {
   supplyRate: bigint;
   reserveFactor: bigint;
   totalShares: bigint;
+  /** Investors' share of marketplace fees that is still counting into the share price (over 7 days). */
+  lockedIncome: bigint;
 };
 
 export function usePoolStats() {
@@ -358,10 +360,12 @@ export function usePoolStats() {
     enabled: Boolean(pool && shareToken),
     refetchInterval: REFRESH,
     queryFn: async (): Promise<PoolStats> => {
-      const read = <F extends "totalAssets" | "availableCash" | "totalDebt" | "reserves" | "utilization" | "getBorrowRate" | "getSupplyRate" | "reserveFactor">(
+      const read = <
+        F extends "totalAssets" | "availableCash" | "totalDebt" | "reserves" | "utilization" | "getBorrowRate" | "getSupplyRate" | "reserveFactor" | "lockedIncome",
+      >(
         functionName: F,
       ) => publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName });
-      const [totalAssets, availableCash, totalDebt, reserves, utilization, borrowRate, supplyRate, reserveFactor, totalShares] =
+      const [totalAssets, availableCash, totalDebt, reserves, utilization, borrowRate, supplyRate, reserveFactor, totalShares, lockedIncome] =
         await Promise.all([
           read("totalAssets"),
           read("availableCash"),
@@ -372,8 +376,9 @@ export function usePoolStats() {
           read("getSupplyRate"),
           read("reserveFactor"),
           publicClient.readContract({ address: shareToken!, abi: AgriShareTokenAbi, functionName: "totalSupply" }),
+          read("lockedIncome"),
         ]);
-      return { totalAssets, availableCash, totalDebt, reserves, utilization, borrowRate, supplyRate, reserveFactor, totalShares };
+      return { totalAssets, availableCash, totalDebt, reserves, utilization, borrowRate, supplyRate, reserveFactor, totalShares, lockedIncome };
     },
   });
   return { stats: query.data, isLoading: query.isLoading, error: query.error };
@@ -417,6 +422,8 @@ export type Loan = {
   /** USD per kg (8 decimals) at which the loan reaches the liquidation line today. */
   liquidationPrice?: bigint;
   liquidatable?: boolean;
+  /** The open marketplace listing selling this advance's crop, or 0n. */
+  listingId: bigint;
 };
 
 /** Loans of one borrower, or every active loan when `borrower` is "all-active". */
@@ -433,12 +440,16 @@ export function useLoans(borrower: Address | "all-active" | undefined) {
           : await publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "getBorrowerLoans", args: [borrower!] });
       const loans = await Promise.all(
         [...loanIds].map(async (id): Promise<Loan> => {
-          const [loan, debt, healthFactor, liquidationPrice, liquidatable] = await Promise.all([
+          const marketplace = contracts.marketplace;
+          const [loan, debt, healthFactor, liquidationPrice, liquidatable, listingId] = await Promise.all([
             publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "getLoan", args: [id] }),
             publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "debtOf", args: [id] }),
             orUndefined(publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "getHealthFactor", args: [id] })),
             orUndefined(publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "liquidationPrice", args: [id] })),
             orUndefined(publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "isLiquidatable", args: [id] })),
+            marketplace
+              ? publicClient.readContract({ address: marketplace, abi: MarketplaceAbi, functionName: "listingOfLoan", args: [id] })
+              : Promise.resolve(0n),
           ]);
           return {
             id,
@@ -453,6 +464,7 @@ export function useLoans(borrower: Address | "all-active" | undefined) {
             healthFactor,
             liquidationPrice,
             liquidatable,
+            listingId,
           };
         }),
       );
@@ -557,8 +569,12 @@ export type Listing = {
   price: bigint;
   bulkMinKg: bigint;
   bulkDiscountBps: bigint;
+  /** The lending-pool advance whose crop this listing sells ("get paid today"), or 0n. */
+  loanId: bigint;
   /** Asking price now, USDC (6 decimals) per kg. Undefined while a "follow the market" price is stale. */
   pricePerKg?: bigint;
+  /** Kilograms a buyer can take now: fewer than listed if the advance behind it was settled in part. */
+  availableKg: bigint;
 };
 
 export function useListings() {
@@ -572,10 +588,13 @@ export function useListings() {
       const listings = await Promise.all(
         ids(count).map(async (id) => {
           const listing = await publicClient.readContract({ address: marketplace!, abi: MarketplaceAbi, functionName: "getListing", args: [id] });
-          const pricePerKg = listing.active
-            ? await orUndefined(publicClient.readContract({ address: marketplace!, abi: MarketplaceAbi, functionName: "pricePerKg", args: [id] }))
-            : undefined;
-          return { id, ...listing, pricePerKg };
+          const [pricePerKg, availableKg] = listing.active
+            ? await Promise.all([
+                orUndefined(publicClient.readContract({ address: marketplace!, abi: MarketplaceAbi, functionName: "pricePerKg", args: [id] })),
+                publicClient.readContract({ address: marketplace!, abi: MarketplaceAbi, functionName: "availableKg", args: [id] }),
+              ])
+            : [undefined, 0n];
+          return { id, ...listing, pricePerKg, availableKg };
         }),
       );
       return listings.sort((a, b) => Number(b.id - a.id));
@@ -623,6 +642,25 @@ export function useQuote(listingId: bigint | undefined, kgAmount: bigint | undef
     refetchInterval: REFRESH,
     queryFn: () =>
       publicClient.readContract({ address: marketplace!, abi: MarketplaceAbi, functionName: "quote", args: [listingId!, kgAmount!] }),
+  });
+}
+
+/** What a buyer pays for `kg` from a listing now: the price after any bulk deal, and the fee on top (USDC, 6 decimals). */
+export function useQuoteWithFee(listingId: bigint | undefined, kgAmount: bigint | undefined) {
+  const marketplace = contracts.marketplace;
+  return useQuery({
+    queryKey: ["quote-with-fee", marketplace, listingId?.toString(), kgAmount?.toString()],
+    enabled: Boolean(marketplace && listingId && kgAmount),
+    refetchInterval: REFRESH,
+    queryFn: async () => {
+      const [cost, fee] = await publicClient.readContract({
+        address: marketplace!,
+        abi: MarketplaceAbi,
+        functionName: "quoteWithFee",
+        args: [listingId!, kgAmount!],
+      });
+      return { cost, fee, total: cost + fee };
+    },
   });
 }
 

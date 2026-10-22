@@ -230,6 +230,27 @@ export const HELP = {
     why: "The interest pays the investors who lent the dollars.",
     todo: "Repay early to pay less. The estimate is shown before you take the advance.",
   },
+  "get-paid-today": {
+    group: "Advances",
+    title: "Get paid today",
+    what: "Take part of the money for your crop now, while it waits on the market at your price. It is an advance from the lending pool, with the listed crop as security.",
+    why: "You don't have to cut your price to get cash quickly. Each time a buyer pays, that sale pays back its share of the advance first, and you get the rest straight away.",
+    todo: "When you list, tick \"Get paid today\" and choose how much to take now. Ask at least the price shown, so each sale can pay back its share. Whatever is still owed on the repay date, you pay yourself.",
+  },
+  "gate-advance": {
+    group: "Advances",
+    title: "Ready today",
+    what: "As soon as the warehouse has checked your crop, you can take an advance against it, straight away.",
+    why: "Cash for school fees, seed or anything else, without selling your crop cheaply at harvest time.",
+    todo: "Press the button on your overview page, or choose another amount. Later, sell the crop at your price: each sale pays the advance back first.",
+  },
+  "sell-or-wait": {
+    group: "Advances",
+    title: "Sell now or wait?",
+    what: "A comparison of selling your crop today with keeping it in the warehouse for a few months on an advance.",
+    why: "Crop is often cheapest at harvest. Waiting can pay, but it costs storage and interest, and the crop ages. This shows how much prices would need to rise for waiting to be worth it.",
+    todo: "Choose how long you would wait. If prices usually rise by more than the number shown, waiting may pay. Prices can also fall: nobody can promise they will rise.",
+  },
   repay: {
     group: "Advances",
     title: "Repay",
@@ -291,9 +312,16 @@ export const HELP = {
   earnings: {
     group: "Investing",
     title: "What investors earn",
-    what: "The yearly rate your dollars are earning right now, from farmers' interest.",
+    what: "The yearly rate your dollars are earning right now, from farmers' interest and your share of market fees.",
     why: "It goes up when more of the pool is lent out, and down when less is.",
     todo: "Check it on your overview. It is not guaranteed; it depends on how much farmers borrow.",
+  },
+  "fee-share": {
+    group: "Investing",
+    title: "Earned from market fees",
+    what: "Half of the fee on every market sale goes to the pool's investors.",
+    why: "You earn even when farmers sell their crop instead of borrowing. Each payment counts towards your share gradually over 7 days, so nobody can grab it by investing just before a big sale.",
+    todo: "Nothing to do. It is added to what your share is worth.",
   },
   cushion: {
     group: "Investing",
@@ -363,9 +391,9 @@ export const HELP = {
   "market-fee": {
     group: "Buying and selling",
     title: "Market fee",
-    what: "1% of each sale goes to AgriBridge to run the market.",
-    why: "It is the only fee on a sale, and it is already included in what is shown.",
-    todo: "Nothing to do.",
+    what: "1% of each sale, paid by the buyer on top of the price.",
+    why: "Sellers get their full asking price. Half the fee goes to the investors whose money funds farmers' advances, and half runs the market.",
+    todo: "Nothing to do. Buyers see the fee and the total before they confirm.",
   },
   buy: {
     group: "Buying and selling",

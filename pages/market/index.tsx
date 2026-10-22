@@ -37,7 +37,12 @@ export default function Market() {
     (!gradeFilter || lot!.currentGrade === gradeFilter) &&
     (!warehouseFilter || lot!.warehouseId.toString() === warehouseFilter);
 
-  const forSale = listings.filter((l) => l.active && !l.clearance && matches(lotById.get(l.lotId)));
+  // Cheapest first, as in an order book; a price that can't be read right now goes last.
+  const forSale = listings
+    .filter((l) => l.active && !l.clearance && l.availableKg > 0n && matches(lotById.get(l.lotId)))
+    .sort((a, b) =>
+      a.pricePerKg === undefined ? 1 : b.pricePerKg === undefined ? -1 : a.pricePerKg === b.pricePerKg ? 0 : a.pricePerKg < b.pricePerKg ? -1 : 1,
+    );
   const clearanceCount = listings.filter((l) => l.active && l.clearance).length;
 
   // Stock in the warehouses: every verified, unexpired lot, by crop, grade and warehouse, and how much of it is for sale.
@@ -54,7 +59,7 @@ export default function Market() {
       const lot = lotById.get(listing.lotId);
       if (!listing.active || listing.clearance || !lot) continue;
       const row = rows.get(`${lot.commodityId}-${lot.currentGrade}-${lot.warehouseId}`);
-      if (row) row.forSaleKg += listing.kgRemaining;
+      if (row) row.forSaleKg += listing.availableKg;
     }
     return [...rows.values()].sort((a, b) => Number(a.commodityId - b.commodityId) || a.grade.localeCompare(b.grade));
   }, [lots, listings, lotById]);
@@ -64,7 +69,7 @@ export default function Market() {
   const totalForSale = stock.reduce((sum, r) => sum + r.forSaleKg, 0n);
   const valueForSale = isLoading
     ? undefined
-    : Number(allForSale.reduce((sum, l) => sum + ((l.pricePerKg ?? 0n) * l.kgRemaining) / 10n ** 18n, 0n)) / 1e6;
+    : Number(allForSale.reduce((sum, l) => sum + ((l.pricePerKg ?? 0n) * l.availableKg) / 10n ** 18n, 0n)) / 1e6;
   const byCrop: CropStock[] = commodities
     .filter((c) => c.active)
     .map((commodity) => {
@@ -185,7 +190,7 @@ export default function Market() {
                           </td>
                           <td>{warehouseById.get(lot.warehouseId)?.name}</td>
                           <td>
-                            {kg(listing.kgRemaining)}
+                            {kg(listing.availableKg)}
                             <div>
                               <BulkDealNote listing={listing} />
                             </div>
