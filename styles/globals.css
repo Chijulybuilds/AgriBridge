@@ -1988,33 +1988,52 @@ input[type="radio"] {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Help: the "i" button, its note, and the tutorial
-   The "i" is a small round button beside a word. Its hit area is
-   larger than it looks (a pseudo-element), so it is easy to tap.
+   Help: the "i" button, its label tag, and the field-guide tour
+   The tour's card is a field tag, like the grading tag tied to a
+   sack: a punched hole, a perforated edge, a stamped step, and a
+   dashed string tying it to the thing on screen it explains. The
+   thing itself is marked with four maize inspection corners.
+   Everything else stays quiet: one highlighted panel per card,
+   generous spacing, large readable text.
    ───────────────────────────────────────────────────────────── */
+:root {
+  --stamp-ink: oklch(0.44 0.17 288);
+  --tag-paper: var(--bg-card);
+  --tour-dim: oklch(0.16 0.025 158 / 0.66);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --stamp-ink: oklch(0.8 0.11 288);
+  }
+}
+:root[data-theme="dark"] {
+  --stamp-ink: oklch(0.8 0.11 288);
+}
+
 .with-info {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
+/* ── The "i" button: small to look at, easy to hit ── */
 .info-tip {
   position: relative;
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   border: 1.5px solid var(--info);
   background: var(--info-soft);
   color: var(--info);
-  font: 700 11px/1 Georgia, "Times New Roman", serif;
+  font: italic 700 12px/1 Georgia, "Times New Roman", serif;
   display: inline-grid;
   place-items: center;
-  padding: 0;
+  padding: 0 0 1px;
   margin-inline-start: 4px;
   vertical-align: middle;
   cursor: pointer;
-  transition-property: background-color, color;
+  transition-property: background-color, color, transform;
   transition-duration: var(--dur-quick);
   transition-timing-function: var(--ease-out);
 }
@@ -2028,236 +2047,525 @@ input[type="radio"] {
   background: var(--info);
   color: var(--bg-card);
 }
+.info-tip:active {
+  transform: scale(0.94);
+}
 .info-tip:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
-/* On the dark sidebar and green islands, keep the button readable. */
 .island .info-tip,
-.sidebar .info-tip {
+.app-sidebar .info-tip {
   border-color: currentColor;
   background: transparent;
   color: inherit;
 }
 
+/* ── The label tag the "i" opens ── */
 .info-card {
+  --caret-x: 50%;
   position: fixed;
   z-index: 1200;
-  background: var(--bg-card);
+  background: var(--tag-paper);
   color: var(--text-primary);
   border: 1px solid var(--border-light);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: var(--shadow-lg);
-  padding: 14px 16px 12px;
-  font-size: 14.5px;
-  line-height: 1.5;
+  padding: 16px 18px 14px;
+  font-size: 15px;
+  line-height: 1.55;
   text-align: start;
   text-transform: none;
   letter-spacing: normal;
   font-weight: 400;
   white-space: normal;
+  transform-origin: var(--caret-x) top;
+}
+.info-card[data-side="above"] {
+  transform-origin: var(--caret-x) bottom;
 }
 .info-card:focus {
   outline: none;
 }
+/* The pointer back to the "i" that opened it. */
+.info-card::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--caret-x) - 7px);
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  background: inherit;
+  border-left: 1px solid var(--border-light);
+  border-top: 1px solid var(--border-light);
+  transform: rotate(45deg);
+  border-top-left-radius: 3px;
+}
+.info-card[data-side="above"]::before {
+  top: auto;
+  bottom: -7px;
+  transform: rotate(225deg);
+}
+.info-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.info-card-glyph {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--info-soft);
+  color: var(--info);
+  font: italic 700 16px/1 Georgia, "Times New Roman", serif;
+}
 .info-card-title {
+  font-family: var(--font-display);
+  font-size: 22px;
   font-weight: 700;
-  font-size: 16px;
-  margin: 0 0 8px;
+  line-height: 1.05;
+  margin: 0;
+  text-wrap: balance;
 }
 .info-card dl {
   margin: 0;
+  display: grid;
+  gap: 10px;
 }
 .info-card dt {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--info);
-  margin-top: 8px;
-}
-.info-card dt:first-child {
-  margin-top: 0;
+  color: var(--text-muted);
 }
 .info-card dd {
   margin: 2px 0 0;
   text-wrap: pretty;
 }
+/* "What to do" is the action, so it is the one highlighted part. */
+.info-row-do {
+  background: var(--maize-soft);
+  border-radius: 10px;
+  padding: 8px 10px 9px;
+}
+.info-row-do dt {
+  color: var(--warn);
+}
 .info-card-more {
   display: inline-block;
-  margin-top: 10px;
-  font-size: 13.5px;
+  margin-top: 12px;
+  font-size: 14px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .info-card {
+    animation: info-in var(--dur-standard) var(--ease-out) backwards;
+  }
+}
+@keyframes info-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
 }
 
-/* ── The tutorial ── */
+/* ── The Tutorial button ── */
 .tutorial-btn svg {
   width: 16px;
   height: 16px;
 }
 
+/* ── The tour ── */
 .tour-layer {
   position: fixed;
   inset: 0;
   z-index: 1100;
 }
 .tour-dim {
-  background: oklch(0.15 0.02 158 / 0.62);
+  background: var(--tour-dim);
   display: grid;
   place-items: center;
   padding: 16px;
 }
-/* The ring: a bright outline around the real button, with the rest of the page dimmed around it. */
+@media (prefers-reduced-motion: no-preference) {
+  .tour-dim {
+    animation: tour-fade var(--dur-standard) var(--ease-out) backwards;
+  }
+}
+@keyframes tour-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* What is being explained: the page dims around it, and four inspection corners mark it. */
 .tour-ring {
   position: fixed;
-  border-radius: 14px;
-  box-shadow:
-    0 0 0 4px var(--maize),
-    0 0 0 9999px oklch(0.15 0.02 158 / 0.62);
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px var(--tour-dim);
   pointer-events: none;
   transition-property: top, left, width, height;
   transition-duration: var(--dur-standard);
   transition-timing-function: var(--ease-out);
 }
+.tour-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 4px solid var(--maize);
+  filter: drop-shadow(0 1px 2px oklch(0 0 0 / 0.35));
+}
+.tour-corner.tl {
+  top: -6px;
+  left: -6px;
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: 8px;
+}
+.tour-corner.tr {
+  top: -6px;
+  right: -6px;
+  border-left: 0;
+  border-bottom: 0;
+  border-top-right-radius: 8px;
+}
+.tour-corner.bl {
+  bottom: -6px;
+  left: -6px;
+  border-right: 0;
+  border-top: 0;
+  border-bottom-left-radius: 8px;
+}
+.tour-corner.br {
+  bottom: -6px;
+  right: -6px;
+  border-left: 0;
+  border-top: 0;
+  border-bottom-right-radius: 8px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tour-corner {
+    animation: tour-breathe 1.8s var(--ease-out) infinite alternate;
+  }
+  .tour-corner.tl {
+    --dx: -3px;
+    --dy: -3px;
+  }
+  .tour-corner.tr {
+    --dx: 3px;
+    --dy: -3px;
+  }
+  .tour-corner.bl {
+    --dx: -3px;
+    --dy: 3px;
+  }
+  .tour-corner.br {
+    --dx: 3px;
+    --dy: 3px;
+  }
+}
+@keyframes tour-breathe {
+  to {
+    transform: translate(var(--dx, 0), var(--dy, 0));
+  }
+}
 
+/* The string that ties the tag to what it explains. */
+.tour-tether {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.tour-tether line {
+  stroke: var(--maize);
+  stroke-width: 2;
+  stroke-dasharray: 2 6;
+  stroke-linecap: round;
+}
+.tour-tether circle {
+  fill: var(--maize);
+}
+
+/* The field tag. */
 .tour-card {
   position: fixed;
-  width: min(400px, calc(100vw - 24px));
+  width: min(408px, calc(100vw - 24px));
   max-height: calc(100vh - 24px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: var(--bg-card);
+  background: var(--tag-paper);
   color: var(--text-primary);
   border-radius: 18px;
   box-shadow: var(--shadow-lg);
-  padding: 16px 18px 14px;
+  padding: 26px 22px 18px;
 }
 .tour-card:focus {
   outline: none;
+}
+/* The punched hole and the perforated edge below it. */
+.tour-card::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border-radius: 50%;
+  background: var(--bg-sunken);
+  box-shadow: inset 0 1px 2px oklch(0 0 0 / 0.25);
+}
+.tour-card::after {
+  content: "";
+  position: absolute;
+  top: 28px;
+  left: 18px;
+  right: 18px;
+  border-top: 2px dashed var(--border);
 }
 .tour-card-center {
   position: relative;
   width: min(460px, 100%);
 }
+@media (prefers-reduced-motion: no-preference) {
+  .tour-card {
+    animation: tour-rise var(--dur-standard) var(--ease-out) backwards;
+  }
+}
+@keyframes tour-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
 .tour-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 12px;
 }
-.tour-count {
+.tour-eyebrow {
+  font-family: var(--font-stencil);
   font-size: 13px;
-  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tour-stamp {
+  flex: none;
+  font-family: var(--font-stencil);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--stamp-ink);
+  border: 2px solid var(--stamp-ink);
+  border-radius: 6px;
+  padding: 2px 7px 1px;
+  transform: rotate(-3deg);
   font-variant-numeric: tabular-nums;
 }
 .tour-close {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
+  flex: none;
 }
 .tour-close svg {
   width: 18px;
   height: 18px;
 }
-.tour-progress {
-  height: 4px;
-  border-radius: 4px;
-  background: var(--bg-sunken);
-  margin: 8px 0 12px;
-  overflow: hidden;
+/* One dot per step: done in green, this one in maize, still to come in grey. */
+.tour-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 16px;
 }
-.tour-progress span {
-  display: block;
-  height: 100%;
-  background: var(--brand);
-  transition-property: width;
+.tour-dots li {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-light);
+  transition-property: background-color, width;
   transition-duration: var(--dur-standard);
   transition-timing-function: var(--ease-out);
+}
+.tour-dots li.done {
+  background: var(--brand);
+}
+.tour-dots li.now {
+  width: 22px;
+  border-radius: 4px;
+  background: var(--maize);
 }
 .tour-art {
   display: block;
   width: 100%;
-  max-width: 300px;
+  max-width: 280px;
   height: auto;
-  margin: 0 auto 10px;
+  margin: 0 auto 14px;
 }
 .tour-shot {
   display: block;
   width: 100%;
   border-radius: 10px;
   outline: 1px solid oklch(0 0 0 / 0.1);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .tour-title {
   font-family: var(--font-display);
-  font-size: 26px;
-  line-height: 1.1;
-  margin: 0 0 8px;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.005em;
+  margin: 0 0 10px;
   text-wrap: balance;
 }
 .tour-body {
-  font-size: 16px;
-  line-height: 1.55;
+  font-size: 17px;
+  line-height: 1.6;
 }
 .tour-body p {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
+  max-width: 40ch;
   text-wrap: pretty;
 }
 .tour-press {
   background: var(--maize-soft);
-  border-radius: 10px;
-  padding: 8px 10px;
+  border-radius: 12px;
+  padding: 10px 12px 11px;
+  font-size: 16px;
+}
+.tour-press-label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--warn);
+  margin-bottom: 2px;
 }
 .tour-actions {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 .tour-actions .btn svg {
   width: 16px;
   height: 16px;
 }
-.tour-choices {
-  display: grid;
-  gap: 10px;
-  margin: 14px 0 8px;
-}
-.tour-choice-note {
-  font-weight: 400;
-  opacity: 0.8;
-  margin-inline-start: 6px;
-}
-.tour-foot {
-  font-size: 13.5px;
-  color: var(--text-muted);
-  margin: 6px 0 0;
+.tour-next {
+  min-width: 112px;
 }
 
-/* A slow, gentle pulse draws the eye to the circled button; it stays still for reduced motion. */
-@media (prefers-reduced-motion: no-preference) {
-  .tour-ring::after {
-    content: "";
-    position: absolute;
-    inset: -4px;
-    border-radius: inherit;
-    border: 3px solid var(--maize);
-    animation: tour-pulse 1.8s var(--ease-out) infinite;
-  }
+/* ── The welcome card ── */
+.tour-welcome-eyebrow {
+  display: block;
+  text-align: center;
+  font-family: var(--font-stencil);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin: 14px 0 6px;
 }
-@keyframes tour-pulse {
-  from {
-    opacity: 0.9;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.18);
+.tour-welcome-title {
+  text-align: center;
+  font-size: 36px;
+}
+.tour-welcome-lede {
+  text-align: center;
+  margin-inline: auto;
+}
+.tour-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 18px 0 10px;
+}
+.tour-choice {
+  display: grid;
+  gap: 4px;
+  text-align: start;
+  padding: 14px 14px 13px;
+  border-radius: 14px;
+  border: 1.5px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  transition-property: border-color, background-color, transform;
+  transition-duration: var(--dur-quick);
+  transition-timing-function: var(--ease-out);
+}
+.tour-choice:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.tour-choice:active {
+  transform: scale(0.97);
+}
+.tour-choice:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.tour-choice-primary {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.tour-choice-name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+.tour-choice-note {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.tour-skip {
+  display: block;
+  margin: 4px auto 0;
+}
+.tour-foot {
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 10px 0 0;
+  text-wrap: pretty;
+}
+@media (max-width: 420px) {
+  .tour-choices {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tour-ring,
-  .tour-progress span,
-  .info-tip {
+  .tour-dots li,
+  .info-tip,
+  .tour-choice {
     transition: none;
   }
 }

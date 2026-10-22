@@ -12,7 +12,7 @@ import { useCommodities, useLoans, useLots, useUsdc, type Loan } from "../../hoo
 import { useTx } from "../../hooks/useTx";
 import { LendingPoolAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
-import { date, kg, parseUsd, pricePerKg, relativeDays, usd } from "../../lib/format";
+import { date, kg, naira, parseUsd, pricePerKg, relativeDays, usd } from "../../lib/format";
 import { InfoTip } from "../../components/help/InfoTip";
 
 /** The farmer's advances: what is owed, how safe each one is, and repayment. */
@@ -143,7 +143,7 @@ function AdvanceCard({
       } testId={`advance-${loan.id}`}>
       <div className="grid-2" style={{ marginBottom: 0 }}>
         <div>
-          <KeyValue label="Owed now" value={usd(loan.debt)} testId="owed" />
+          <KeyValue label="Owed now" value={`${usd(loan.debt)} (${naira(loan.debt)})`} testId="owed" />
           <KeyValue label="Borrowed" value={usd(loan.principal)} />
           <KeyValue label="Crop held as security" value={kg(loan.collateralKg)} />
           <KeyValue label="Repay by" help="end-date" value={`${date(loan.maturity)} (${relativeDays(loan.maturity)})`} />

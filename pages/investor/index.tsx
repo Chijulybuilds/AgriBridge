@@ -10,7 +10,7 @@ import { useInvestorPosition, usePoolStats, useUsdc } from "../../hooks/useProto
 import { useTx } from "../../hooks/useTx";
 import { LendingPoolAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
-import { date, parseUsd, percentFromWad, usd } from "../../lib/format";
+import { date, naira, parseUsd, percentFromWad, usd } from "../../lib/format";
 import { publicClient } from "../../lib/chain";
 
 type Mode = "invest" | "withdraw";
@@ -74,7 +74,7 @@ export default function InvestorOverview() {
       />
 
       <div className="grid-4" data-tour="investor-stats">
-        <Stat lead icon={WalletIcon} label="Your money in the pool" help="shares" tour="position" value={usd(position?.value)} sub={earned !== undefined ? `${usd(earned)} earned so far` : undefined} testId="position" />
+        <Stat lead icon={WalletIcon} label="Your money in the pool" help="shares" tour="position" value={usd(position?.value)} sub={earned !== undefined ? `${naira(position?.value)} · ${usd(earned)} earned so far` : naira(position?.value)} testId="position" />
         <Stat icon={ArrowTrendingUpIcon} label="Investors earn now" help="earnings" value={stats ? `${percentFromWad(stats.supplyRate)} a year` : "—"} sub="Changes with how much is lent out" />
         <Stat icon={BuildingLibraryIcon} label="Pool size" help="pool" value={usd(stats?.totalAssets)} sub={stats ? `${percentFromWad(stats.utilization, 0)} lent to farmers` : undefined} />
         <Stat icon={ShieldCheckIcon} label="Loss cushion" help="cushion" value={usd(stats?.reserves)} sub="Covers bad debt before investors" />

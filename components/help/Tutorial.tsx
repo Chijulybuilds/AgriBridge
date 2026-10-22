@@ -211,25 +211,31 @@ function Chooser({ onPick, onSkip }: { onPick: (length: TourLength) => void; onS
   }, [onSkip]);
 
   return createPortal(
-    <div className="tour-layer tour-dim" data-testid="tutorial-chooser">
+    // A tap anywhere outside the card counts as "Skip for now".
+    <div className="tour-layer tour-dim" data-testid="tutorial-chooser" onClick={(e) => e.target === e.currentTarget && onSkip()}>
       <div className="tour-card tour-card-center" role="dialog" aria-modal="true" aria-labelledby="tour-welcome-title">
+        <span className="tour-welcome-eyebrow">AgriBridge · field guide</span>
         <Illustration name="welcome" />
-        <h2 id="tour-welcome-title" className="tour-title">Welcome to AgriBridge</h2>
-        <p className="tour-body">
-          AgriBridge helps you get cash for crop kept in a warehouse, sell it, or invest in farmers. Would you like us to show you around?
+        <h2 id="tour-welcome-title" className="tour-title tour-welcome-title">
+          Welcome to AgriBridge
+        </h2>
+        <p className="tour-body tour-welcome-lede">
+          Get cash for crop kept in a warehouse, sell it, or invest in farmers. We can show you around, step by step.
         </p>
         <div className="tour-choices">
-          <button ref={first} type="button" className="btn btn-block" onClick={() => onPick("short")} data-testid="tour-short">
-            Show me quickly <span className="tour-choice-note">about 2 minutes</span>
+          <button ref={first} type="button" className="tour-choice tour-choice-primary" onClick={() => onPick("short")} data-testid="tour-short">
+            <span className="tour-choice-name">Show me quickly</span>
+            <span className="tour-choice-note">About 2 minutes · {APP_TOUR.short.length} steps</span>
           </button>
-          <button type="button" className="btn btn-block btn-secondary" onClick={() => onPick("full")} data-testid="tour-full">
-            Teach me everything <span className="tour-choice-note">about 10 minutes</span>
-          </button>
-          <button type="button" className="btn btn-block btn-ghost" onClick={onSkip} data-testid="tour-skip">
-            Skip for now
+          <button type="button" className="tour-choice" onClick={() => onPick("full")} data-testid="tour-full">
+            <span className="tour-choice-name">Teach me everything</span>
+            <span className="tour-choice-note">About 10 minutes · {APP_TOUR.full.length} steps</span>
           </button>
         </div>
-        <p className="tour-foot">You can start the tour again any time with the Tutorial button at the top of the page.</p>
+        <button type="button" className="btn btn-small btn-secondary tour-skip" onClick={onSkip} data-testid="tour-skip">
+          <XMarkIcon aria-hidden="true" style={{ width: 16, height: 16 }} /> Skip for now
+        </button>
+        <p className="tour-foot">Or tap anywhere outside this card. You can start the tour again any time with the Tutorial button at the top.</p>
       </div>
     </div>,
     document.body,
@@ -322,11 +328,32 @@ function TourOverlay({ run, onMove, onClose }: { run: Running; onMove: (index: n
   }, [searching, run.index]);
 
   const position = useCardPosition(rect, card);
+  const tether = useTether(rect, card, position);
   const picture = !rect || step.alwaysShowPicture ? step.picture : undefined;
 
   return createPortal(
-    <div className={`tour-layer${rect ? "" : " tour-dim"}`} data-testid="tutorial" data-step={run.index + 1}>
-      {rect && <div className="tour-ring" style={rect} aria-hidden="true" />}
+    // A tap outside the card closes the tour (it can be replayed from the Tutorial button).
+    <div
+      className={`tour-layer${rect ? "" : " tour-dim"}`}
+      data-testid="tutorial"
+      data-step={run.index + 1}
+      onClick={(e) => !card.current?.contains(e.target as Node) && onClose()}
+    >
+      {rect && (
+        <div className="tour-ring" style={rect} aria-hidden="true">
+          <span className="tour-corner tl" />
+          <span className="tour-corner tr" />
+          <span className="tour-corner bl" />
+          <span className="tour-corner br" />
+        </div>
+      )}
+      {rect && tether && (
+        <svg className="tour-tether" aria-hidden="true">
+          <line x1={tether.x1} y1={tether.y1} x2={tether.x2} y2={tether.y2} />
+          <circle cx={tether.x2} cy={tether.y2} r={4} />
+          <circle cx={tether.x1} cy={tether.y1} r={3} />
+        </svg>
+      )}
       <div
         ref={card}
         className={`tour-card${rect ? "" : " tour-card-center"}`}
@@ -338,16 +365,21 @@ function TourOverlay({ run, onMove, onClose }: { run: Running; onMove: (index: n
         style={rect ? position : undefined}
       >
         <div className="tour-head">
-          <span className="tour-count" aria-live="polite">
-            {run.tour.title} · step {run.index + 1} of {run.steps.length}
+          <span className="tour-eyebrow">{run.tour.title}</span>
+          <span className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
+            <span className="tour-stamp" aria-live="polite">
+              Step {run.index + 1} of {run.steps.length}
+            </span>
+            <button type="button" className="icon-btn tour-close" onClick={onClose} aria-label="Close the tutorial" data-testid="tour-close">
+              <XMarkIcon aria-hidden="true" />
+            </button>
           </span>
-          <button type="button" className="icon-btn tour-close" onClick={onClose} aria-label="Close the tutorial" data-testid="tour-close">
-            <XMarkIcon aria-hidden="true" />
-          </button>
         </div>
-        <div className="tour-progress" aria-hidden="true">
-          <span style={{ width: `${((run.index + 1) / run.steps.length) * 100}%` }} />
-        </div>
+        <ol className="tour-dots" aria-hidden="true">
+          {run.steps.map((_, i) => (
+            <li key={i} className={i < run.index ? "done" : i === run.index ? "now" : undefined} />
+          ))}
+        </ol>
         {picture &&
           (typeof picture === "string" ? (
             <Illustration name={picture} />
@@ -362,7 +394,8 @@ function TourOverlay({ run, onMove, onClose }: { run: Running; onMove: (index: n
           <p>{step.body}</p>
           {step.press && (
             <p className="tour-press">
-              <strong>When you press it:</strong> {step.press}
+              <span className="tour-press-label">When you press it</span>
+              {step.press}
             </p>
           )}
         </div>
@@ -372,7 +405,7 @@ function TourOverlay({ run, onMove, onClose }: { run: Running; onMove: (index: n
           </button>
           <button
             type="button"
-            className="btn btn-small"
+            className="btn tour-next"
             onClick={() => (last ? onClose() : onMove(run.index + 1))}
             data-testid="tour-next"
             disabled={searching}
@@ -384,6 +417,33 @@ function TourOverlay({ run, onMove, onClose }: { run: Running; onMove: (index: n
     </div>,
     document.body,
   );
+}
+
+/** The string from the card to the ring: from the card's nearest edge to the ring's nearest point. */
+function useTether(rect: Rect | null, card: React.RefObject<HTMLDivElement | null>, position: React.CSSProperties) {
+  const [line, setLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!rect || !card.current || window.innerWidth < 640) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- measured from the laid-out card
+      setLine(null);
+      return;
+    }
+    const c = card.current.getBoundingClientRect();
+    const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+    // The point on each box closest to the other box's centre.
+    const cx = c.left + c.width / 2;
+    const cy = c.top + c.height / 2;
+    const rx = rect.left + rect.width / 2;
+    const ry = rect.top + rect.height / 2;
+    const x1 = clamp(rx, c.left + 16, c.right - 16);
+    const y1 = clamp(ry, c.top + 16, c.bottom - 16);
+    const x2 = clamp(cx, rect.left, rect.left + rect.width);
+    const y2 = clamp(cy, rect.top, rect.top + rect.height);
+    // Only when the card stands clear of the target; an overlapping string would be noise.
+    const apart = Math.hypot(x2 - x1, y2 - y1) > 24;
+    setLine(apart ? { x1, y1, x2, y2 } : null);
+  }, [rect, card, position]);
+  return line;
 }
 
 /** Places the card beside the ring: below it if there is room, otherwise above, kept on screen. */

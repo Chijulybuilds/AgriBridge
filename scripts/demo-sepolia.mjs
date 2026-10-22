@@ -10,6 +10,8 @@
  *        The verifier and admin is always the AgriBridge Safe (VERIFIER_ADDRESS, default below).
  *        Writes .env.local so `npm run dev` uses this deployment, and prints the same settings for Vercel.
  *   npm run demo:sepolia -- env                           print the app settings again
+ *   npm run demo:sepolia -- verify                        publish the deployed contracts' source on Etherscan
+ *        (needs ETHERSCAN_API_KEY in .env; re-running only verifies what isn't verified yet).
  *
  * The deploy wallet is a separate throwaway key, so nobody has to export a MetaMask key: just
  * send it Sepolia ETH. It hands every role to the Safe at the end of the deployment.
@@ -104,6 +106,12 @@ function parseAddresses(args) {
     if (!isAddress(arg)) fail(`"${arg}" is not an Ethereum address (0x followed by 40 hex characters).`);
     return getAddress(arg);
   });
+}
+
+/** The demo accounts from the last deployment, so a re-run of the script sees the same inputs. */
+function demoAccounts() {
+  const accounts = readState().accounts ?? {};
+  return accounts.farmer ? { DEMO_FARMER: accounts.farmer, DEMO_INVESTOR: accounts.investor ?? accounts.farmer } : {};
 }
 
 function readDeployment() {
@@ -235,6 +243,24 @@ if (command === "wallet") {
   printSettings();
   console.log(`\nThe Safe ${verifier} is the verifier and admin: its owners confirm every verifier action.`);
   console.log(`Farmer ${farmer} and investor ${investor} have play money; use them in MetaMask on Sepolia.`);
+} else if (command === "verify") {
+  if (!process.env.ETHERSCAN_API_KEY) fail("Put ETHERSCAN_API_KEY in .env first.");
+  // Re-reads the deployment record and verifies each contract it created; nothing is sent again.
+  const result = spawnSync(
+    foundryTool("forge"),
+    [
+      "script", "script/DeployDemo.s.sol:DeployDemo",
+      "--rpc-url", rpcUrl(),
+      "--private-key", process.env.DEPLOYER_PRIVATE_KEY || readState().deployer.privateKey,
+      // --broadcast is required with --resume; every transaction already has a receipt, so nothing is sent again.
+      "--resume", "--broadcast", "--verify",
+      "--etherscan-api-key", process.env.ETHERSCAN_API_KEY,
+      "--chain", "sepolia",
+    ],
+    { cwd: root, stdio: "inherit", env: { ...process.env, VERIFIER_ADDRESS: verifierSafe(), ...demoAccounts() } },
+  );
+  if (result.error || result.status !== 0) fail(`Verification did not finish${result.error ? `: ${result.error.message}` : "."} Run it again to retry.`);
+  console.log("Verified on Etherscan.");
 } else if (command === "env") {
   printSettings();
 } else {

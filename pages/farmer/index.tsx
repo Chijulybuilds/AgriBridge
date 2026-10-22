@@ -7,7 +7,7 @@ import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, LotLabel } from "../../components/lots";
 import { Badge, Card, EmptyState, KeyValue, PageHeader, Skeleton, Stat, StatusBadge } from "../../components/ui";
 import { lotValue, useCommodities, useCredit, useLoans, useLots, usePoolStats, useWarehouses } from "../../hooks/useProtocolData";
-import { date, kg, percentFromBps, usd } from "../../lib/format";
+import { date, kg, naira, percentFromBps, usd } from "../../lib/format";
 
 /** The farmer's home: what is stored, what is owed, and the next thing to do. */
 export default function FarmerOverview() {
@@ -41,9 +41,9 @@ export default function FarmerOverview() {
       <PageHeader section="farmer" eyebrow="Farmer" title="Farmer overview" subtitle="Your crop in storage, your advances, and what to do next." />
 
       <div className="grid-4" data-tour="farmer-stats">
-        <Stat lead icon={ArchiveBoxIcon} label="Crop in storage" help="worth-today" value={usd(stockValue)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} testId="stat-stock" />
+        <Stat lead icon={ArchiveBoxIcon} label="Crop in storage" help="worth-today" value={usd(stockValue)} sub={`${naira(stockValue)} · ${held.length} lot${held.length === 1 ? "" : "s"}`} testId="stat-stock" />
         <Stat icon={ClockIcon} label="Waiting for checks" help="pending" value={String(pending.length)} sub="Deliveries not yet graded" />
-        <Stat icon={BanknotesIcon} label="Owed on advances" help="advance" value={usd(owed)} sub={`${active.length} active`} />
+        <Stat icon={BanknotesIcon} label="Owed on advances" help="advance" value={usd(owed)} sub={`${naira(owed)} · ${active.length} active`} />
         <Stat icon={BuildingLibraryIcon} label="Pool cash available" help="available-cash" value={usd(stats?.availableCash)} sub="What can be advanced now" />
       </div>
 

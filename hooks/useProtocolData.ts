@@ -735,6 +735,20 @@ export function useUsdc(account?: Address) {
 }
 
 /** Whether `account` holds `role` on the registry (e.g. the regulator role). */
+/** The approved local price reporters, and whether `account` is one of them. */
+export function useIsReporter(account?: Address) {
+  const oracle = contracts.oracle;
+  const query = useQuery({
+    queryKey: ["reporters", oracle, account],
+    enabled: Boolean(oracle),
+    queryFn: async () => {
+      const reporters = await publicClient.readContract({ address: oracle!, abi: CommodityPriceOracleAbi, functionName: "reporters" });
+      return { reporters: [...reporters], isReporter: Boolean(account && reporters.some((r) => r.toLowerCase() === account.toLowerCase())) };
+    },
+  });
+  return { reporters: query.data?.reporters ?? [], isReporter: query.data?.isReporter === true, isLoading: query.isLoading };
+}
+
 export function useHasRegistryRole(role: Hex, account?: Address) {
   const registry = contracts.registry;
   const query = useQuery({

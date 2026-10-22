@@ -28,12 +28,13 @@ import {
   WalletIcon,
   XMarkIcon,
   QuestionMarkCircleIcon,
+  MegaphoneIcon,
 } from "@heroicons/react/24/outline";
 
 import { REGULATOR_ROLE } from "../../lib/contracts/config";
-import { usd } from "../../lib/format";
+import { naira, usd } from "../../lib/format";
 import { APP_ROLES, storeRole, type AppRole } from "../../lib/session";
-import { useHasRegistryRole, useUsdc } from "../../hooks/useProtocolData";
+import { useHasRegistryRole, useIsReporter, useUsdc } from "../../hooks/useProtocolData";
 import { DemoFaucet } from "../DemoFaucet";
 import { InfoTip } from "../help/InfoTip";
 import { TutorialButton } from "../help/Tutorial";
@@ -179,6 +180,7 @@ export default function AppLayout({
                 <span className="chip hide-mobile" data-testid="usdc-balance" data-tour="dollar-balance" title="Your dollars (USDC)">
                   <WalletIcon style={{ width: 15, height: 15, color: "var(--brand)" }} />
                   <span className="num">{usd(balance)}</span>
+                  <span className="muted hide-small" style={{ fontSize: 12.5 }}>{naira(balance)}</span>
                   <InfoTip id="dollar-balance" />
                 </span>
               )}
@@ -208,9 +210,11 @@ function Sidebar({ role, onNavigate, closable }: { role: AppRole; onNavigate: ()
   const router = useRouter();
   const { address, isConnected } = useConnection();
   const { hasRole: isRegulator } = useHasRegistryRole(REGULATOR_ROLE, address);
+  const { isReporter } = useIsReporter(address);
   const nav = [
     ...NAV[role],
     { label: "Activity", icon: QueueListIcon, href: "/activity" },
+    ...(isReporter ? [{ label: "Report prices", icon: MegaphoneIcon, href: "/reporter" }] : []),
     ...(isRegulator ? [{ label: "Regulator", icon: ShieldExclamationIcon, href: "/regulator" }] : []),
   ];
 

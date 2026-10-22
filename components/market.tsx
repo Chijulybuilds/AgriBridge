@@ -6,7 +6,7 @@ import { useMarketSettings, useQuote, useUsdc, type Listing } from "../hooks/use
 import { useTx } from "../hooks/useTx";
 import { MarketplaceAbi } from "../lib/contracts/abis";
 import { contracts, PriceMode } from "../lib/contracts/config";
-import { kg, kgInput, parseKgUpTo, percentFromBps, usd, usdPerKg } from "../lib/format";
+import { kg, kgInput, nairaPerKg, parseKgUpTo, percentFromBps, usd, usdPerKg } from "../lib/format";
 import { TxStatus } from "./TxStatus";
 
 /** "$5.73/kg", plus "follows the market (98%)" for listings priced off the reference value. */
@@ -14,6 +14,7 @@ export function ListingPrice({ listing }: { listing: Listing }) {
   return (
     <div>
       <strong>{listing.pricePerKg !== undefined ? usdPerKg(listing.pricePerKg) : "Price out of date"}</strong>
+      {listing.pricePerKg !== undefined && <div className="muted">{nairaPerKg(listing.pricePerKg)}</div>}
       {listing.mode === PriceMode.Reference && (
         <div className="muted">follows the market ({percentFromBps(listing.price)} of its value)</div>
       )}

@@ -15,7 +15,7 @@ const GAP = 8;
 export function InfoTip({ id, className }: { id: HelpId; className?: string }) {
   const topic = HELP[id];
   const [open, setOpen] = useState(false);
-  const [place, setPlace] = useState<{ top: number; left: number } | null>(null);
+  const [place, setPlace] = useState<{ top: number; left: number; side: "below" | "above"; caret: number } | null>(null);
   const button = useRef<HTMLButtonElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const cardId = useId();
@@ -26,9 +26,10 @@ export function InfoTip({ id, className }: { id: HelpId; className?: string }) {
     const width = Math.min(CARD_WIDTH, window.innerWidth - 2 * GAP);
     const left = Math.min(Math.max(GAP, rect.left + rect.width / 2 - width / 2), window.innerWidth - width - GAP);
     const height = card.current?.offsetHeight ?? 240;
-    // Below the button when there is room, otherwise above it.
-    const below = rect.bottom + GAP + height <= window.innerHeight || rect.top < height + GAP;
-    setPlace({ top: below ? rect.bottom + GAP : rect.top - height - GAP, left });
+    // Below the button when there is room, otherwise above it; the pointer lines up with the button.
+    const below = rect.bottom + GAP + 6 + height <= window.innerHeight || rect.top < height + GAP + 6;
+    const caret = Math.min(Math.max(18, rect.left + rect.width / 2 - left), width - 18);
+    setPlace({ top: below ? rect.bottom + GAP + 6 : rect.top - height - GAP - 6, left, side: below ? "below" : "above", caret });
   }, []);
 
   useLayoutEffect(() => {
@@ -90,16 +91,35 @@ export function InfoTip({ id, className }: { id: HelpId; className?: string }) {
             tabIndex={-1}
             className="info-card"
             data-testid="info-card"
-            style={{ top: place?.top ?? -9999, left: place?.left ?? -9999, width: Math.min(CARD_WIDTH, window.innerWidth - 2 * GAP) }}
+            data-side={place?.side}
+            style={
+              {
+                top: place?.top ?? -9999,
+                left: place?.left ?? -9999,
+                width: Math.min(CARD_WIDTH, window.innerWidth - 2 * GAP),
+                "--caret-x": `${place?.caret ?? CARD_WIDTH / 2}px`,
+              } as React.CSSProperties
+            }
           >
-            <p className="info-card-title">{topic.title}</p>
+            <div className="info-card-head">
+              <span className="info-card-glyph" aria-hidden="true">
+                i
+              </span>
+              <p className="info-card-title">{topic.title}</p>
+            </div>
             <dl>
-              <dt>What it is</dt>
-              <dd>{topic.what}</dd>
-              <dt>Why it matters to you</dt>
-              <dd>{topic.why}</dd>
-              <dt>What to do</dt>
-              <dd>{topic.todo}</dd>
+              <div>
+                <dt>What it is</dt>
+                <dd>{topic.what}</dd>
+              </div>
+              <div>
+                <dt>Why it matters to you</dt>
+                <dd>{topic.why}</dd>
+              </div>
+              <div className="info-row-do">
+                <dt>What to do</dt>
+                <dd>{topic.todo}</dd>
+              </div>
             </dl>
             <Link href="/help" className="link info-card-more" onClick={() => setOpen(false)}>
               Every word explained →

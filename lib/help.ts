@@ -75,7 +75,7 @@ export const HELP = {
   "dollar-balance": {
     group: "Getting started",
     title: "Your dollars",
-    what: "The number next to the wallet icon at the top is how many dollars you have in your wallet right now.",
+    what: "The number next to the wallet icon at the top is how many dollars you have in your wallet right now. The naira figure beside it uses a fixed demo rate of ₦1,500 to $1, to help you picture it; AgriBridge itself works in dollars.",
     why: "You need dollars to invest, buy crop, repay an advance or pay a storage fee.",
     todo: "Check it before you pay for something. If it is too low, get test dollars or receive dollars from a sale.",
   },
@@ -382,6 +382,13 @@ export const HELP = {
     what: "Prices for world crops like cocoa come from international markets. Prices for local crops like yam come from approved local market reporters who must agree.",
     why: "A sudden big jump is held and checked again before it is used, so one wrong number can't harm anyone.",
     todo: "Nothing to do. Prices are shown in US dollars per kilogram.",
+  },
+  reporter: {
+    group: "Safety and records",
+    title: "Price reporter",
+    what: "A person in the local market, approved by AgriBridge, who posts what yam or cashew sells for today.",
+    why: "Local crops have no world price, so trusted local reporters provide it. One reporter alone can't change a price: most of them must agree.",
+    todo: "If you are a reporter, open \"Report prices\" and send today's price for each crop. Everyone else can see the reports there.",
   },
   frozen: {
     group: "Safety and records",

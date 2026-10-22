@@ -12,7 +12,9 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 const SHOTS = process.env.E2E_SHOTS;
 async function shot(page: Page, name: string) {
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/tutorial-${name}.png` });
+  if (!SHOTS) return;
+  await page.waitForTimeout(450); // let the entrance animations finish
+  await page.screenshot({ path: `${SHOTS}/tutorial-${name}.png` });
 }
 
 /** Clicks Next until the tour finishes, checking each step's count as it goes. */
@@ -54,6 +56,20 @@ test("the full tour plays to the end, and the Tutorial button replays it", async
   await expect(page.getByTestId("tutorial-chooser")).toBeVisible();
   await page.getByTestId("tour-skip").click();
   await expect(page.getByTestId("tutorial-chooser")).toHaveCount(0);
+});
+
+test("tapping outside the welcome card or a tour step closes it", async ({ page }) => {
+  await installMockWallet(page, "farmer", { tutorials: true });
+  await page.goto("/login");
+  await expect(page.getByTestId("tutorial-chooser")).toBeVisible();
+  await page.mouse.click(20, 20);
+  await expect(page.getByTestId("tutorial-chooser")).toHaveCount(0);
+
+  await page.getByTestId("tutorial-button").first().click();
+  await page.getByTestId("tour-short").click();
+  await expect(page.getByTestId("tutorial")).toBeVisible();
+  await page.mouse.click(20, 700);
+  await expect(page.getByTestId("tutorial")).toHaveCount(0);
 });
 
 test("an \"i\" button explains a word in three parts, and Escape closes it", async ({ page }) => {

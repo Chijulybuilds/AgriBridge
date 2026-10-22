@@ -18,6 +18,7 @@ import {
   kg,
   kgInput,
   maturityTimestamp,
+  naira,
   nowSeconds,
   parseKgUpTo,
   parseUsd,
@@ -167,7 +168,7 @@ export default function Advance() {
                   </button>
                 </div>
                 <span className="hint" data-testid="max-advance" data-tour="advance-limit">
-                  {maxBorrow !== undefined ? `Up to ${usd(maxBorrow)} for this crop and date.` : "Choose the crop, kilograms and date to see your limit."}
+                  {maxBorrow !== undefined ? `Up to ${usd(maxBorrow)} (${naira(maxBorrow)}) for this crop and date.` : "Choose the crop, kilograms and date to see your limit."}
                 </span>
               </div>
               {formError && <p className="form-error" role="alert" data-testid="form-error">{formError}</p>}

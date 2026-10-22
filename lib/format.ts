@@ -136,6 +136,26 @@ export function date(seconds: bigint | number | undefined): string {
   });
 }
 
+/**
+ * Naira beside dollars, for people who think in naira. AgriBridge settles in dollars (USDC); this is
+ * a fixed demo rate, labelled as such wherever it appears, not a live exchange rate.
+ */
+export const NAIRA_PER_DOLLAR = 1_500;
+
+/** "≈ ₦1,500,000" from USDC (6 decimals). */
+export function naira(value: bigint | undefined): string {
+  if (value === undefined) return "";
+  const amount = (Number(value) / 1e6) * NAIRA_PER_DOLLAR;
+  return `≈ ₦${amount.toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
+}
+
+/** "≈ ₦5,400/kg" from an 8-decimal USD-per-kg price. */
+export function nairaPerKg(value: bigint | undefined): string {
+  if (value === undefined) return "";
+  const amount = (Number(value) / 1e8) * NAIRA_PER_DOLLAR;
+  return `≈ ₦${amount.toLocaleString("en-NG", { maximumFractionDigits: 0 })}/kg`;
+}
+
 /** "12 Mar, 14:02" from unix seconds, in the viewer's time zone. */
 export function dateTime(seconds: bigint | number | undefined): string {
   if (seconds === undefined || Number(seconds) === 0) return "—";
