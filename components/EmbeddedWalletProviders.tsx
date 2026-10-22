@@ -7,12 +7,15 @@ import { WagmiProvider } from "@web3auth/modal/react/wagmi";
 import { queryClient } from "../lib/queryClient";
 import { activeChain, rpcUrl, web3AuthClientId, web3AuthNetwork } from "../lib/wagmi";
 
-/** Social sign-ins the window does not offer: only Google, email and a phone number are shown. */
+/**
+ * Social sign-ins the window does not offer: only Google, email and a phone number are shown.
+ * (Farcaster and Telegram are not listed: this SDK version no longer supports them at all, and
+ * naming them here makes it refuse to start.)
+ */
 const HIDDEN_LOGINS = [
   AUTH_CONNECTION.TWITTER,
   AUTH_CONNECTION.FACEBOOK,
   AUTH_CONNECTION.DISCORD,
-  AUTH_CONNECTION.FARCASTER,
   AUTH_CONNECTION.APPLE,
   AUTH_CONNECTION.GITHUB,
   AUTH_CONNECTION.REDDIT,
@@ -20,7 +23,6 @@ const HIDDEN_LOGINS = [
   AUTH_CONNECTION.KAKAO,
   AUTH_CONNECTION.LINKEDIN,
   AUTH_CONNECTION.TWITCH,
-  AUTH_CONNECTION.TELEGRAM,
   AUTH_CONNECTION.WECHAT,
 ];
 
