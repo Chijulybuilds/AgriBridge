@@ -93,16 +93,22 @@ contract MarketplaceTest is ProtocolFixture {
                                  BUYING
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice 200 kg at $5/kg is $1,000: the seller receives $990, the treasury the 1% fee.
+    /**
+     * @notice 200 kg at $5/kg is $1,000. The buyer pays $1,010: the seller keeps the full $1,000, and
+     *         the $10 fee is split, $5 to the lending pool's investors and $5 to the treasury.
+     */
     function test_Buy_PartOfAListing() public {
         uint256 listingId = _list(600e18, Marketplace.PriceMode.Fixed, 5e6);
         uint256 treasuryBefore = usdc.balanceOf(address(this));
+        uint256 buyerBefore = usdc.balanceOf(buyer);
 
-        uint256 cost = _buy(listingId, 200e18);
+        uint256 paid = _buy(listingId, 200e18);
 
-        assertEq(cost, 1_000e6);
-        assertEq(usdc.balanceOf(farmer), 990e6);
-        assertEq(usdc.balanceOf(address(this)) - treasuryBefore, 10e6);
+        assertEq(paid, 1_010e6, "the price plus the 1% fee");
+        assertEq(buyerBefore - usdc.balanceOf(buyer), 1_010e6);
+        assertEq(usdc.balanceOf(farmer), 1_000e6, "the seller keeps the full price");
+        assertEq(usdc.balanceOf(address(this)) - treasuryBefore, 5e6, "half the fee to the treasury");
+        assertEq(d.pool.lockedIncome(), 5e6, "half the fee to investors");
         assertEq(d.commodityToken.balanceOf(buyer, lotId), 200e18);
         assertEq(market.getListing(listingId).kgRemaining, 400e18);
     }
@@ -120,7 +126,8 @@ contract MarketplaceTest is ProtocolFixture {
     function test_Buy_ReferencePriceFollowsTheMarketAndDecay() public {
         uint256 listingId = _list(500e18, Marketplace.PriceMode.Reference, 10_000); // 100% of reference
         assertEq(market.referencePricePerKg(lotId), 5_525_000); // $5.525
-        assertEq(_buy(listingId, 100e18), 552_500_000);
+        assertEq(market.quote(listingId, 100e18), 552_500_000);
+        assertEq(_buy(listingId, 100e18), 558_025_000, "the price plus the 1% fee");
 
         // 90 days on: 87.5% decay times 85% is 74.37%, so $4.834 a kilogram.
         vm.warp(block.timestamp + 90 days);
@@ -130,9 +137,10 @@ contract MarketplaceTest is ProtocolFixture {
 
     function test_Buy_Revert_AbovePriceLimit() public {
         uint256 listingId = _list(500e18, Marketplace.PriceMode.Fixed, 5e6);
+        // The limit covers the fee too: $500 of crop costs the buyer $505.
         vm.expectRevert(Marketplace.Marketplace__PriceAboveLimit.selector);
         vm.prank(buyer);
-        market.buy(listingId, 100e18, 499e6);
+        market.buy(listingId, 100e18, 504e6);
     }
 
     function test_Buy_Revert_LotFrozenAfterListing() public {
@@ -208,8 +216,8 @@ contract MarketplaceTest is ProtocolFixture {
         assertEq(market.quote(listingId, 499e18), 998e6, "below the minimum: 499 kg x $2");
         assertEq(market.quote(listingId, 500e18), 900e6, "at the minimum: $1,000 less 10%");
 
-        assertEq(_buy(listingId, 500e18), 900e6);
-        assertEq(usdc.balanceOf(farmer), 891e6, "the seller gets the deal price less the 1% fee");
+        assertEq(_buy(listingId, 500e18), 909e6, "the deal price plus the 1% fee");
+        assertEq(usdc.balanceOf(farmer), 900e6, "the seller gets the full deal price");
         assertEq(d.commodityToken.balanceOf(buyer, lotId), 500e18);
     }
 

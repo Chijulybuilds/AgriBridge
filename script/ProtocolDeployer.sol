@@ -74,7 +74,13 @@ abstract contract ProtocolDeployer {
         );
         d.keeper = new LiquidationKeeper(address(d.pool));
         d.marketplace = new Marketplace(
-            _deployer, _usdc, address(d.commodityToken), address(d.registry), address(d.oracle), _deployer
+            _deployer,
+            _usdc,
+            address(d.commodityToken),
+            address(d.registry),
+            address(d.oracle),
+            address(d.pool),
+            _deployer
         );
         d.desk = new WarehouseDesk(_deployer, _deployer, _usdc, address(d.commodityToken), d.registry, _deployer);
 
@@ -83,6 +89,8 @@ abstract contract ProtocolDeployer {
         d.shareToken.setLendingPool(address(d.pool));
         d.registry.setCommodityTokenAddress(address(d.commodityToken));
         d.pool.grantRole(d.pool.KEEPER_ROLE(), address(d.keeper));
+        // Sellers take advances as they list, and investors get their share of fees.
+        d.pool.grantRole(d.pool.MARKETPLACE_ROLE(), address(d.marketplace));
         bytes32 protocolRole = d.commodityToken.PROTOCOL_ROLE();
         d.commodityToken.grantRole(protocolRole, address(d.pool));
         d.commodityToken.grantRole(protocolRole, address(d.marketplace));

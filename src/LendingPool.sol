@@ -62,10 +62,18 @@ interface ICommodityToken {
  *        borrow CREDIT_BONUS_BPS more of the collateral's value, but never more than half of the gap
  *        up to the commodity's liquidation point. The record is keyed by address, so it cannot be
  *        transferred or bought.
+ *      - Get paid today, sell at your price: the marketplace (MARKETPLACE_ROLE) can open an advance
+ *        for a seller as they list, with the listed crop as collateral. Each sale repays the debt in
+ *        proportion to the crop sold, so the loan stays exactly as healthy, and the seller gets the
+ *        rest at once; selling the last kilogram repays the loan in full.
+ *      - Investors' income: their share of marketplace fees arrives through `addIncome` and counts
+ *        towards the share price evenly over INCOME_UNLOCK_PERIOD, so a deposit made just before a
+ *        payment earns almost none of it.
  *      Accounting: cash is tracked internally, so USDC sent straight to the pool changes nothing.
  *      Debt is scaled by a borrow index, so interest counts continuously: the pool's value (cash plus
- *      debt, less reserves) grows smoothly rather than jumping when a loan is repaid, which leaves
- *      nothing to sandwich. Reserves (a share of interest) never back withdrawals or loans.
+ *      debt, less reserves and income still unlocking) grows smoothly rather than jumping when a loan
+ *      is repaid, which leaves nothing to sandwich. Reserves (a share of interest) and unlocking
+ *      income never back withdrawals or loans.
  */
 contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder {
     using SafeERC20 for IERC20;
@@ -76,6 +84,8 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
     /// @notice Liquidates with protocol reserves: the Automation keeper.
     bytes32 public constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
+    /// @notice Opens advances as sellers list and sells pledged crop to buyers: the marketplace.
+    bytes32 public constant MARKETPLACE_ROLE = keccak256("MARKETPLACE_ROLE");
 
     uint256 private constant WAD = 1e18;
     uint256 private constant BPS = 10_000;
@@ -107,6 +117,9 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     uint256 public constant MIN_CREDIT_AGE = 14 days;
     /// @notice ...and of at least this much.
     uint256 public constant MIN_CREDIT_AMOUNT = 500e6; // $500
+
+    /// @notice Investors' income counts towards the share price evenly over this period.
+    uint256 public constant INCOME_UNLOCK_PERIOD = 7 days;
 
     /// @dev Virtual shares and assets (OpenZeppelin ERC-4626 style) blunt share-price manipulation.
     uint256 private constant VIRTUAL_SHARES = 1;
@@ -183,6 +196,11 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     /// @notice Block of an investor's latest deposit; withdrawing in that same block is refused.
     mapping(address => uint256) public lastDepositBlock;
 
+    /// @notice Investors' income (their share of marketplace fees) not yet counted in the share price.
+    uint256 public lockedIncome;
+    /// @notice When the locked income will have fully counted.
+    uint256 public incomeUnlocksAt;
+
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -224,6 +242,10 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     event InventoryReleased(uint256 indexed lotId, uint256 kg, address indexed to);
     event InterestAccrued(uint256 borrowIndex, uint256 interest, uint256 toReserves);
     event ReserveFactorUpdated(uint256 newFactor);
+    event CollateralSold(
+        uint256 indexed loanId, address indexed buyer, uint256 kg, uint256 repaid, uint256 remainingDebt
+    );
+    event IncomeAdded(address indexed from, uint256 amount, uint256 unlocksAt);
 
     /*//////////////////////////////////////////////////////////////
                              CUSTOM ERRORS
@@ -247,6 +269,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     error LendingPool__NativeTokenNotSupported();
     error LendingPool__InvalidCall();
     error LendingPool__RepayLimitTooLow(uint256 required);
+    error LendingPool__SaleBelowDebtShare(uint256 required);
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -346,44 +369,24 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         nonZero(_collateralKg)
         returns (uint256 loanId)
     {
-        if (_amount < MIN_BORROW_AMOUNT || _amount > MAX_BORROW_AMOUNT) {
-            revert LendingPool__InvalidLoanBounds();
-        }
-        _accrue();
-        if (_amount > availableCash()) revert LendingPool__InsufficientPoolCash();
-        if (!i_registry.isUsable(_lotId)) revert LendingPool__CommodityNotApprovedForBorrowing();
-        if (_maturity < block.timestamp + MIN_LOAN_TERM || _maturity + MATURITY_BUFFER > i_registry.expiresAt(_lotId)) {
-            revert LendingPool__InvalidMaturity();
-        }
-        if (i_commodityToken.balanceOf(msg.sender, _lotId) < _collateralKg) {
-            revert LendingPool__InsufficientCollateralBalance();
-        }
-        if (_amount * BPS > _valueAt(_lotId, _collateralKg, _maturity) * _maxLtvFor(msg.sender, _commodity(_lotId))) {
-            revert LendingPool__ExceedsMaxLTV();
-        }
+        return _borrow(msg.sender, _lotId, _collateralKg, _amount, _maturity);
+    }
 
-        loanId = ++loanCount;
-        uint256 scaled = _toScaledUp(_amount);
-        s_loans[loanId] = Loan({
-            borrower: msg.sender,
-            openedAt: uint64(block.timestamp),
-            maturity: _maturity,
-            status: LoanStatus.ACTIVE,
-            settled: false,
-            lotId: _lotId,
-            collateralKg: _collateralKg,
-            principal: _amount,
-            scaledDebt: scaled
-        });
-        s_borrowerLoans[msg.sender].push(loanId);
-        _addActive(loanId);
-        totalScaledDebt += scaled;
-        cash -= _amount;
-
-        i_commodityToken.safeTransferFrom(msg.sender, address(this), _lotId, _collateralKg, "");
-        i_usdc.safeTransfer(msg.sender, _amount);
-
-        emit LoanOpened(loanId, msg.sender, _lotId, _amount, _collateralKg, _maturity);
+    /**
+     * @notice Opens an advance for `_borrower` as they list their crop on the marketplace. Same rules
+     *         as `borrow`, with the borrower's own credit record; the tokens come from the marketplace,
+     *         which has just received them from the borrower, and the USDC goes to the borrower.
+     */
+    function borrowFor(address _borrower, uint256 _lotId, uint256 _collateralKg, uint256 _amount, uint64 _maturity)
+        external
+        whenNotPaused
+        nonReentrant
+        onlyRole(MARKETPLACE_ROLE)
+        nonZero(_collateralKg)
+        returns (uint256 loanId)
+    {
+        if (_borrower == address(0)) revert LendingPool__ZeroAddress();
+        return _borrow(_borrower, _lotId, _collateralKg, _amount, _maturity);
     }
 
     /**
@@ -414,6 +417,68 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         }
 
         emit LoanRepaid(_loanId, msg.sender, payment, _debt(loan.scaledDebt));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                           MARKETPLACE SALES
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Sells `_kg` of a loan's crop to a marketplace buyer. Out of the `_proceeds`, the pool takes
+     *         its share of the debt: the debt times the part of the crop sold, rounded up, so the loan
+     *         is exactly as healthy afterwards. The buyer receives the tokens and the marketplace pays
+     *         the seller the rest. Selling the last kilogram repays the whole debt and closes the loan,
+     *         which counts on the borrower's record like any repayment.
+     * @dev Allowed while paused, like `repay`. The pool pulls the USDC it takes from the marketplace.
+     */
+    function sellCollateral(uint256 _loanId, uint256 _kg, address _buyer, uint256 _proceeds)
+        external
+        nonReentrant
+        onlyRole(MARKETPLACE_ROLE)
+        nonZero(_kg)
+        returns (uint256 repaid)
+    {
+        _accrue();
+        Loan storage loan = _activeLoan(_loanId);
+        if (_kg > loan.collateralKg) revert LendingPool__InsufficientCollateralBalance();
+        if (i_registry.isFrozen(loan.lotId)) revert LendingPool__LotFrozen();
+
+        bool all = _kg == loan.collateralKg;
+        repaid = _saleShare(loan, _kg);
+        if (_proceeds < repaid) revert LendingPool__SaleBelowDebtShare(repaid);
+
+        i_usdc.safeTransferFrom(msg.sender, address(this), repaid);
+        cash += repaid;
+        uint256 scaledRepaid = all ? loan.scaledDebt : _toScaledDown(repaid);
+        loan.scaledDebt -= scaledRepaid;
+        totalScaledDebt -= scaledRepaid;
+        loan.collateralKg -= _kg;
+        i_commodityToken.safeTransferFrom(address(this), _buyer, loan.lotId, _kg, "");
+
+        if (loan.scaledDebt == 0) {
+            loan.status = LoanStatus.REPAID;
+            _removeActive(_loanId);
+            _recordRepayment(_loanId, loan);
+            if (loan.collateralKg > 0) {
+                i_commodityToken.safeTransferFrom(address(this), loan.borrower, loan.lotId, loan.collateralKg, "");
+            }
+        }
+
+        emit CollateralSold(_loanId, _buyer, _kg, repaid, _debt(loan.scaledDebt));
+    }
+
+    /**
+     * @notice Adds income for investors, such as their share of marketplace fees. It counts towards the
+     *         share price evenly over the INCOME_UNLOCK_PERIOD after the latest payment, so depositing
+     *         just before a payment and leaving just after earns almost none of it.
+     */
+    function addIncome(uint256 _amount) external nonReentrant nonZero(_amount) {
+        _accrue();
+        i_usdc.safeTransferFrom(msg.sender, address(this), _amount);
+        cash += _amount;
+        lockedIncome += _amount;
+        incomeUnlocksAt = block.timestamp + INCOME_UNLOCK_PERIOD;
+        emit IncomeAdded(msg.sender, _amount, incomeUnlocksAt);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -483,7 +548,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     /// @notice Moves reserves out, e.g. to an insurance fund.
     function withdrawReserves(address _to, uint256 _amount) external onlyRole(DEFAULT_ADMIN_ROLE) nonZero(_amount) {
         _accrue();
-        if (_amount > reserves || _amount > cash) revert LendingPool__InsufficientReserves();
+        if (_amount > reserves || _amount + lockedIncome > cash) revert LendingPool__InsufficientReserves();
         reserves -= _amount;
         cash -= _amount;
         i_usdc.safeTransfer(_to, _amount);
@@ -522,17 +587,18 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         return (totalScaledDebt * _currentIndex()) / WAD;
     }
 
-    /// @notice Investors' USDC: cash plus what borrowers owe, less protocol reserves.
+    /// @notice Investors' USDC: cash plus what borrowers owe, less protocol reserves and income still unlocking.
     function totalAssets() public view returns (uint256) {
         (uint256 debt, uint256 pendingToReserves) = _pendingAccrual();
         uint256 gross = cash + debt;
-        uint256 protocolShare = reserves + pendingToReserves;
-        return gross > protocolShare ? gross - protocolShare : 0;
+        uint256 notYetInvestors = reserves + pendingToReserves + lockedIncome - _unlockedIncome();
+        return gross > notYetInvestors ? gross - notYetInvestors : 0;
     }
 
-    /// @notice Cash that can be lent or withdrawn: everything but reserves.
+    /// @notice Cash that can be lent or withdrawn: everything but reserves and income still unlocking.
     function availableCash() public view returns (uint256) {
-        return cash > reserves ? cash - reserves : 0;
+        uint256 held = reserves + lockedIncome - _unlockedIncome();
+        return cash > held ? cash - held : 0;
     }
 
     function convertToShares(uint256 _assets) public view returns (uint256) {
@@ -580,6 +646,23 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     {
         Loan storage loan = s_loans[_loanId];
         return (loan.borrower, loan.principal, loan.collateralKg, loan.status, debtOf(_loanId));
+    }
+
+    /// @notice What the pool would take now from the sale of `_kg` of a loan's crop; zero if it cannot be sold.
+    function saleShare(uint256 _loanId, uint256 _kg) external view returns (uint256) {
+        Loan storage loan = s_loans[_loanId];
+        if (loan.status != LoanStatus.ACTIVE || _kg == 0 || _kg > loan.collateralKg) return 0;
+        return _saleShare(loan, _kg);
+    }
+
+    /// @notice A loan's borrower, lot, kilograms still pledged and whether it is open: for the marketplace.
+    function loanCollateral(uint256 _loanId)
+        external
+        view
+        returns (address borrower, uint256 lotId, uint256 kg, bool active)
+    {
+        Loan storage loan = s_loans[_loanId];
+        return (loan.borrower, loan.lotId, loan.collateralKg, loan.status == LoanStatus.ACTIVE);
     }
 
     function getBorrowerLoans(address _borrower) external view returns (uint256[] memory) {
@@ -681,6 +764,58 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     /*//////////////////////////////////////////////////////////////
                            INTERNAL: LENDING
     //////////////////////////////////////////////////////////////*/
+
+    /// @dev Opens a loan for `_borrower` against tokens taken from the caller, and pays the borrower.
+    function _borrow(address _borrower, uint256 _lotId, uint256 _collateralKg, uint256 _amount, uint64 _maturity)
+        internal
+        returns (uint256 loanId)
+    {
+        if (_amount < MIN_BORROW_AMOUNT || _amount > MAX_BORROW_AMOUNT) {
+            revert LendingPool__InvalidLoanBounds();
+        }
+        _accrue();
+        if (_amount > availableCash()) revert LendingPool__InsufficientPoolCash();
+        if (!i_registry.isUsable(_lotId)) revert LendingPool__CommodityNotApprovedForBorrowing();
+        if (_maturity < block.timestamp + MIN_LOAN_TERM || _maturity + MATURITY_BUFFER > i_registry.expiresAt(_lotId)) {
+            revert LendingPool__InvalidMaturity();
+        }
+        if (i_commodityToken.balanceOf(msg.sender, _lotId) < _collateralKg) {
+            revert LendingPool__InsufficientCollateralBalance();
+        }
+        if (_amount * BPS > _valueAt(_lotId, _collateralKg, _maturity) * _maxLtvFor(_borrower, _commodity(_lotId))) {
+            revert LendingPool__ExceedsMaxLTV();
+        }
+
+        loanId = ++loanCount;
+        uint256 scaled = _toScaledUp(_amount);
+        s_loans[loanId] = Loan({
+            borrower: _borrower,
+            openedAt: uint64(block.timestamp),
+            maturity: _maturity,
+            status: LoanStatus.ACTIVE,
+            settled: false,
+            lotId: _lotId,
+            collateralKg: _collateralKg,
+            principal: _amount,
+            scaledDebt: scaled
+        });
+        s_borrowerLoans[_borrower].push(loanId);
+        _addActive(loanId);
+        totalScaledDebt += scaled;
+        cash -= _amount;
+
+        i_commodityToken.safeTransferFrom(msg.sender, address(this), _lotId, _collateralKg, "");
+        i_usdc.safeTransfer(_borrower, _amount);
+
+        emit LoanOpened(loanId, _borrower, _lotId, _amount, _collateralKg, _maturity);
+    }
+
+    /// @dev The loan's debt times the part of its crop sold, rounded up; the whole debt for all of it.
+    function _saleShare(Loan storage _loan, uint256 _kg) internal view returns (uint256) {
+        uint256 debt = _debt(_loan.scaledDebt);
+        if (_kg == _loan.collateralKg) return debt;
+        return (debt * _kg + _loan.collateralKg - 1) / _loan.collateralKg;
+    }
 
     function _activeLoan(uint256 _loanId) internal view returns (Loan storage loan) {
         loan = s_loans[_loanId];
@@ -865,11 +1000,15 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
                           INTERNAL: INTEREST
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Advances the borrow index and books the reserves' share of the interest it adds.
+    /**
+     * @dev Advances the borrow index and books the reserves' share of the interest it adds, and counts
+     *      the income that has unlocked since the last accrual.
+     */
     function _accrue() internal {
         if (block.timestamp == lastAccrual) return;
         (uint256 newIndex, uint256 interest) = _projection();
         uint256 toReserves = (interest * reserveFactor) / WAD;
+        lockedIncome -= _unlockedIncome();
 
         borrowIndex = newIndex;
         reserves += toReserves;
@@ -878,9 +1017,18 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         if (interest > 0) emit InterestAccrued(newIndex, interest, toReserves);
     }
 
+    /// @dev From stored values, like the rest of the period's rate.
     function _utilization(uint256 _owed) internal view returns (uint256) {
-        uint256 liquidity = availableCash() + _owed;
+        uint256 held = reserves + lockedIncome;
+        uint256 liquidity = (cash > held ? cash - held : 0) + _owed;
         return liquidity == 0 ? 0 : (_owed * WAD) / liquidity;
+    }
+
+    /// @dev Locked income that has counted towards the share price since the last accrual.
+    function _unlockedIncome() internal view returns (uint256) {
+        uint256 locked = lockedIncome;
+        if (locked == 0 || block.timestamp >= incomeUnlocksAt) return locked;
+        return (locked * (block.timestamp - lastAccrual)) / (incomeUnlocksAt - lastAccrual);
     }
 
     function _rate(uint256 _owed) internal view returns (uint256) {
