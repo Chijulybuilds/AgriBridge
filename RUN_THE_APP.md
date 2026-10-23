@@ -114,21 +114,21 @@ endpoint (Alchemy, Infura) whose key is restricted to your site's domain, and ke
 A CLI deploy (`vercel deploy --prod`) uploads only what `.vercelignore` allows, so local secrets
 (`.env*`, `.demo-wallets.json`) never leave your computer.
 
-**The current deployment** (2026-10-08, deploy block 11871536) is live at
-[agribridge-lilac.vercel.app](https://agribridge-lilac.vercel.app):
+**The current deployment** (version 4, 2026-10-23, deploy block 11973909) is on Sepolia, with every
+contract verified on Etherscan. The hosted app is [agribridge-lilac.vercel.app](https://agribridge-lilac.vercel.app).
 
 | Contract | Address |
 |---|---|
-| Commodity settings | `0x980c895F6A8a52F715aef088700d467b74f2cCcE` |
-| Lot registry | `0xBCe9849bD3910fD6896b0B41DA7F9397c5cAb6D8` |
-| Crop tokens | `0xbF478AdF495b0400c3777388D743f6fD50Fd4d18` |
-| Price oracle | `0x28B68382f5f7C70bBc4684F0645E11493bbF229f` |
-| Pool shares | `0x74BCA132FC90222615d72D592BDE025bCc643e52` |
-| Lending pool | `0x063554671C2ddd5406fa8ef606E52706073f98eE` |
-| Liquidation keeper | `0x7017139045b274B4D6Ab4edF8911bD7C4a0F5c4f` |
-| Marketplace | `0xE0DfBB84f47E7d65A476e66c913025E4ba860320` |
-| Warehouse desk | `0x447E03E00d91bc89225AA08470A478B6a479900D` |
-| Play USDC | `0x6773c3F55A1f4907ae7DCF409b0cbf0E2f00092b` |
+| Commodity settings | `0xCf35559eD51c5579d6456791B2726A45c9846EB5` |
+| Lot registry | `0x3A0b6E5c6DA92AeaBf780B767eaDe57C9D0A341A` |
+| Crop tokens | `0xbe6893Bd715e5FBC7B41668283Ed22ce73708e0B` |
+| Price oracle | `0xe93807cbec7951210BE14FBDE37d07dcB2040e33` |
+| Pool shares | `0x357959eB701aaE09BaE8B0fe588498Da54e678D1` |
+| Lending pool | `0x60EC99ae4EC8a9Caa4a206991D31bbf54e4D1eE1` |
+| Liquidation keeper | `0x34f8253DE1e798f8B6f34C97f2C33602310e1aCc` |
+| Marketplace | `0x0d1D03899d3d9447084319f50C09478cE8Df30dA` |
+| Warehouse desk | `0xeB40fceD8DDDD8Db3EF2b44E59A3735a3944231c` |
+| Play USDC | `0x2757119893496C6519c10B021E59D2D2df4A92Bb` |
 | Verifier and admin Safe | `0xDa152AfD8C2efDA383fde6F840f590C93738de12` |
 
 ---
