@@ -36,6 +36,8 @@ contract DeployDemo is Script, ProtocolDeployer {
 
     /// @dev Protocol reserves the keeper can liquidate with, so the backstop works in the demo.
     uint256 internal constant RESERVE_SEED = 10_000e6;
+    /// @dev Starts the welcome fund, so new farmers get their first month free before fees build it up.
+    uint256 internal constant WELCOME_SEED = 1_000e6;
 
     string internal constant FUNCTIONS_SOURCE = "scripts/functions/commodity-prices.js";
 
@@ -75,6 +77,9 @@ contract DeployDemo is Script, ProtocolDeployer {
         usdc.faucet(deployer, RESERVE_SEED);
         usdc.approve(address(d.pool), RESERVE_SEED);
         d.pool.depositReserves(RESERVE_SEED);
+        usdc.faucet(deployer, WELCOME_SEED);
+        usdc.approve(address(d.pool), WELCOME_SEED);
+        d.pool.fundWelcome(WELCOME_SEED);
 
         // 4. Optional: the Chainlink Functions price feeder, when a router is given.
         address router = vm.envOr("FUNCTIONS_ROUTER", address(0));

@@ -95,7 +95,8 @@ contract MarketplaceTest is ProtocolFixture {
 
     /**
      * @notice 200 kg at $5/kg is $1,000. The buyer pays $1,010: the seller keeps the full $1,000, and
-     *         the $10 fee is split, $5 to the lending pool's investors and $5 to the treasury.
+     *         the $10 fee is split, $5 to the lending pool's investors, $1 to its welcome fund for new
+     *         farmers and $4 to the treasury.
      */
     function test_Buy_PartOfAListing() public {
         uint256 listingId = _list(600e18, Marketplace.PriceMode.Fixed, 5e6);
@@ -107,8 +108,9 @@ contract MarketplaceTest is ProtocolFixture {
         assertEq(paid, 1_010e6, "the price plus the 1% fee");
         assertEq(buyerBefore - usdc.balanceOf(buyer), 1_010e6);
         assertEq(usdc.balanceOf(farmer), 1_000e6, "the seller keeps the full price");
-        assertEq(usdc.balanceOf(address(this)) - treasuryBefore, 5e6, "half the fee to the treasury");
+        assertEq(usdc.balanceOf(address(this)) - treasuryBefore, 4e6, "40% of the fee to the treasury");
         assertEq(d.pool.lockedIncome(), 5e6, "half the fee to investors");
+        assertEq(d.pool.welcomeFund(), 1e6, "a tenth to the welcome fund");
         assertEq(d.commodityToken.balanceOf(buyer, lotId), 200e18);
         assertEq(market.getListing(listingId).kgRemaining, 400e18);
     }

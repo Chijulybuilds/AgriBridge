@@ -164,7 +164,7 @@ contract LendingPoolFuzzTest is ProtocolFixture {
 
         assertEq(uint8(d.pool.getLoan(loanId).status), uint8(LendingPool.LoanStatus.ACTIVE), "the loan stays open");
         assertGt(d.pool.getHealthFactor(loanId), healthBefore, "and is healthier");
-        assertGe(d.pool.debtOf(loanId), d.pool.MIN_BORROW_AMOUNT(), "never leaves dust");
+        assertGe(d.pool.debtOf(loanId), d.pool.MIN_REMAINING_DEBT(), "never leaves dust");
     }
 
     /// @notice Depositing never changes what existing shares are worth (no dilution, no gift).

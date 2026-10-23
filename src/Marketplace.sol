@@ -24,6 +24,7 @@ interface IMarketLendingPool {
         view
         returns (address borrower, uint256 lotId, uint256 kg, bool active);
     function addIncome(uint256 _amount) external;
+    function fundWelcome(uint256 _amount) external;
 }
 
 /// @notice The registry views the marketplace relies on.
@@ -49,7 +50,8 @@ interface IMarketRegistry {
  *      carries an advance: those tokens stay pledged in the lending pool, which hands them to the buyer.
  *      Normal listings need a usable lot (verified, not frozen, not expired). Buyers pay the fee on top
  *      of the price, so sellers keep their full asking price; `investorShareBps` of each fee goes to
- *      the lending pool's investors and the rest to the treasury. Expired stock goes through clearance
+ *      the lending pool's investors, `welcomeShareBps` to the pool's welcome fund, which pays new
+ *      farmers' first month of interest, and the rest to the treasury. Expired stock goes through clearance
  *      instead: holders sell it to the protocol at `clearanceDiscountBps` below the reference value,
  *      paid from a fund the admin tops up, and CLEARANCE_ROLE (the Safe) lists it for non-food buyers.
  *      The lending pool never reads prices from here: collateral is valued by the oracle only.
@@ -113,8 +115,11 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
     uint256 public feeBps = 100; // 1%, paid by the buyer on top of the price
     address public feeRecipient;
-    /// @notice Share of each fee paid to the lending pool's investors; the treasury keeps the rest.
+    /// @notice Share of each fee paid to the lending pool's investors.
     uint256 public investorShareBps = 5_000; // 50%
+    /// @notice Share of each fee paid to the pool's welcome fund for new farmers; the treasury keeps
+    ///         what neither share takes.
+    uint256 public welcomeShareBps = 1_000; // 10%
     uint256 public clearanceDiscountBps = 3_000; // expired stock bought at 30% below reference
     /// @notice USDC set aside to buy expired stock.
     uint256 public clearanceFund;
@@ -149,8 +154,9 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     event ClearanceFundWithdrawn(address indexed to, uint256 amount);
     event FeesUpdated(uint256 feeBps, address feeRecipient, uint256 clearanceDiscountBps);
     event AdvanceListed(uint256 indexed listingId, uint256 indexed loanId);
-    event FeeShared(uint256 indexed listingId, uint256 toInvestors, uint256 toTreasury);
+    event FeeShared(uint256 indexed listingId, uint256 toInvestors, uint256 toWelcome, uint256 toTreasury);
     event InvestorShareUpdated(uint256 investorShareBps);
+    event WelcomeShareUpdated(uint256 welcomeShareBps);
 
     /*//////////////////////////////////////////////////////////////
                              CUSTOM ERRORS
@@ -448,9 +454,16 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
     /// @notice Sets the share of each fee paid to the lending pool's investors, in basis points.
     function setInvestorShare(uint256 _investorShareBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_investorShareBps > BPS) revert Marketplace__InvalidParameters();
+        if (_investorShareBps + welcomeShareBps > BPS) revert Marketplace__InvalidParameters();
         investorShareBps = _investorShareBps;
         emit InvestorShareUpdated(_investorShareBps);
+    }
+
+    /// @notice Sets the share of each fee paid to the pool's welcome fund, in basis points.
+    function setWelcomeShare(uint256 _welcomeShareBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (investorShareBps + _welcomeShareBps > BPS) revert Marketplace__InvalidParameters();
+        welcomeShareBps = _welcomeShareBps;
+        emit WelcomeShareUpdated(_welcomeShareBps);
     }
 
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -581,16 +594,18 @@ contract Marketplace is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         }
     }
 
-    /// @dev Sends `investorShareBps` of a fee to the lending pool's investors and the rest to the treasury.
+    /// @dev Splits a fee: `investorShareBps` to the pool's investors, `welcomeShareBps` to its welcome
+    ///      fund and the rest to the treasury.
     function _shareFee(uint256 _listingId, uint256 _fee) internal {
         if (_fee == 0) return;
         uint256 toInvestors = (_fee * investorShareBps) / BPS;
-        if (toInvestors > 0) {
-            i_usdc.forceApprove(address(i_pool), toInvestors);
-            i_pool.addIncome(toInvestors);
-        }
-        if (_fee > toInvestors) i_usdc.safeTransfer(feeRecipient, _fee - toInvestors);
-        emit FeeShared(_listingId, toInvestors, _fee - toInvestors);
+        uint256 toWelcome = (_fee * welcomeShareBps) / BPS;
+        if (toInvestors + toWelcome > 0) i_usdc.forceApprove(address(i_pool), toInvestors + toWelcome);
+        if (toInvestors > 0) i_pool.addIncome(toInvestors);
+        if (toWelcome > 0) i_pool.fundWelcome(toWelcome);
+        uint256 toTreasury = _fee - toInvestors - toWelcome;
+        if (toTreasury > 0) i_usdc.safeTransfer(feeRecipient, toTreasury);
+        emit FeeShared(_listingId, toInvestors, toWelcome, toTreasury);
     }
 
     function _setBulkDeal(uint256 _listingId, uint256 _minKg, uint256 _discountBps) internal {

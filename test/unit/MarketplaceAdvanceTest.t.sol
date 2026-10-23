@@ -124,7 +124,7 @@ contract MarketplaceAdvanceTest is ProtocolFixture {
         _listWithAdvance(PRICE, 3_100e6);
 
         vm.expectRevert(LendingPool.LendingPool__InvalidLoanBounds.selector);
-        _listWithAdvance(PRICE, 50e6);
+        _listWithAdvance(PRICE, 25e6 - 1);
     }
 
     function test_ListWithAdvance_Revert_WhileThePoolIsPaused() public {
@@ -150,7 +150,8 @@ contract MarketplaceAdvanceTest is ProtocolFixture {
 
     /**
      * @notice A month on, a buyer takes 500 kg, a quarter of the crop, for $1,650 plus the $16.50 fee.
-     *         A quarter of the debt is repaid out of the $1,650 and Amina receives the rest at once.
+     *         A quarter of the debt is repaid out of the $1,650 and Amina receives the rest at once. Of
+     *         the fee, $8.25 goes to investors, $1.65 to the welcome fund and $6.60 to the treasury.
      */
     function test_Buy_RepaysTheAdvancesShareAndPaysTheSellerTheRest() public {
         (uint256 listingId, uint256 loanId) = _listWithAdvance(PRICE, ADVANCE);
@@ -175,7 +176,8 @@ contract MarketplaceAdvanceTest is ProtocolFixture {
         assertApproxEqRel(pool.getHealthFactor(loanId), healthBefore, 1e10, "the advance is as healthy");
 
         assertEq(pool.lockedIncome(), 8_250_000, "half the $16.50 fee to investors");
-        assertEq(usdc.balanceOf(address(this)) - treasuryBefore, 8_250_000, "half to the treasury");
+        assertEq(pool.welcomeFund(), 1_650_000, "a tenth to the welcome fund for new farmers");
+        assertEq(usdc.balanceOf(address(this)) - treasuryBefore, 6_600_000, "the other 40% to the treasury");
         assertEq(market.availableKg(listingId), 1_500e18);
     }
 
@@ -388,10 +390,13 @@ contract MarketplaceAdvanceTest is ProtocolFixture {
         uint256 treasuryBefore = usdc.balanceOf(address(this));
         _ordinarySale(1e6, 1_000e18);
         assertEq(pool.lockedIncome(), 0);
-        assertEq(usdc.balanceOf(address(this)) - treasuryBefore, 10e6, "the whole fee to the treasury");
+        assertEq(pool.welcomeFund(), 1e6, "the welcome fund keeps its tenth of the $10 fee");
+        assertEq(usdc.balanceOf(address(this)) - treasuryBefore, 9e6, "the investors' half goes to the treasury");
 
+        // With the welcome fund's 10%, investors can have at most 90%.
+        market.setInvestorShare(9_000);
         vm.expectRevert(Marketplace.Marketplace__InvalidParameters.selector);
-        market.setInvestorShare(10_001);
+        market.setInvestorShare(9_001);
 
         vm.expectRevert(
             abi.encodeWithSelector(

@@ -185,8 +185,9 @@ contract LendingPoolTest is ProtocolFixture {
         uint256 lotId = _cashewLot();
         uint64 maturity = uint64(block.timestamp + 90 days);
         vm.startPrank(farmer);
+        // Advances start at $25.
         vm.expectRevert(LendingPool.LendingPool__InvalidLoanBounds.selector);
-        pool.borrow(lotId, KG, 99e6, maturity);
+        pool.borrow(lotId, KG, 25e6 - 1, maturity);
 
         vm.expectRevert(LendingPool.LendingPool__InvalidLoanBounds.selector);
         pool.borrow(lotId, KG, 10_000_001e6, maturity);

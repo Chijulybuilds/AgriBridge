@@ -22,6 +22,7 @@ interface ICommodityRegistry {
     function isFrozen(uint256 _lotId) external view returns (bool);
     function expiresAt(uint256 _lotId) external view returns (uint64);
     function valuationFactorBps(uint256 _lotId, uint256 _timestamp) external view returns (uint256);
+    function lotFarmer(uint256 _lotId) external view returns (address);
 }
 
 interface ICommodityToken {
@@ -48,7 +49,7 @@ interface ICommodityToken {
  *        liquidator repays at most CLOSE_FACTOR_BPS of the debt and the loan stays open, healthier,
  *        with the rest of its collateral. A loan is closed in full when it is overdue, when the
  *        collateral no longer covers the debt plus the reward (a partial repayment would then leave
- *        it less healthy), or when what would remain is below MIN_BORROW_AMOUNT. Closing in full,
+ *        it less healthy), or when what would remain is below MIN_REMAINING_DEBT. Closing in full,
  *        the liquidator pays the debt for collateral worth the debt plus the reward and the rest goes
  *        back to the borrower; if the collateral is worth less, the liquidator gets all of it for its
  *        value less the reward, and protocol reserves absorb the shortfall.
@@ -69,11 +70,15 @@ interface ICommodityToken {
  *      - Investors' income: their share of marketplace fees arrives through `addIncome` and counts
  *        towards the share price evenly over INCOME_UNLOCK_PERIOD, so a deposit made just before a
  *        payment earns almost none of it.
+ *      - Welcome credit: on a farmer's first advance against crop they delivered themselves, the
+ *        welcome fund pays the first WELCOME_PERIOD of interest up front, at the rate the loan starts
+ *        at and up to WELCOME_MAX_CREDIT, once per farmer. Investors still earn that interest. The
+ *        fund is filled from marketplace fees and is not investors' money.
  *      Accounting: cash is tracked internally, so USDC sent straight to the pool changes nothing.
  *      Debt is scaled by a borrow index, so interest counts continuously: the pool's value (cash plus
  *      debt, less reserves and income still unlocking) grows smoothly rather than jumping when a loan
  *      is repaid, which leaves nothing to sandwich. Reserves (a share of interest) and unlocking
- *      income never back withdrawals or loans.
+ *      income never back withdrawals or loans, and the welcome fund sits outside `cash` altogether.
  */
 contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder {
     using SafeERC20 for IERC20;
@@ -105,7 +110,9 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     uint256 public constant MIN_LOAN_TERM = 1 days;
     uint256 public constant MATURITY_BUFFER = 30 days;
     uint256 public constant GRACE_PERIOD = 7 days;
-    uint256 public constant MIN_BORROW_AMOUNT = 100e6; // $100
+    uint256 public constant MIN_BORROW_AMOUNT = 25e6; // $25
+    /// @notice The smallest debt a partial liquidation may leave; below it the loan is closed instead.
+    uint256 public constant MIN_REMAINING_DEBT = 100e6; // $100
     uint256 public constant MAX_BORROW_AMOUNT = 10_000_000e6; // $10M
     uint256 public constant MAX_RESERVE_FACTOR = 50e16; // 50%
 
@@ -120,6 +127,11 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
     /// @notice Investors' income counts towards the share price evenly over this period.
     uint256 public constant INCOME_UNLOCK_PERIOD = 7 days;
+
+    /// @notice On a farmer's first advance, the welcome fund pays this much of the interest up front...
+    uint256 public constant WELCOME_PERIOD = 30 days;
+    /// @notice ...but never more than this.
+    uint256 public constant WELCOME_MAX_CREDIT = 50e6; // $50
 
     /// @dev Virtual shares and assets (OpenZeppelin ERC-4626 style) blunt share-price manipulation.
     uint256 private constant VIRTUAL_SHARES = 1;
@@ -201,6 +213,14 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     /// @notice When the locked income will have fully counted.
     uint256 public incomeUnlocksAt;
 
+    /// @notice USDC that pays new farmers' first month of interest, filled from marketplace fees. Kept
+    ///         outside `cash`: it becomes investors' money only as it pays a loan's interest.
+    uint256 public welcomeFund;
+    /// @notice Farmers whose first month of interest the welcome fund has paid.
+    mapping(address => bool) public welcomeUsed;
+    /// @notice Interest the welcome fund paid up front on each loan.
+    mapping(uint256 => uint256) public welcomeCredit;
+
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -246,6 +266,9 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         uint256 indexed loanId, address indexed buyer, uint256 kg, uint256 repaid, uint256 remainingDebt
     );
     event IncomeAdded(address indexed from, uint256 amount, uint256 unlocksAt);
+    event WelcomeFunded(address indexed from, uint256 amount);
+    event WelcomeWithdrawn(address indexed to, uint256 amount);
+    event WelcomeCreditPaid(uint256 indexed loanId, address indexed farmer, uint256 amount);
 
     /*//////////////////////////////////////////////////////////////
                              CUSTOM ERRORS
@@ -270,6 +293,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     error LendingPool__InvalidCall();
     error LendingPool__RepayLimitTooLow(uint256 required);
     error LendingPool__SaleBelowDebtShare(uint256 required);
+    error LendingPool__InsufficientWelcomeFund();
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -481,6 +505,17 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         emit IncomeAdded(msg.sender, _amount, incomeUnlocksAt);
     }
 
+    /**
+     * @notice Adds USDC to the welcome fund, which pays new farmers' first month of interest. The
+     *         marketplace sends part of every fee here; anyone may add more.
+     * @dev Allowed while paused, like `addIncome`, so marketplace sales never fail on it.
+     */
+    function fundWelcome(uint256 _amount) external nonReentrant nonZero(_amount) {
+        i_usdc.safeTransferFrom(msg.sender, address(this), _amount);
+        welcomeFund += _amount;
+        emit WelcomeFunded(msg.sender, _amount);
+    }
+
     /*//////////////////////////////////////////////////////////////
                               LIQUIDATION
     //////////////////////////////////////////////////////////////*/
@@ -553,6 +588,14 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         cash -= _amount;
         i_usdc.safeTransfer(_to, _amount);
         emit ReservesWithdrawn(_to, _amount);
+    }
+
+    /// @notice Moves money out of the welcome fund, e.g. when the offer ends.
+    function withdrawWelcome(address _to, uint256 _amount) external onlyRole(DEFAULT_ADMIN_ROLE) nonZero(_amount) {
+        if (_amount > welcomeFund) revert LendingPool__InsufficientWelcomeFund();
+        welcomeFund -= _amount;
+        i_usdc.safeTransfer(_to, _amount);
+        emit WelcomeWithdrawn(_to, _amount);
     }
 
     /// @notice Sends inventory tokens out to be sold (stock clearance).
@@ -712,6 +755,16 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     }
 
     /**
+     * @notice What the welcome fund would pay up front if `_farmer` borrowed `_amount` against
+     *         `_lotId` now: the first WELCOME_PERIOD of interest, up to WELCOME_MAX_CREDIT. Zero once
+     *         the farmer has had it, for crop someone else delivered, or while the fund is empty.
+     *         Estimated at today's rate; the rate the loan starts at sets the exact amount.
+     */
+    function welcomeCreditFor(address _farmer, uint256 _lotId, uint256 _amount) external view returns (uint256) {
+        return _welcomeCredit(_farmer, _lotId, _amount, getBorrowRate());
+    }
+
+    /**
      * @notice Loan health in WAD: the collateral value at the liquidation point divided by the debt.
      *         Below 1e18 the loan can be liquidated. Zero for loans that are not active.
      */
@@ -788,6 +841,22 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
         loanId = ++loanCount;
         uint256 scaled = _toScaledUp(_amount);
+        totalScaledDebt += scaled;
+        cash -= _amount;
+
+        // A farmer's first advance: the welcome fund pays its first month of interest up front, at
+        // the rate the loan starts at. That is a repayment, so it reaches investors as cash.
+        uint256 credit = _welcomeCredit(_borrower, _lotId, _amount, getBorrowRate());
+        if (credit > 0) {
+            uint256 scaledPaid = _toScaledDown(credit);
+            scaled -= scaledPaid;
+            totalScaledDebt -= scaledPaid;
+            welcomeFund -= credit;
+            cash += credit;
+            welcomeUsed[_borrower] = true;
+            welcomeCredit[loanId] = credit;
+        }
+
         s_loans[loanId] = Loan({
             borrower: _borrower,
             openedAt: uint64(block.timestamp),
@@ -801,13 +870,29 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         });
         s_borrowerLoans[_borrower].push(loanId);
         _addActive(loanId);
-        totalScaledDebt += scaled;
-        cash -= _amount;
 
         i_commodityToken.safeTransferFrom(msg.sender, address(this), _lotId, _collateralKg, "");
         i_usdc.safeTransfer(_borrower, _amount);
 
         emit LoanOpened(loanId, _borrower, _lotId, _amount, _collateralKg, _maturity);
+        if (credit > 0) emit WelcomeCreditPaid(loanId, _borrower, credit);
+    }
+
+    /**
+     * @dev The welcome credit on `_farmer`'s advance of `_amount` against `_lotId` at `_annualRate`
+     *      (WAD): WELCOME_PERIOD of interest, capped at WELCOME_MAX_CREDIT and at the fund. Only for
+     *      the farmer who delivered the lot, so it takes a verified delivery and cannot be collected
+     *      again by moving tokens to new wallets.
+     */
+    function _welcomeCredit(address _farmer, uint256 _lotId, uint256 _amount, uint256 _annualRate)
+        internal
+        view
+        returns (uint256 credit)
+    {
+        if (welcomeUsed[_farmer] || i_registry.lotFarmer(_lotId) != _farmer) return 0;
+        credit = (_amount * _annualRate * WELCOME_PERIOD) / (WAD * SECONDS_PER_YEAR);
+        if (credit > WELCOME_MAX_CREDIT) credit = WELCOME_MAX_CREDIT;
+        if (credit > welcomeFund) credit = welcomeFund;
     }
 
     /// @dev The loan's debt times the part of its crop sold, rounded up; the whole debt for all of it.
@@ -840,7 +925,7 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
      *        worth of collateral; keep the loan open. Repaying r of a debt D against collateral worth
      *        V leaves (D - r) / (V - r(1 + b)), which is below D / V exactly when V > D(1 + b), so the
      *        loan is always left healthier.
-     *      - Closing, when partial does not apply or would leave less than MIN_BORROW_AMOUNT:
+     *      - Closing, when partial does not apply or would leave less than MIN_REMAINING_DEBT:
      *          collateral worth more than debt x (1 + b): pay the debt, take debt x (1 + b) worth,
      *          the rest goes back to the borrower;
      *          worth between the debt and debt x (1 + b): pay the debt, take it all (a smaller reward);
@@ -867,11 +952,11 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
         if (!overdue && value > claim) {
             uint256 repay = (debt * CLOSE_FACTOR_BPS) / BPS;
             if (_maxRepay < repay) repay = _maxRepay;
-            if (debt - repay >= MIN_BORROW_AMOUNT) {
+            if (debt - repay >= MIN_REMAINING_DEBT) {
                 seizedKg = (_loan.collateralKg * ((repay * (BPS + bonus)) / BPS)) / value;
                 return (repay, seizedKg, 0, false);
             }
-            // What would remain is below the smallest loan: close it instead.
+            // What would remain is too small to keep open: close it instead.
         }
 
         closes = true;
