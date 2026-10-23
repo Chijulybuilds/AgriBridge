@@ -1,7 +1,9 @@
+import { useState, type ReactNode } from "react";
 import { AUTH_CONNECTION, WALLET_CONNECTORS } from "@web3auth/modal";
-import { useWeb3AuthConnect, useWeb3AuthDisconnect, useWeb3AuthUser } from "@web3auth/modal/react";
+import { useWeb3Auth, useWeb3AuthConnect, useWeb3AuthDisconnect, useWeb3AuthUser } from "@web3auth/modal/react";
 
 import { shortAddress } from "../../lib/format";
+import { Notice } from "../ui";
 
 /*
  * MetaMask Embedded Wallets controls. This module imports the SDK, so it is only ever loaded in the
@@ -68,4 +70,96 @@ export function EmbeddedSignOut({ className }: { className?: string }) {
 export function EmbeddedAccountName({ address }: { address?: string }) {
   const { userInfo } = useWeb3AuthUser();
   return <span title={address}>{userInfo?.name || userInfo?.email || shortAddress(address)}</span>;
+}
+
+/**
+ * Moving the wallet to MetaMask: shows the private key of a Google, email or phone wallet, only after
+ * the person ticks that they understand, and only until they hide it. The key lives in this
+ * component's state alone; it is never logged, stored or sent anywhere. Any other wallet already
+ * lives in a wallet app, so `otherWallet` explains that instead.
+ */
+export function EmbeddedExportKey({ otherWallet }: { otherWallet: ReactNode }) {
+  const { connection } = useWeb3Auth();
+  const [understood, setUnderstood] = useState(false);
+  const [key, setKey] = useState<string>();
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string>();
+
+  if (connection?.connectorName !== WALLET_CONNECTORS.AUTH) return <>{otherWallet}</>;
+
+  async function reveal() {
+    setError(undefined);
+    if (!understood) return setError("Tick the box first, to confirm you understand.");
+    try {
+      const value = (await connection?.ethereumProvider?.request({ method: "eth_private_key" })) as string | undefined;
+      if (!value) throw new Error("no key");
+      setKey(value);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(
+        /disabled/i.test(message)
+          ? "Moving wallets out is switched off for AgriBridge. Ask the AgriBridge team to switch it on."
+          : "Your key couldn't be shown. Sign out, sign in again, and try once more.",
+      );
+    }
+  }
+
+  async function copy() {
+    if (!key) return;
+    try {
+      await navigator.clipboard.writeText(key);
+      setCopied(true);
+    } catch {
+      setError("Copying didn't work. Select the key and copy it by hand.");
+    }
+  }
+
+  function hide() {
+    setKey(undefined);
+    setCopied(false);
+    setUnderstood(false);
+  }
+
+  return (
+    <div className="stack" style={{ gap: 12 }}>
+      <Notice tone="danger">
+        <strong>Your private key controls everything in this wallet.</strong> Anyone who sees it can take your money and crop.
+        AgriBridge will never ask for it. Show it only on a device you trust, with nobody watching.
+      </Notice>
+      <ol className="plain-steps">
+        <li>In MetaMask, open the account menu and choose Add account, then Import account.</li>
+        <li>Paste the key. The same wallet appears in MetaMask, with the same address and everything in it.</li>
+        <li>Copy something else afterwards, so the key doesn&apos;t stay on your clipboard.</li>
+      </ol>
+      <p className="hint" style={{ margin: 0 }}>You can still sign in to AgriBridge with Google, email or phone as before.</p>
+      {key ? (
+        <div className="secret-box" data-testid="private-key">
+          <code>{key}</code>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-secondary btn-small" onClick={() => void copy()}>
+              {copied ? "Copied" : "Copy key"}
+            </button>
+            <button className="btn btn-small" onClick={hide}>
+              Hide key
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <label className="row" style={{ fontSize: 14, gap: 8, minHeight: 40, cursor: "pointer" }}>
+            <input type="checkbox" checked={understood} onChange={(e) => setUnderstood(e.target.checked)} data-testid="export-understood" />
+            <span>I understand that anyone with this key can take everything in this wallet.</span>
+          </label>
+          <button className="btn btn-secondary" onClick={() => void reveal()} data-testid="export-show">
+            Show my private key
+          </button>
+        </>
+      )}
+      {error && (
+        <p className="form-error" role="alert" style={{ margin: 0 }}>
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }

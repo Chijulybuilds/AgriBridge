@@ -75,6 +75,14 @@ export function percentFromWad(value: bigint | undefined, fractionDigits = 1): s
   return `${((Number(value) / Number(WAD)) * 100).toFixed(fractionDigits)}%`;
 }
 
+/** "0.0084 ETH": Sepolia's own coin, which pays every network fee, to 4 decimals (8 when tiny). */
+export function eth(value: bigint | undefined): string {
+  if (value === undefined) return "—";
+  const amount = Number(formatUnits(value, 18));
+  const digits = amount > 0 && amount < 0.0001 ? 8 : 4;
+  return `${amount.toLocaleString("en-US", { maximumFractionDigits: digits })} ETH`;
+}
+
 /*//////////////////////////////////////////////////////////////
                               INPUT
 //////////////////////////////////////////////////////////////*/
@@ -126,6 +134,11 @@ export function parseNairaUpTo(input: string, all: bigint | undefined): bigint |
 /** Parses kilograms typed by the user; undefined when it is not a positive number. */
 export function parseKg(input: string): bigint | undefined {
   return parsePositive(input, KG_DECIMALS);
+}
+
+/** ETH typed by the user, in wei; undefined when it is not a positive number. */
+export function parseEth(input: string): bigint | undefined {
+  return parsePositive(input.replace(/[,\s]/g, ""), 18);
 }
 
 function parsePositive(input: string, decimals: number): bigint | undefined {
@@ -289,6 +302,12 @@ export const SECONDS_PER_DAY = DAY;
 export function shortAddress(value: string | undefined): string {
   if (!value) return "—";
   return `${value.slice(0, 6)}…${value.slice(-4)}`;
+}
+
+/** A whole address in groups of four, easy to read out and check: "0x7099 7970 C518 12dc …". */
+export function addressGroups(value: string | undefined): string {
+  if (!value) return "—";
+  return `0x${(value.slice(2).match(/.{1,4}/g) ?? []).join(" ")}`;
 }
 
 /** A short reason stored on-chain as bytes32 (e.g. why a delivery was rejected), as text. */

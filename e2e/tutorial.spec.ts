@@ -126,6 +126,7 @@ test("every section's guide plays to the end from its \"How this page works\" bu
     market: "/market",
     investor: "/investor",
     risk: "/investor/risk",
+    wallet: "/wallet",
   };
   for (const [section, path] of Object.entries(pages)) {
     await page.goto(path);

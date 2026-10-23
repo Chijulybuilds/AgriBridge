@@ -32,7 +32,7 @@ const CONTRACTS = [
   'DemoUSDC',
 ];
 
-/** Minimal ERC-20 surface, for USDC approve/balance calls from the frontend. */
+/** Minimal ERC-20 surface for the frontend's USDC calls: approvals, balances and sending money. */
 const ERC20_ABI = [
   {
     type: 'function',
@@ -40,6 +40,16 @@ const ERC20_ABI = [
     stateMutability: 'nonpayable',
     inputs: [
       { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'transfer',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'to', type: 'address' },
       { name: 'amount', type: 'uint256' },
     ],
     outputs: [{ name: '', type: 'bool' }],

@@ -1,7 +1,7 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
 import { encodeFunctionData, keccak256, toHex } from "viem";
 
-import { CommodityRegistryAbi } from "../lib/contracts/abis";
+import { CommodityRegistryAbi, ERC20Abi } from "../lib/contracts/abis";
 import { localDeployment } from "./fixtures/deployment";
 import { ACCOUNTS, installMockWallet, rpc, signIn, type AccountName } from "./fixtures/mockWallet";
 
@@ -476,4 +476,64 @@ test("14. the advance at the gate: cash on delivery, then the crop sells at the 
 
   await farmer.goto("/farmer/loans");
   await expect(farmer.getByTestId("owed")).toHaveCount(0, { timeout: 30_000 });
+});
+
+/** Balances on the local chain, read directly: USDC (6 decimals) and ETH (wei). */
+async function usdcOf(account: string): Promise<bigint> {
+  const data = encodeFunctionData({ abi: ERC20Abi, functionName: "balanceOf", args: [account as `0x${string}`] });
+  return BigInt((await rpc("eth_call", [{ to: deployment!.DemoUSDC, data }, "latest"])) as string);
+}
+
+async function ethOf(account: string): Promise<bigint> {
+  return BigInt((await rpc("eth_getBalance", [account, "latest"])) as string);
+}
+
+test("15. the wallet page: receive at an address or QR code, and send dollars and ETH to anyone", async ({ browser }) => {
+  const farmer = await openAs(browser, "farmer");
+  await signIn(farmer, "farmer");
+  await farmer.goto("/wallet");
+  // The address in groups of four, easy to read out, and as a QR code.
+  await expect(farmer.getByTestId("wallet-address")).toContainText("0x7099 7970 C518 12dc");
+  await expect(farmer.getByTestId("wallet-qr").locator("svg path")).toBeVisible();
+  await expect(farmer.getByTestId("hold-eth")).toContainText("ETH");
+  // A MetaMask wallet already lives in MetaMask: nothing to move.
+  await farmer.getByTestId("export-open").click();
+  await expect(farmer.getByTestId("export-not-needed")).toBeVisible();
+
+  // Money sent straight to an AgriBridge contract would be lost, so it is refused.
+  await farmer.getByTestId("send-to").fill(deployment!.LendingPool);
+  await farmer.getByTestId("send-amount").fill("15000");
+  await farmer.getByTestId("send-check").click();
+  await expect(farmer.getByTestId("form-error")).toContainText("AgriBridge contract");
+
+  // ₦15,000 is $10 at the demo rate, and the buyer receives exactly that.
+  const usdcBefore = await usdcOf(ACCOUNTS.buyer);
+  await farmer.getByTestId("send-to").fill(ACCOUNTS.buyer);
+  await expect(farmer.getByTestId("send-amount-hint")).toContainText("That is $10.00");
+  await farmer.getByTestId("send-check").click();
+  await expect(farmer.getByTestId("send-review-to")).toContainText("0x90F7 9bf6 EB2c");
+  // "Change" goes back to the form with everything still filled in.
+  await farmer.getByRole("button", { name: "Change" }).click();
+  await expect(farmer.getByTestId("send-to")).toHaveValue(ACCOUNTS.buyer);
+  await expect(farmer.getByTestId("send-amount")).toHaveValue("15000");
+  await farmer.getByTestId("send-check").click();
+  await shot(farmer, "15-wallet-check");
+  await farmer.getByTestId("send-confirm").click();
+  await confirmed(farmer, "Send dollars");
+  // Confirmed: the check panel goes at once, so the same payment can't be sent twice.
+  await expect(farmer.getByTestId("send-review")).toHaveCount(0);
+  await expect(farmer.getByTestId("tx-status")).toContainText("Sent ₦15,000 ($10.00)");
+  expect(await usdcOf(ACCOUNTS.buyer)).toBe(usdcBefore + 10_000_000n);
+
+  // And 0.05 ETH, for the buyer's network fees.
+  const ethBefore = await ethOf(ACCOUNTS.buyer);
+  await farmer.getByTestId("send-asset-eth").click();
+  await farmer.getByTestId("send-to").fill(ACCOUNTS.buyer);
+  await farmer.getByTestId("send-amount").fill("0.05");
+  await farmer.getByTestId("send-check").click();
+  await farmer.getByTestId("send-confirm").click();
+  await confirmed(farmer, "Send ETH");
+  await expect(farmer.getByTestId("tx-status")).toContainText("Sent 0.05 ETH");
+  expect(await ethOf(ACCOUNTS.buyer)).toBe(ethBefore + 50_000_000_000_000_000n);
+  await shot(farmer, "15-wallet");
 });

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useConnection, useSwitchChain, useWriteContract } from "wagmi";
+import { useConnection, useSendTransaction, useSwitchChain, useWriteContract } from "wagmi";
 import type { Address, Hash } from "viem";
 
 import { CommodityTokenAbi, ERC20Abi } from "../lib/contracts/abis";
@@ -21,6 +21,7 @@ export type TxState = "idle" | "signing" | "confirming" | "confirmed" | "propose
  */
 export function useTx() {
   const { mutateAsync: writeContract } = useWriteContract();
+  const { mutateAsync: sendTransaction } = useSendTransaction();
   const { mutateAsync: switchChain } = useSwitchChain();
   const { address, chainId, connector } = useConnection();
   const queryClient = useQueryClient();
@@ -88,6 +89,37 @@ export function useTx() {
     [address, chainId, switchChain, writeContract, queryClient, viaSafe],
   );
 
+  /**
+   * Sends `value` wei of ETH to `to`, with the same steps and status as `send`. The transfer is
+   * checked against the balance first, so one it can't cover fails before the wallet opens.
+   */
+  const sendEth = useCallback(
+    async (to: Address, value: bigint, label?: string): Promise<Hash> => {
+      setError(null);
+      setHash(undefined);
+      setStep(label);
+      setState("signing");
+      try {
+        if (chainId !== activeChain.id) await switchChain({ chainId: activeChain.id });
+        await publicClient.estimateGas({ account: address, to, value });
+        const txHash = await sendTransaction({ to, value, chainId: activeChain.id });
+        setHash(txHash);
+        setState("confirming");
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+        if (receipt.status === "reverted") throw new Error(`The transaction was reverted on-chain (${txHash}).`);
+        setState("confirmed");
+        await queryClient.invalidateQueries();
+        return txHash;
+      } catch (err) {
+        const display = toDisplayError(err);
+        setError(display);
+        setState("failed");
+        throw display;
+      }
+    },
+    [address, chainId, switchChain, sendTransaction, queryClient],
+  );
+
   /** Lets `spender` take `amount` USDC from the connected account, if it may not already. */
   const ensureUsdc = useCallback(
     async (spender: Address, amount: bigint) => {
@@ -135,6 +167,7 @@ export function useTx() {
 
   return {
     send,
+    sendEth,
     ensureUsdc,
     ensureCropApproval,
     viaSafe,

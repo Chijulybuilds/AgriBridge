@@ -263,7 +263,18 @@ export const APP_TOUR: Tour = {
 
 /* ───────────────────────────── Section tours ───────────────────────────── */
 
-export type SectionId = "farmer" | "deliver" | "stock" | "collect" | "advance" | "loans" | "sell" | "market" | "investor" | "risk";
+export type SectionId =
+  | "farmer"
+  | "deliver"
+  | "stock"
+  | "collect"
+  | "advance"
+  | "loans"
+  | "sell"
+  | "market"
+  | "investor"
+  | "risk"
+  | "wallet";
 
 const section = (id: SectionId, title: string, steps: TourStep[]): Tour => ({ id, title, short: steps, full: steps });
 
@@ -318,5 +329,11 @@ export const SECTION_TOURS: Record<SectionId, Tour> = {
   risk: section("risk", "The Risk page", [
     { target: "risk-table", title: "Every advance, in the open", body: "Each open advance, how safe it is, and the crop backing it. This is what your money is lent against.", picture: "shield" },
     { target: "crop-rules", title: "The rules for each crop", body: "How much can be borrowed against each crop, when an advance is settled, and the reward for settling it." },
+  ]),
+  wallet: section("wallet", "Your wallet", [
+    { target: "wallet-receive", title: "Receive money", body: "This is your wallet address. Anyone can send you dollars, ETH or crop here: copy it, or let them scan the QR code.", picture: "wallet" },
+    { target: "wallet-holdings", title: "What you hold", body: "Your dollars, the ETH that pays network fees, your crop and your investment, all in one place.", picture: "money" },
+    { target: "wallet-send", title: "Send money", body: "Send dollars or ETH to any wallet address. You check the address and the amount once more before anything is sent." },
+    { target: "wallet-export", title: "Use this wallet elsewhere", body: "If you signed in with Google, email or phone, you can move this wallet into MetaMask. Read the warning first: the key it shows controls everything." },
   ]),
 };

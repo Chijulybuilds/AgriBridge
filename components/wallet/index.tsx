@@ -14,6 +14,7 @@ const Embedded = {
   SignIn: dynamic(() => import("./EmbeddedWallet").then((m) => m.EmbeddedSignIn), { ssr: false }),
   SignOut: dynamic(() => import("./EmbeddedWallet").then((m) => m.EmbeddedSignOut), { ssr: false }),
   AccountName: dynamic(() => import("./EmbeddedWallet").then((m) => m.EmbeddedAccountName), { ssr: false }),
+  ExportKey: dynamic(() => import("./EmbeddedWallet").then((m) => m.EmbeddedExportKey), { ssr: false }),
 };
 
 export function SignIn() {
@@ -52,4 +53,19 @@ export function AccountName() {
   const { address } = useConnection();
   if (usesEmbeddedWallets) return <Embedded.AccountName address={address} />;
   return <span title={address}>{shortAddress(address)}</span>;
+}
+
+/** For a wallet that already lives in MetaMask: nothing to move. */
+function AlreadyInMetaMask() {
+  return (
+    <p className="muted" style={{ margin: 0 }} data-testid="export-not-needed">
+      You signed in with MetaMask, so this wallet already lives in MetaMask. Use it in any app that works with MetaMask.
+    </p>
+  );
+}
+
+/** "Move your wallet to MetaMask" for a Google, email or phone wallet; a short note for anyone else. */
+export function ExportKey() {
+  if (usesEmbeddedWallets) return <Embedded.ExportKey otherWallet={<AlreadyInMetaMask />} />;
+  return <AlreadyInMetaMask />;
 }

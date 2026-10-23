@@ -86,6 +86,27 @@ export const HELP = {
     why: "You need money in your wallet to invest, buy crop, repay an advance or pay a storage fee.",
     todo: "Check it before you pay for something. If it is too low, get test dollars or receive money from a sale.",
   },
+  "wallet-address": {
+    group: "Getting started",
+    title: "Your wallet address",
+    what: "The address of your wallet: \"0x\" followed by 40 letters and numbers. It works like an account number.",
+    why: "Anyone can send you dollars, ETH or crop at this address, from any wallet or app.",
+    todo: "Copy it, or let the sender scan the QR code. For now, only use it on the Sepolia test network.",
+  },
+  "send-money": {
+    group: "Getting started",
+    title: "Send money",
+    what: "Moves dollars (USDC) or ETH from your wallet to any wallet address.",
+    why: "Pay someone, send money home, or move money to an exchange to cash out.",
+    todo: "Paste the address and enter the amount, then check both on the next screen before you confirm. Money sent to a wrong address can't be brought back.",
+  },
+  "export-key": {
+    group: "Safety and records",
+    title: "Move your wallet to MetaMask",
+    what: "Shows your wallet's private key: the secret that controls everything in it.",
+    why: "With it, MetaMask or another wallet app can use the same wallet, so you can use your money anywhere, not only on AgriBridge.",
+    todo: "Only do this on a device you trust, with nobody watching. In MetaMask, choose Import account and paste it. Never share it: AgriBridge will never ask for it.",
+  },
   roles: {
     group: "Getting started",
     title: "Farmer, Investor, Buyer",

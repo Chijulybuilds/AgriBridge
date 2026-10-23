@@ -795,6 +795,17 @@ export function useUsdc(account?: Address) {
   return { balance: balance.data, hasFaucet: faucet.data !== undefined };
 }
 
+/** Sepolia ETH in `account` (wei): the network's own coin, which pays the fee for every action. */
+export function useEthBalance(account?: Address) {
+  const query = useQuery({
+    queryKey: ["eth-balance", account],
+    enabled: Boolean(account),
+    refetchInterval: REFRESH,
+    queryFn: () => publicClient.getBalance({ address: account! }),
+  });
+  return { balance: query.data };
+}
+
 /** Whether `account` holds `role` on the registry (e.g. the regulator role). */
 /** The approved local price reporters, and whether `account` is one of them. */
 export function useIsReporter(account?: Address) {

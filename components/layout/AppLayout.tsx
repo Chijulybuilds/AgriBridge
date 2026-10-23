@@ -177,10 +177,13 @@ export default function AppLayout({
                 <DemoFaucet />
               </span>
               {isConnected && (
-                <span className="chip hide-mobile" data-testid="usdc-balance" data-tour="dollar-balance" title="Your dollars (USDC)">
-                  <WalletIcon style={{ width: 15, height: 15, color: "var(--brand)" }} />
-                  <span className="num">{ngn(balance)}</span>
-                  <span className="muted hide-small" style={{ fontSize: 12.5 }}>{usd(balance)}</span>
+                <span className="chip hide-mobile" data-testid="usdc-balance" data-tour="dollar-balance">
+                  <Link href="/wallet" className="chip-link" title="Open your wallet">
+                    <span className="visually-hidden">Your wallet: </span>
+                    <WalletIcon style={{ width: 15, height: 15, color: "var(--brand)" }} />
+                    <span className="num">{ngn(balance)}</span>
+                    <span className="muted hide-small" style={{ fontSize: 12.5 }}>{usd(balance)}</span>
+                  </Link>
                   <InfoTip id="dollar-balance" />
                 </span>
               )}
@@ -263,6 +266,12 @@ function Sidebar({ role, onNavigate, closable }: { role: AppRole; onNavigate: ()
       </nav>
 
       <div style={{ padding: 14, borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+        {isConnected && (
+          <Link href="/wallet" className="nav-item" onClick={onNavigate} aria-current={router.pathname === "/wallet" ? "page" : undefined}>
+            <WalletIcon />
+            Your wallet
+          </Link>
+        )}
         <Link href="/help" className="nav-item" onClick={onNavigate} aria-current={router.pathname === "/help" ? "page" : undefined}>
           <QuestionMarkCircleIcon />
           Help
