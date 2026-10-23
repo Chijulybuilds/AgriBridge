@@ -4,7 +4,7 @@ import { m } from "motion/react";
 import { CountUp } from "./CountUp";
 import { cropColour, CropSeal } from "./ui";
 import type { Commodity, Warehouse } from "../hooks/useProtocolData";
-import { kg, percentFromBps, pricePerKg } from "../lib/format";
+import { kg, ngnFromDollars, percentFromBps, priceNgnPerKg, pricePerKg } from "../lib/format";
 import { BPS } from "../lib/contracts/config";
 
 /**
@@ -46,9 +46,10 @@ export function MarketOverview({
           Crop for sale now
         </h2>
         <p className="market-hero-figure" data-testid="market-value">
-          <CountUp value={valueForSale} format={dollars} />
+          <CountUp value={valueForSale} format={ngnFromDollars} />
         </p>
         <p className="market-hero-sub">
+          {valueForSale !== undefined ? `${dollars(valueForSale)} · ` : ""}
           {kg(kgForSale)} in {listingCount} listing{listingCount === 1 ? "" : "s"}, out of {kg(storedKg)} in the warehouses
         </p>
 
@@ -170,9 +171,9 @@ export function PriceAgeing({ commodities }: { commodities: Commodity[] }) {
             <CropSeal name={c.name} size={26} />
             <h3 style={{ fontSize: 15 }}>{c.name}</h3>
           </div>
-          <p className="price-card-figure">{pricePerKg(c.price)}</p>
+          <p className="price-card-figure">{priceNgnPerKg(c.price)}</p>
           <p className="muted" style={{ marginBottom: 14 }}>
-            Grade A today
+            {pricePerKg(c.price)} · Grade A today
           </p>
           <AgeingCurve commodity={c} column={i % 3} />
           <p className="hint" style={{ marginTop: 10 }}>

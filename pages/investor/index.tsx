@@ -4,13 +4,13 @@ import { ArrowTrendingUpIcon, BuildingLibraryIcon, ClockIcon, ShieldCheckIcon, W
 
 import AppLayout from "../../components/layout/AppLayout";
 import { TxStatus } from "../../components/TxStatus";
-import { Card, EmptyState, KeyValue, PageHeader, Segmented, Stat } from "../../components/ui";
+import { Card, EmptyState, KeyValue, Money, PageHeader, Segmented, Stat } from "../../components/ui";
 import { useFeeIncome, usePoolHistory } from "../../hooks/useActivity";
 import { useInvestorPosition, usePoolStats, useUsdc } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { LendingPoolAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
-import { date, naira, parseUsd, percentFromWad, usd } from "../../lib/format";
+import { date, money, nairaInput, ngn, parseNairaUpTo, percentFromWad, usd } from "../../lib/format";
 import { publicClient } from "../../lib/chain";
 
 type Mode = "invest" | "withdraw";
@@ -39,19 +39,19 @@ export default function InvestorOverview() {
   async function submit(event: FormEvent) {
     event.preventDefault();
     setFormError(null);
-    const value = parseUsd(amount);
+    const value = parseNairaUpTo(amount, mode === "invest" ? balance : position?.value);
     if (!value) return setFormError("Enter an amount above zero.");
     const pool = contracts.pool!;
 
     try {
       if (mode === "invest") {
-        if (balance !== undefined && value > balance) return setFormError(`You have ${usd(balance)}.`);
+        if (balance !== undefined && value > balance) return setFormError(`You have ${money(balance)}.`);
         await tx.ensureUsdc(pool, value);
         await tx.send({ address: pool, abi: LendingPoolAbi, functionName: "deposit", args: [value] }, "Invest");
       } else {
-        if (!position || value > position.value) return setFormError(`Your money in the pool is worth ${usd(position?.value)}.`);
+        if (!position || value > position.value) return setFormError(`Your money in the pool is worth ${money(position?.value)}.`);
         if (stats && value > stats.availableCash) {
-          return setFormError(`Only ${usd(stats.availableCash)} is free right now; the rest is lent to farmers and comes back as they repay.`);
+          return setFormError(`Only ${money(stats.availableCash)} is free right now; the rest is lent to farmers and comes back as they repay.`);
         }
         // The pool works in shares; withdrawing everything uses all of them so nothing is left behind.
         const shares =
@@ -75,10 +75,10 @@ export default function InvestorOverview() {
       />
 
       <div className="grid-4" data-tour="investor-stats">
-        <Stat lead icon={WalletIcon} label="Your money in the pool" help="shares" tour="position" value={usd(position?.value)} sub={earned !== undefined ? `${naira(position?.value)} · ${usd(earned)} earned so far` : naira(position?.value)} testId="position" />
+        <Stat lead icon={WalletIcon} label="Your money in the pool" help="shares" tour="position" value={ngn(position?.value)} sub={earned !== undefined ? `${usd(position?.value)} · ${ngn(earned)} earned so far` : usd(position?.value)} testId="position" />
         <Stat icon={ArrowTrendingUpIcon} label="Investors earn now" help="earnings" value={stats ? `${percentFromWad(stats.supplyRate)} a year` : "—"} sub="From farmers' interest, plus half of every market fee" />
-        <Stat icon={BuildingLibraryIcon} label="Pool size" help="pool" value={usd(stats?.totalAssets)} sub={stats ? `${percentFromWad(stats.utilization, 0)} lent to farmers` : undefined} />
-        <Stat icon={ShieldCheckIcon} label="Loss cushion" help="cushion" value={usd(stats?.reserves)} sub="Covers bad debt before investors" />
+        <Stat icon={BuildingLibraryIcon} label="Pool size" help="pool" value={ngn(stats?.totalAssets)} sub={stats ? `${usd(stats.totalAssets)} · ${percentFromWad(stats.utilization, 0)} lent to farmers` : undefined} />
+        <Stat icon={ShieldCheckIcon} label="Loss cushion" help="cushion" value={ngn(stats?.reserves)} sub={stats ? `${usd(stats.reserves)} · covers bad debt before investors` : "Covers bad debt before investors"} />
       </div>
 
       <div className="grid-2">
@@ -100,7 +100,7 @@ export default function InvestorOverview() {
           </div>
           <form onSubmit={submit} noValidate>
             <div className="field">
-              <label htmlFor="amount">Amount (US$)</label>
+              <label htmlFor="amount">Amount (₦)</label>
               <div className="row" style={{ flexWrap: "nowrap" }}>
                 <input id="amount" className="input" inputMode="decimal" data-testid="amount-input" value={amount} onChange={(e) => setAmount(e.target.value)} />
                 <button
@@ -108,14 +108,14 @@ export default function InvestorOverview() {
                   className="btn btn-secondary"
                   onClick={() => {
                     const max = mode === "invest" ? balance : position?.value;
-                    if (max) setAmount((Number(max) / 1e6).toFixed(2));
+                    if (max) setAmount(nairaInput(max));
                   }}
                 >
                   All
                 </button>
               </div>
               <span className="hint">
-                {mode === "invest" ? `You have ${usd(balance)} to invest.` : `Free to withdraw now: ${usd(stats?.availableCash)} across the pool.`}
+                {mode === "invest" ? `You have ${money(balance)} to invest.` : `Free to withdraw now: ${money(stats?.availableCash)} across the pool.`}
               </span>
             </div>
             {formError && <p className="form-error" role="alert" data-testid="form-error">{formError}</p>}
@@ -132,8 +132,8 @@ export default function InvestorOverview() {
           <KeyValue label="Crop values" value="come from set prices and fall as the crop ages" />
           <KeyValue label="Losses are covered by" value="the loss cushion first, then investors" />
           <KeyValue label="Borrowers pay now" value={stats ? `${percentFromWad(stats.borrowRate)} a year` : "—"} />
-          <KeyValue label="Earned from market fees" help="fee-share" value={usd(feeIncome)} testId="fee-income" />
-          <KeyValue label="Still counting in" value={stats ? `${usd(stats.lockedIncome)}, spread over 7 days` : "—"} />
+          <KeyValue label="Earned from market fees" help="fee-share" value={<Money value={feeIncome} />} testId="fee-income" />
+          <KeyValue label="Still counting in" value={stats ? `${money(stats.lockedIncome)}, spread over 7 days` : "—"} />
         </Card>
       </div>
 
@@ -149,7 +149,9 @@ export default function InvestorOverview() {
                 {history.map((move) => (
                   <tr key={move.key}>
                     <td>{move.kind}</td>
-                    <td>{usd(move.amount)}</td>
+                    <td>
+                      <Money value={move.amount} />
+                    </td>
                     <td className="muted">{date(move.timestamp)}</td>
                   </tr>
                 ))}

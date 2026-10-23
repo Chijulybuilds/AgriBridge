@@ -6,7 +6,8 @@ import { KG_DECIMALS, PRICE_DECIMALS, USDC_DECIMALS, WAD } from "./contracts/con
 /*//////////////////////////////////////////////////////////////
                         MONEY AND WEIGHT
 //////////////////////////////////////////////////////////////*/
-// The app shows dollars and kilograms; tokens, decimals and wei stay out of sight.
+// The app shows naira first, with the dollars it settles in (USDC) beside them, and kilograms;
+// tokens, decimals and wei stay out of sight.
 
 /** "$1,234.56" (or "-$12.00") from a 6-decimal USDC amount. */
 export function usd(value: bigint | undefined, fractionDigits = 2): string {
@@ -83,6 +84,45 @@ export function parseUsd(input: string): bigint | undefined {
   return parsePositive(input, USDC_DECIMALS);
 }
 
+/** Naira typed by the user ("1,500,000", "₦4,800" or "4800.50"), in kobo; undefined unless positive. */
+function parseKobo(input: string): bigint | undefined {
+  return parsePositive(input.replace(/[₦,\s]/g, ""), 2);
+}
+
+/**
+ * Naira typed by the user, as USDC (6 decimals) at the demo rate, rounded down: amounts, and
+ * marketplace prices per kilogram. Undefined unless it is a positive amount.
+ */
+export function parseNaira(input: string): bigint | undefined {
+  const kobo = parseKobo(input);
+  if (kobo === undefined) return undefined;
+  // kobo x 1e6 / (100 x rate)
+  const value = (kobo * 10_000n) / NAIRA_RATE;
+  return value > 0n ? value : undefined;
+}
+
+/** Naira per kilogram typed by the user, as an 8-decimal oracle price at the demo rate, rounded down. */
+export function parseNairaPrice(input: string): bigint | undefined {
+  const kobo = parseKobo(input);
+  if (kobo === undefined) return undefined;
+  // kobo x 1e8 / (100 x rate)
+  const value = (kobo * 1_000_000n) / NAIRA_RATE;
+  return value > 0n ? value : undefined;
+}
+
+/** USDC (6 decimals) as whole naira for a form, rounded down, so "Max" never asks for more than allowed. */
+export function nairaInput(value: bigint): string {
+  return ((value * NAIRA_RATE) / 1_000_000n).toString();
+}
+
+/**
+ * Naira typed into a form that offers up to `all`. Leaving the offered amount as it is means all of
+ * it, exactly, so withdrawing everything leaves nothing behind.
+ */
+export function parseNairaUpTo(input: string, all: bigint | undefined): bigint | undefined {
+  return all !== undefined && all > 0n && input.trim() === nairaInput(all) ? all : parseNaira(input);
+}
+
 /** Parses kilograms typed by the user; undefined when it is not a positive number. */
 export function parseKg(input: string): bigint | undefined {
   return parsePositive(input, KG_DECIMALS);
@@ -137,23 +177,55 @@ export function date(seconds: bigint | number | undefined): string {
 }
 
 /**
- * Naira beside dollars, for people who think in naira. AgriBridge settles in dollars (USDC); this is
- * a fixed demo rate, labelled as such wherever it appears, not a live exchange rate.
+ * Naira first. People using AgriBridge think in naira, so every amount leads with naira and shows the
+ * dollars it settles in (USDC) beside it, smaller. The rate is a fixed demo rate, labelled as such
+ * where it appears, not a live exchange rate.
  */
 export const NAIRA_PER_DOLLAR = 1_500;
+const NAIRA_RATE = BigInt(NAIRA_PER_DOLLAR);
 
-/** "≈ ₦1,500,000" from USDC (6 decimals). */
-export function naira(value: bigint | undefined): string {
-  if (value === undefined) return "";
-  const amount = (Number(value) / 1e6) * NAIRA_PER_DOLLAR;
-  return `≈ ₦${amount.toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
+/** "₦1,500,000", or "-₦12.50": whole naira, with kobo only below ₦100. */
+function nairaText(amount: number): string {
+  const digits = amount !== 0 && Math.abs(amount) < 100 ? 2 : 0;
+  const text = Math.abs(amount).toLocaleString("en-NG", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return amount < 0 && Number(text.replace(/,/g, "")) !== 0 ? `-₦${text}` : `₦${text}`;
 }
 
-/** "≈ ₦5,400/kg" from an 8-decimal USD-per-kg price. */
-export function nairaPerKg(value: bigint | undefined): string {
-  if (value === undefined) return "";
-  const amount = (Number(value) / 1e8) * NAIRA_PER_DOLLAR;
-  return `≈ ₦${amount.toLocaleString("en-NG", { maximumFractionDigits: 0 })}/kg`;
+/** "₦1,500,000" from USDC (6 decimals). */
+export function ngn(value: bigint | undefined): string {
+  if (value === undefined) return "—";
+  return nairaText((Number(value) / 1e6) * NAIRA_PER_DOLLAR);
+}
+
+/** "₦1,500,000 ($1,000.00)": naira first, then the dollars, for sentences, hints and messages. */
+export function money(value: bigint | undefined): string {
+  if (value === undefined) return "—";
+  return `${ngn(value)} (${usd(value)})`;
+}
+
+/** "₦4,800/kg" from a 6-decimal USDC-per-kilogram amount (marketplace prices). */
+export function ngnPerKg(value: bigint | undefined): string {
+  return value === undefined ? "—" : `${ngn(value)}/kg`;
+}
+
+/** "₦4,800/kg ($3.20/kg)" from a 6-decimal USDC-per-kilogram amount. */
+export function moneyPerKg(value: bigint | undefined): string {
+  return value === undefined ? "—" : `${ngnPerKg(value)} (${usdPerKg(value)})`;
+}
+
+/** "₦8,775/kg" from an 8-decimal oracle price. */
+export function priceNgnPerKg(value: bigint | undefined): string {
+  return value === undefined ? "—" : `${nairaText((Number(value) / 1e8) * NAIRA_PER_DOLLAR)}/kg`;
+}
+
+/** "₦8,775/kg ($5.85/kg)" from an 8-decimal oracle price. */
+export function priceMoneyPerKg(value: bigint | undefined): string {
+  return value === undefined ? "—" : `${priceNgnPerKg(value)} (${pricePerKg(value)})`;
+}
+
+/** "₦7,458,000" from a dollar figure held as a plain number (counting figures and charts). */
+export function ngnFromDollars(dollars: number): string {
+  return nairaText(dollars * NAIRA_PER_DOLLAR);
 }
 
 /** "12 Mar, 14:02" from unix seconds, in the viewer's time zone. */

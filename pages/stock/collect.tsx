@@ -6,12 +6,12 @@ import { ClipboardDocumentListIcon, TruckIcon } from "@heroicons/react/24/outlin
 import AppLayout from "../../components/layout/AppLayout";
 import { lotName } from "../../components/lots";
 import { TxStatus } from "../../components/TxStatus";
-import { Card, EmptyState, KeyValue, Notice, PageHeader, Segmented, StatusBadge } from "../../components/ui";
+import { Card, EmptyState, KeyValue, Money, Notice, PageHeader, Segmented, StatusBadge } from "../../components/ui";
 import { useCommodities, useLots, useStorageFee, useUsdc, useWarehouses, useWithdrawalRequests } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { WarehouseDeskAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
-import { date, kg, kgInput, parseKgUpTo, parseUsd, usd, usdPerKg } from "../../lib/format";
+import { date, kg, kgInput, moneyPerKg, parseKgUpTo, parseNaira } from "../../lib/format";
 import { useRememberedRole } from "../../lib/session";
 
 type Method = "pickup" | "delivery";
@@ -43,7 +43,7 @@ export default function Collect() {
   const commodity = lot ? commodities.get(lot.commodityId) : undefined;
   const kgAmount = lot ? parseKgUpTo(quantity, lot.balanceKg) : undefined;
   const { data: storageFee } = useStorageFee(lot?.id, kgAmount);
-  const deliveryBudget = method === "delivery" ? (parseUsd(budget) ?? 0n) : 0n;
+  const deliveryBudget = method === "delivery" ? (parseNaira(budget) ?? 0n) : 0n;
 
   useEffect(() => {
     if (lotId || collectable.length === 0) return;
@@ -135,7 +135,7 @@ export default function Collect() {
               </div>
               {method === "delivery" && (
                 <div className="field">
-                  <label htmlFor="budget">Most you&apos;ll pay for delivery (US$)</label>
+                  <label htmlFor="budget">Most you&apos;ll pay for delivery (₦)</label>
                   <input id="budget" className="input" inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} />
                   <span className="hint">Held until delivery. You pay the actual cost and get the rest back.</span>
                 </div>
@@ -145,12 +145,12 @@ export default function Collect() {
                   <KeyValue label="Warehouse" value={`${warehouses.get(lot.warehouseId)?.name}, ${warehouses.get(lot.warehouseId)?.region}`} />
                   <KeyValue
                     label="Storage owed"
-                    value={storageFee !== undefined ? usd(storageFee) : "—"}
+                    value={<Money value={storageFee} />}
                     testId="storage-fee"
                   />
-                  {commodity && <KeyValue label="Storage rate" value={`${usdPerKg(commodity.storageFeePerTonMonth / 1000n)} a month`} />}
-                  {method === "delivery" && <KeyValue label="Delivery budget" value={usd(deliveryBudget)} />}
-                  <KeyValue label="You have" value={usd(balance)} />
+                  {commodity && <KeyValue label="Storage rate" value={`${moneyPerKg(commodity.storageFeePerTonMonth / 1000n)} a month`} />}
+                  {method === "delivery" && <KeyValue label="Delivery budget" value={<Money value={deliveryBudget} />} />}
+                  <KeyValue label="You have" value={<Money value={balance} />} />
                 </div>
               )}
               {formError && <p className="form-error" role="alert">{formError}</p>}

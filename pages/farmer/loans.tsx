@@ -7,12 +7,12 @@ import { DocumentTextIcon } from "@heroicons/react/24/outline";
 import AppLayout from "../../components/layout/AppLayout";
 import { loanHealth, lotName } from "../../components/lots";
 import { TxStatus } from "../../components/TxStatus";
-import { Badge, Card, EmptyState, KeyValue, Notice, PageHeader, Skeleton, StatusBadge } from "../../components/ui";
+import { Badge, Card, EmptyState, KeyValue, Money, Notice, PageHeader, Skeleton, StatusBadge } from "../../components/ui";
 import { useCommodities, useLoans, useLots, useUsdc, type Loan } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { LendingPoolAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
-import { date, kg, naira, parseUsd, pricePerKg, relativeDays, usd } from "../../lib/format";
+import { date, kg, money, parseNaira, priceMoneyPerKg, priceNgnPerKg, relativeDays } from "../../lib/format";
 import { InfoTip } from "../../components/help/InfoTip";
 
 /** The farmer's advances: what is owed, how safe each one is, and repayment. */
@@ -79,7 +79,7 @@ export default function MyAdvances() {
                       return (
                         <tr key={loan.id.toString()}>
                           <td>{lot ? lotName(lot, commodities) : `Lot ${loan.lotId}`}</td>
-                          <td>{usd(loan.principal)} borrowed</td>
+                          <td>{money(loan.principal)} borrowed</td>
                           <td>{date(loan.openedAt)}</td>
                           <td>
                             <StatusBadge status={loan.status} />
@@ -117,7 +117,7 @@ function AdvanceCard({
   const pool = contracts.pool!;
 
   async function repay(all: boolean) {
-    const payment = all ? undefined : parseUsd(amount);
+    const payment = all ? undefined : parseNaira(amount);
     if (!all && !payment) return;
     try {
       // Interest keeps accruing until the payment lands, so allow a little extra for "repay all".
@@ -143,26 +143,26 @@ function AdvanceCard({
       } testId={`advance-${loan.id}`}>
       <div className="grid-2" style={{ marginBottom: 0 }}>
         <div>
-          <KeyValue label="Owed now" value={`${usd(loan.debt)} (${naira(loan.debt)})`} testId="owed" />
-          <KeyValue label="Borrowed" value={usd(loan.principal)} />
+          <KeyValue label="Owed now" value={<Money value={loan.debt} />} testId="owed" />
+          <KeyValue label="Borrowed" value={<Money value={loan.principal} />} />
           <KeyValue label="Crop held as security" value={kg(loan.collateralKg)} />
           <KeyValue label="Repay by" help="end-date" value={`${date(loan.maturity)} (${relativeDays(loan.maturity)})`} />
           <KeyValue
             label="Sold if the price falls below"
             help="sell-price"
-            value={loan.liquidationPrice !== undefined ? `${pricePerKg(loan.liquidationPrice)} (now ${pricePerKg(todayPrice)})` : "—"}
+            value={loan.liquidationPrice !== undefined ? `${priceMoneyPerKg(loan.liquidationPrice)}, now ${priceNgnPerKg(todayPrice)}` : "—"}
           />
         </div>
         <div>
           <div className="field">
-            <label htmlFor={`repay-${loan.id}`}>Repay part (US$)</label>
+            <label htmlFor={`repay-${loan.id}`}>Repay part (₦)</label>
             <div className="row" style={{ flexWrap: "nowrap" }}>
               <input id={`repay-${loan.id}`} className="input" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-              <button className="btn btn-secondary" disabled={tx.isBusy || !parseUsd(amount)} onClick={() => void repay(false)}>
+              <button className="btn btn-secondary" disabled={tx.isBusy || !parseNaira(amount)} onClick={() => void repay(false)}>
                 Repay
               </button>
             </div>
-            <span className="hint">You have {usd(balance)}.</span>
+            <span className="hint">You have {money(balance)}.</span>
           </div>
           <button className="btn btn-block" disabled={tx.isBusy} onClick={() => void repay(true)} data-testid="repay-all" data-tour="repay-all">
             Repay all and get my crop back

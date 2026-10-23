@@ -6,16 +6,17 @@ import { useMarketSettings, useQuoteWithFee, useUsdc, type Listing } from "../ho
 import { useTx } from "../hooks/useTx";
 import { MarketplaceAbi } from "../lib/contracts/abis";
 import { contracts, PriceMode } from "../lib/contracts/config";
-import { kg, kgInput, nairaPerKg, parseKgUpTo, percentFromBps, usd, usdPerKg } from "../lib/format";
+import { kg, kgInput, money, ngnPerKg, parseKgUpTo, percentFromBps, usdPerKg } from "../lib/format";
 import { TxStatus } from "./TxStatus";
+import { Money } from "./ui";
 import { InfoTip } from "./help/InfoTip";
 
-/** "$5.73/kg", plus "follows the market (98%)" for listings priced off the reference value. */
+/** "₦8,595/kg" over "$5.73/kg", plus "follows the market (98%)" for listings priced off the reference value. */
 export function ListingPrice({ listing }: { listing: Listing }) {
   return (
     <div>
-      <strong>{listing.pricePerKg !== undefined ? usdPerKg(listing.pricePerKg) : "Price out of date"}</strong>
-      {listing.pricePerKg !== undefined && <div className="muted">{nairaPerKg(listing.pricePerKg)}</div>}
+      <strong>{listing.pricePerKg !== undefined ? ngnPerKg(listing.pricePerKg) : "Price out of date"}</strong>
+      {listing.pricePerKg !== undefined && <div className="muted">{usdPerKg(listing.pricePerKg)}</div>}
       {listing.mode === PriceMode.Reference && (
         <div className="muted">follows the market ({percentFromBps(listing.price)} of its value)</div>
       )}
@@ -67,7 +68,7 @@ export function BuyPanel({ listing, onBought }: { listing: Listing; onBought?: (
         { address: contracts.marketplace!, abi: MarketplaceAbi, functionName: "buy", args: [listing.id, kgAmount, maxCost] },
         "Buy",
       );
-      onBought?.(`Bought ${kg(kgAmount)} for about ${usd(quote.total)}. It's in My stock: collect it or sell it on.`);
+      onBought?.(`Bought ${kg(kgAmount)} for about ${money(quote.total)}. It's in My stock: collect it or sell it on.`);
     } catch {
       // Shown by TxStatus.
     }
@@ -83,26 +84,26 @@ export function BuyPanel({ listing, onBought }: { listing: Listing; onBought?: (
         <>
           <div className="kv">
             <span>Price</span>
-            <span data-testid="buy-price">{usd(quote.cost)}</span>
+            <Money value={quote.cost} testId="buy-price" />
           </div>
           <div className="kv">
             <span className="with-info">
               Market fee ({settings ? percentFromBps(settings.feeBps) : "1%"}) <InfoTip id="market-fee" />
             </span>
-            <span data-testid="buy-fee">{usd(quote.fee)}</span>
+            <Money value={quote.fee} testId="buy-fee" />
           </div>
         </>
       )}
       <div className="kv">
         <span>Total</span>
-        <span data-testid="buy-total">{tooMuch ? "More than is left" : usd(quote?.total)}</span>
+        {tooMuch ? <span data-testid="buy-total">More than is left</span> : <Money value={quote?.total} testId="buy-total" />}
       </div>
       {dealApplies && <p className="hint">Bulk deal applied: {percentFromBps(listing.bulkDiscountBps)} off.</p>}
       {!dealApplies && listing.bulkDiscountBps > 0n && (
         <p className="hint">Buy {kg(listing.bulkMinKg)} or more to get {percentFromBps(listing.bulkDiscountBps)} off.</p>
       )}
       <p className="hint">
-        You have {usd(balance)}.{" "}
+        You have {money(balance)}.{" "}
         {settings && !listing.clearance
           ? `The farmer gets their full price. The ${percentFromBps(settings.feeBps)} fee is added on top, and half of it goes to the investors whose money funds farmers' advances.`
           : ""}

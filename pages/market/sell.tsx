@@ -9,7 +9,7 @@ import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, LotLabel, lotName } from "../../components/lots";
 import { BulkDealNote, ListingPrice } from "../../components/market";
 import { TxStatus } from "../../components/TxStatus";
-import { Badge, Card, EmptyState, KeyValue, Notice, PageHeader, Segmented } from "../../components/ui";
+import { Badge, Card, EmptyState, KeyValue, Money, Notice, PageHeader, Segmented } from "../../components/ui";
 import {
   referenceValuePerKg,
   useCommodities,
@@ -33,12 +33,14 @@ import {
   kg,
   kgInput,
   maturityTimestamp,
-  naira,
+  money,
+  moneyPerKg,
+  nairaInput,
   nowSeconds,
   parseKg,
   parseKgUpTo,
+  parseNaira,
   parsePercentToBps,
-  parseUsd,
   percentFromBps,
   percentFromWad,
   SECONDS_PER_DAY,
@@ -64,11 +66,6 @@ function minPricePerKg(owed: bigint, kgAmount: bigint): bigint {
   return (numerator + denominator - 1n) / denominator;
 }
 
-/** Dollars for an input, rounded down to the cent so "Max" never asks for more than the limit. */
-function usdInput(value: bigint): string {
-  return (Number(value / 10_000n) / 100).toFixed(2);
-}
-
 /**
  * Terms a seller sets: a price (fixed, or a share of today's value) and an optional bulk deal.
  * `idPrefix` keeps field ids unique when several forms are on the page (editing a listing).
@@ -85,7 +82,7 @@ function useTerms(defaultPricing: Pricing = "market", idPrefix = "") {
   function read(): { args: [number, bigint, bigint, bigint] } | { error: string } {
     let price: bigint | undefined;
     if (pricing === "fixed") {
-      price = parseUsd(fixedPrice);
+      price = parseNaira(fixedPrice);
       if (!price) return { error: "Enter your price per kilogram." };
     } else {
       const bps = parsePercentToBps(percent, 200);
@@ -136,15 +133,18 @@ function useTerms(defaultPricing: Pricing = "market", idPrefix = "") {
           <span className="hint">
             The price moves with the crop&apos;s price and its age.{" "}
             {referencePerKg !== undefined && parsePercentToBps(percent, 200)
-              ? `Today that is ${usdPerKg((referencePerKg * BigInt(parsePercentToBps(percent, 200)!)) / 10_000n)}.`
+              ? `Today that is ${moneyPerKg((referencePerKg * BigInt(parsePercentToBps(percent, 200)!)) / 10_000n)}.`
               : ""}
           </span>
         </div>
       ) : (
         <div className="field">
-          <label htmlFor={`${idPrefix}fixed`}>Price per kilogram (US$)</label>
+          <label htmlFor={`${idPrefix}fixed`}>Price per kilogram (₦)</label>
           <input id={`${idPrefix}fixed`} className="input" inputMode="decimal" value={fixedPrice} onChange={(e) => setFixedPrice(e.target.value)} />
-          {referencePerKg !== undefined && <span className="hint">Today&apos;s value is {usdPerKg(referencePerKg)}.</span>}
+          <span className="hint">
+            {parseNaira(fixedPrice) ? `That is ${usdPerKg(parseNaira(fixedPrice))} in dollars. ` : ""}
+            {referencePerKg !== undefined ? `Today's value is ${moneyPerKg(referencePerKg)}.` : ""}
+          </span>
         </div>
       )}
       <label className="row" style={{ fontSize: 14, gap: 8, minHeight: 40, marginBottom: 10, cursor: "pointer" }}>
@@ -234,7 +234,7 @@ export default function Sell() {
   const kgAmount = lot ? parseKgUpTo(quantity, lot.balanceKg) : undefined;
   const maturity = endDay ? maturityTimestamp(endDay) : undefined;
   const { data: maxBorrow } = useMaxBorrow(withAdvance ? lot?.id : undefined, kgAmount, maturity, address);
-  const advance = parseUsd(advanceAmount);
+  const advance = parseNaira(advanceAmount);
   const floor = withAdvance && advance && kgAmount ? minPricePerKg(advance, kgAmount) : undefined;
   const lowest = terms.lowestPerKg(referencePerKg);
   const totalAtPrice = lowest !== undefined && kgAmount ? (lowest * kgAmount) / ONE_KG : undefined;
@@ -250,14 +250,14 @@ export default function Sell() {
     const [mode, price, bulkMinKg, bulkDiscountBps] = result.args;
 
     if (withAdvance) {
-      if (!advance || advance < MIN_ADVANCE) return setFormError("Advances start at $100.");
-      if (maxBorrow !== undefined && advance > maxBorrow) return setFormError(`The most you can take for these kilograms is ${usd(maxBorrow)}.`);
-      if (stats && advance > stats.availableCash) return setFormError(`The pool has ${usd(stats.availableCash)} available right now.`);
+      if (!advance || advance < MIN_ADVANCE) return setFormError(`Advances start at ${money(MIN_ADVANCE)}.`);
+      if (maxBorrow !== undefined && advance > maxBorrow) return setFormError(`The most you can take for these kilograms is ${money(maxBorrow)}.`);
+      if (stats && advance > stats.availableCash) return setFormError(`The pool has ${money(stats.availableCash)} available right now.`);
       if (!maturity || !maxDay || endDay < minDay || endDay > maxDay) {
         return setFormError(`Choose a repay date between ${date(maturityTimestamp(minDay))} and ${date(maturityTimestamp(maxDay ?? minDay))}.`);
       }
       if (floor !== undefined && lowest !== undefined && lowest < floor) {
-        return setFormError(`With a ${usd(advance)} advance, ask at least ${usdPerKg(floor)} a kilogram, after any bulk deal.`);
+        return setFormError(`With a ${money(advance)} advance, ask at least ${moneyPerKg(floor)}, after any bulk deal.`);
       }
     }
 
@@ -361,7 +361,7 @@ export default function Sell() {
                 {withAdvance && (
                   <div className="card-sunken" style={{ marginBottom: 12 }} data-testid="advance-fields">
                     <div className="field">
-                      <label htmlFor="advance-amount">Take now (US$)</label>
+                      <label htmlFor="advance-amount">Take now (₦)</label>
                       <div className="row" style={{ flexWrap: "nowrap" }}>
                         <input
                           id="advance-amount"
@@ -375,15 +375,16 @@ export default function Sell() {
                           type="button"
                           className="btn btn-secondary"
                           disabled={!maxBorrow}
-                          onClick={() => maxBorrow && setAdvanceAmount(usdInput(maxBorrow))}
+                          onClick={() => maxBorrow && setAdvanceAmount(nairaInput(maxBorrow))}
                           data-testid="advance-max"
                         >
                           Max
                         </button>
                       </div>
                       <span className="hint" data-testid="advance-limit">
+                        {advance !== undefined ? `You receive ${usd(advance)}. ` : ""}
                         {maxBorrow !== undefined
-                          ? `Up to ${usd(maxBorrow)} (${naira(maxBorrow)}) for these kilograms.`
+                          ? `Up to ${money(maxBorrow)} for these kilograms.`
                           : "Choose the stock and kilograms to see how much you can take."}
                       </span>
                     </div>
@@ -403,7 +404,7 @@ export default function Sell() {
                     </div>
                     {floor !== undefined && (
                       <p className="hint" style={{ margin: 0 }} data-testid="advance-min-price">
-                        With this advance, ask at least {usdPerKg(floor)} a kilogram.
+                        With this advance, ask at least {moneyPerKg(floor)}.
                       </p>
                     )}
                   </div>
@@ -422,20 +423,20 @@ export default function Sell() {
           {lot && !loanQuery && (
             <div style={{ marginBottom: 12 }}>
               <KeyValue label="Crop" value={<><GradeBadge grade={lot.currentGrade} /> {lotName(lot, commodities)}</>} />
-              <KeyValue label="Value today" value={referencePerKg !== undefined ? usdPerKg(referencePerKg) : "Price out of date"} />
+              <KeyValue label="Value today" value={referencePerKg !== undefined ? <Money value={referencePerKg} perKg /> : "Price out of date"} />
               <KeyValue label="Expires" value={date(lot.expiresAt)} />
               {withAdvance && advance !== undefined && totalAtPrice !== undefined && (
                 <div data-testid="advance-summary">
-                  <KeyValue label="Paid to you today" value={`${usd(advance)} (${naira(advance)})`} />
-                  <KeyValue label="If it all sells at your price" value={usd(totalAtPrice)} />
+                  <KeyValue label="Paid to you today" value={<Money value={advance} />} />
+                  <KeyValue label="If it all sells at your price" value={<Money value={totalAtPrice} />} />
                   <KeyValue
                     label="Then paid to you as it sells"
-                    value={totalAtPrice > advance ? `about ${usd(totalAtPrice - advance)}, less interest` : "—"}
+                    value={totalAtPrice > advance ? `about ${money(totalAtPrice - advance)}, less interest` : "—"}
                   />
                   <KeyValue
                     label="Interest"
                     help="interest"
-                    value={stats ? `${percentFromWad(stats.borrowRate)} a year, only until it sells (about ${usd(monthInterest)} a month)` : "—"}
+                    value={stats ? `${percentFromWad(stats.borrowRate)} a year, only until it sells (about ${money(monthInterest)} a month)` : "—"}
                   />
                 </div>
               )}
@@ -509,7 +510,7 @@ function SellAdvanceCrop({ loan, lot, commodities }: { loan: Loan; lot: Lot | un
     if ("error" in result) return setError(result.error);
     const lowest = terms.lowestPerKg(referencePerKg);
     if (floor !== undefined && lowest !== undefined && lowest < floor) {
-      return setError(`Ask at least ${usdPerKg(floor)} a kilogram, after any bulk deal, so each sale can pay back its share of the advance.`);
+      return setError(`Ask at least ${moneyPerKg(floor)}, after any bulk deal, so each sale can pay back its share of the advance.`);
     }
     try {
       await tx.send(
@@ -526,8 +527,8 @@ function SellAdvanceCrop({ loan, lot, commodities }: { loan: Loan; lot: Lot | un
       {lot && <LotLabel lot={lot} commodities={commodities} sub={`Advance ${loan.id}`} />}
       <div style={{ margin: "12px 0" }}>
         <KeyValue label="Crop held as security" value={kg(loan.collateralKg)} />
-        <KeyValue label="Owed now" value={`${usd(loan.debt)} (${naira(loan.debt)})`} />
-        {floor !== undefined && <KeyValue label="Lowest price you can ask" value={usdPerKg(floor)} testId="advance-min-price" />}
+        <KeyValue label="Owed now" value={<Money value={loan.debt} />} />
+        {floor !== undefined && <KeyValue label="Lowest price you can ask" value={<Money value={floor} perKg />} testId="advance-min-price" />}
       </div>
       {listed ? (
         <Notice tone="ok">This crop is already for sale (listing {loan.listingId.toString()}). Change its price under My listings.</Notice>

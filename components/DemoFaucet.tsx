@@ -24,7 +24,7 @@ export function DemoFaucet() {
       className="btn btn-secondary btn-small"
       data-testid="demo-faucet"
       disabled={tx.isBusy}
-      title={tx.error ? friendlyError(tx.error) : "Adds $10,000 of play money to your account"}
+      title={tx.error ? friendlyError(tx.error) : "Adds ₦15,000,000 ($10,000) of play money to your account"}
       onClick={() =>
         void tx
           .send({ address: contracts.usdc!, abi: DemoUSDCAbi, functionName: "faucet", args: [address, FAUCET_AMOUNT] })

@@ -12,7 +12,7 @@ import {
 } from "../lib/contracts/abis";
 import { contracts, contractsConfigured, DEPLOY_BLOCK, GRADES } from "../lib/contracts/config";
 import { logsClient, publicClient } from "../lib/chain";
-import { kg, pricePerKg, shortAddress, usd } from "../lib/format";
+import { kg, money, priceMoneyPerKg, shortAddress } from "../lib/format";
 
 export type ActivityItem = {
   key: string;
@@ -88,45 +88,45 @@ function describe(log: DecodedLog, commodityNames: Map<bigint, string>): string 
     case "StockReleased":
       return `${kg(a.kg as bigint)} of lot ${a.lotId} left the warehouse`;
     case "LiquidityDeposited":
-      return `${who("investor")} invested ${usd(a.assets as bigint)} in the pool`;
+      return `${who("investor")} invested ${money(a.assets as bigint)} in the pool`;
     case "LiquidityWithdrawn":
-      return `${who("investor")} withdrew ${usd(a.assetsReturned as bigint)} from the pool`;
+      return `${who("investor")} withdrew ${money(a.assetsReturned as bigint)} from the pool`;
     case "LoanOpened":
-      return `${who("borrower")} took a ${usd(a.principal as bigint)} advance against ${kg(a.collateralKg as bigint)} of lot ${a.lotId}`;
+      return `${who("borrower")} took a ${money(a.principal as bigint)} advance against ${kg(a.collateralKg as bigint)} of lot ${a.lotId}`;
     case "LoanRepaid":
       return (a.remainingDebt as bigint) === 0n
-        ? `Advance ${a.loanId} was repaid in full (${usd(a.amount as bigint)}); the crop went back`
-        : `${usd(a.amount as bigint)} was repaid on advance ${a.loanId}`;
+        ? `Advance ${a.loanId} was repaid in full with ${money(a.amount as bigint)}; the crop went back`
+        : `${money(a.amount as bigint)} was repaid on advance ${a.loanId}`;
     case "LoanPartiallyLiquidated":
-      return `Part of advance ${a.loanId} was settled by selling ${kg(a.kgSeized as bigint)} of its crop for ${usd(a.debtRepaid as bigint)}; ${usd(a.remainingDebt as bigint)} is still owed`;
+      return `Part of advance ${a.loanId} was settled by selling ${kg(a.kgSeized as bigint)} of its crop for ${money(a.debtRepaid as bigint)}; ${money(a.remainingDebt as bigint)} is still owed`;
     case "LoanLiquidated":
       return `Advance ${a.loanId} was settled by selling ${kg(a.kgSeized as bigint)} of its crop; ${kg(a.kgReturned as bigint)} went back to the farmer`;
     case "Listed":
       return `${who("seller")} listed ${kg(a.kg as bigint)} of lot ${a.lotId} for sale`;
     case "Bought":
-      return `${who("buyer")} bought ${kg(a.kg as bigint)} of lot ${a.lotId} for ${usd(a.cost as bigint)}`;
+      return `${who("buyer")} bought ${kg(a.kg as bigint)} of lot ${a.lotId} for ${money(a.cost as bigint)}`;
     case "AdvanceListed":
       return `Listing ${a.listingId} sells the crop behind advance ${a.loanId}: each sale repays its share first`;
     case "CollateralSold":
       return (a.remainingDebt as bigint) === 0n
-        ? `A sale of ${kg(a.kg as bigint)} repaid advance ${a.loanId} in full (${usd(a.repaid as bigint)})`
-        : `A sale of ${kg(a.kg as bigint)} repaid ${usd(a.repaid as bigint)} of advance ${a.loanId}; ${usd(a.remainingDebt as bigint)} is still owed`;
+        ? `A sale of ${kg(a.kg as bigint)} repaid advance ${a.loanId} in full with ${money(a.repaid as bigint)}`
+        : `A sale of ${kg(a.kg as bigint)} repaid ${money(a.repaid as bigint)} of advance ${a.loanId}; ${money(a.remainingDebt as bigint)} is still owed`;
     case "IncomeAdded":
-      return `Investors earned ${usd(a.amount as bigint)} from marketplace fees`;
+      return `Investors earned ${money(a.amount as bigint)} from marketplace fees`;
     case "ExpiredStockSold":
-      return `${who("seller")} sold ${kg(a.kg as bigint)} of expired lot ${a.lotId} to AgriBridge for ${usd(a.paid as bigint)}`;
+      return `${who("seller")} sold ${kg(a.kg as bigint)} of expired lot ${a.lotId} to AgriBridge for ${money(a.paid as bigint)}`;
     case "WithdrawalRequested":
       return `${who("holder")} asked to collect ${kg(a.kg as bigint)} of lot ${a.lotId}`;
     case "WithdrawalReleased":
       return `The warehouse released collection request ${a.requestId}`;
     case "PriceUpdated":
-      return `${commodityNames.get(a.commodityId as bigint) ?? `Commodity ${a.commodityId}`} is now priced at ${pricePerKg(a.price as bigint)}`;
+      return `${commodityNames.get(a.commodityId as bigint) ?? `Commodity ${a.commodityId}`} is now priced at ${priceMoneyPerKg(a.price as bigint)}`;
     case "CreditUpdated":
       return `${who("borrower")}'s repayment record: ${a.onTime} on time, ${a.late} late, ${a.settled} settled`;
     case "PriceOverridden":
-      return `The Safe overrode the ${commodityNames.get(a.commodityId as bigint) ?? `commodity ${a.commodityId}`} price from ${pricePerKg(a.previousPrice as bigint)} to ${pricePerKg(a.price as bigint)} while prices were paused`;
+      return `The Safe overrode the ${commodityNames.get(a.commodityId as bigint) ?? `commodity ${a.commodityId}`} price from ${priceMoneyPerKg(a.previousPrice as bigint)} to ${priceMoneyPerKg(a.price as bigint)} while prices were paused`;
     case "PriceHeld":
-      return `A new ${commodityNames.get(a.commodityId as bigint) ?? `commodity ${a.commodityId}`} price of ${pricePerKg(a.heldPrice as bigint)} was held for confirmation, as a big move from ${pricePerKg(a.currentPrice as bigint)}`;
+      return `A new ${commodityNames.get(a.commodityId as bigint) ?? `commodity ${a.commodityId}`} price of ${priceMoneyPerKg(a.heldPrice as bigint)} was held for confirmation, as a big move from ${priceMoneyPerKg(a.currentPrice as bigint)}`;
     // Only the oracle's brake is shown; the pool and the market have their own.
     case "Paused":
       return log.address.toLowerCase() === contracts.oracle?.toLowerCase()
@@ -135,7 +135,7 @@ function describe(log: DecodedLog, commodityNames: Map<bigint, string>): string 
     case "Unpaused":
       return log.address.toLowerCase() === contracts.oracle?.toLowerCase() ? "Prices resumed" : null;
     case "Transfer":
-      return `${who("to")} received ${usd(a.value as bigint)} of test dollars`;
+      return `${who("to")} received ${money(a.value as bigint)} of test dollars`;
     default:
       return null;
   }

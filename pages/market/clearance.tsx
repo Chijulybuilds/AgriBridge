@@ -7,12 +7,12 @@ import AppLayout from "../../components/layout/AppLayout";
 import { LotLabel, lotName } from "../../components/lots";
 import { BuyPanel, ListingPrice } from "../../components/market";
 import { TxStatus } from "../../components/TxStatus";
-import { Card, EmptyState, KeyValue, Notice, PageHeader } from "../../components/ui";
+import { Card, EmptyState, KeyValue, Money, Notice, PageHeader } from "../../components/ui";
 import { useClearanceQuote, useCommodities, useListings, useLots, useMarketSettings, useWarehouses } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { MarketplaceAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
-import { kg, kgInput, parseKgUpTo, percentFromBps, usd } from "../../lib/format";
+import { kg, kgInput, ngn, parseKgUpTo, percentFromBps } from "../../lib/format";
 import { useRememberedRole } from "../../lib/session";
 
 /**
@@ -106,13 +106,13 @@ export default function Clearance() {
                   <input id="kg" className="input" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
                 </div>
                 <button className="btn btn-gold btn-block" disabled={tx.isBusy || !payout || fundTooLow} onClick={() => void sell()} data-testid="sell-expired">
-                  {tx.isBusy ? "Selling…" : `Sell for ${usd(payout)}`}
+                  {tx.isBusy ? "Selling…" : `Sell for ${ngn(payout)}`}
                 </button>
               </div>
               <div>
                 <KeyValue label="AgriBridge pays" value={settings ? `${percentFromBps(10_000n - settings.clearanceDiscountBps)} of its value` : "—"} />
-                <KeyValue label="You get" value={usd(payout)} />
-                <KeyValue label="Clearance fund" value={usd(settings?.clearanceFund)} />
+                <KeyValue label="You get" value={<Money value={payout} />} />
+                <KeyValue label="Clearance fund" value={<Money value={settings?.clearanceFund} />} />
                 {fundTooLow && <Notice tone="warn">The clearance fund is too low for this right now. Try a smaller amount or check back later.</Notice>}
               </div>
             </div>

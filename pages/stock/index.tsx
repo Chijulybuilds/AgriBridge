@@ -5,9 +5,9 @@ import { ArchiveBoxIcon, BanknotesIcon, ClockIcon, ScaleIcon } from "@heroicons/
 
 import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, LotState, LotTitle, ValueTimeline } from "../../components/lots";
-import { Card, CropSeal, EmptyState, Notice, PageHeader, Skeleton, Stat } from "../../components/ui";
+import { Card, CropSeal, EmptyState, Money, Notice, PageHeader, Skeleton, Stat } from "../../components/ui";
 import { lotValue, useCommodities, useLoans, useLots, useWarehouses, type Lot } from "../../hooks/useProtocolData";
-import { date, kg, relativeDays, SECONDS_PER_DAY, usd, useNow } from "../../lib/format";
+import { date, kg, ngn, relativeDays, SECONDS_PER_DAY, usd, useNow } from "../../lib/format";
 import { useRememberedRole } from "../../lib/session";
 
 /**
@@ -42,7 +42,7 @@ export default function MyStock() {
       />
 
       <div className="grid-4" data-tour="stock-summary">
-        <Stat lead icon={BanknotesIcon} label="Worth today" help="worth-today" value={usd(total)} testId="stock-value" />
+        <Stat lead icon={BanknotesIcon} label="Worth today" help="worth-today" value={ngn(total)} sub={usd(total)} testId="stock-value" />
         <Stat icon={ScaleIcon} label="Kilograms held" help="stock" value={kg(totalKg)} sub={`${held.length} lot${held.length === 1 ? "" : "s"}`} />
         <Stat icon={ClockIcon} label="Expiring within 30 days" help="expiry" value={String(expiring.length)} sub="Sell or collect these first" />
       </div>
@@ -152,7 +152,9 @@ function StockRow({
           {kg(lot.balanceKg)}
           {pledged ? <div className="muted">+ {kg(pledged)} as security</div> : null}
         </td>
-        <td>{usd(value)}</td>
+        <td>
+          <Money value={value} />
+        </td>
         <td>
           {date(lot.expiresAt)}
           <div className="muted">{relativeDays(lot.expiresAt)}</div>

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import { referenceValuePerKg, useLotTimeline, type Commodity, type Loan, type Lot } from "../hooks/useProtocolData";
 import { WAD } from "../lib/contracts/config";
-import { date, nowSeconds, SECONDS_PER_DAY, usd } from "../lib/format";
+import { date, money, ngn, nowSeconds, SECONDS_PER_DAY } from "../lib/format";
 import { Badge, CropSeal, StatusBadge, Timeline } from "./ui";
 
 /** How safe an advance is, in words: healthy, worth watching, or at risk of being sold. */
@@ -97,10 +97,10 @@ export function ValueTimeline({ lot, commodity, kgHeld }: { lot: Lot; commodity:
   }));
   return (
     <div>
-      <Timeline points={values} format={(v) => usd(BigInt(Math.round(v * 1e6)))} />
+      <Timeline points={values} format={(v) => ngn(BigInt(Math.round(v * 1e6)))} />
       <p className="hint" style={{ marginTop: 8 }}>
-        Worth {usd(BigInt(Math.round(values[0].value * 1e6)))} today and{" "}
-        {usd(BigInt(Math.round(values[values.length - 1].value * 1e6)))} just before it expires on {date(lot.expiresAt)}, at
+        Worth {money(BigInt(Math.round(values[0].value * 1e6)))} today and{" "}
+        {money(BigInt(Math.round(values[values.length - 1].value * 1e6)))} just before it expires on {date(lot.expiresAt)}, at
         today&apos;s price. Selling or borrowing early gets more for it.
       </p>
     </div>

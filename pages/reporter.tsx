@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { parseUnits, type Address } from "viem";
+import type { Address } from "viem";
 import { useConnection } from "wagmi";
 import { MegaphoneIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../components/layout/AppLayout";
 import { TxStatus } from "../components/TxStatus";
-import { Badge, Card, CropSeal, EmptyState, Notice, PageHeader } from "../components/ui";
+import { Badge, Card, CropSeal, EmptyState, Money, Notice, PageHeader } from "../components/ui";
 import { useCommodities, useIsReporter, useOracleStatus, type Commodity } from "../hooks/useProtocolData";
 import { useTx } from "../hooks/useTx";
 import { CommodityPriceOracleAbi } from "../lib/contracts/abis";
-import { contracts, PRICE_DECIMALS } from "../lib/contracts/config";
-import { dateTime, percentFromBps, pricePerKg, shortAddress } from "../lib/format";
+import { contracts } from "../lib/contracts/config";
+import { dateTime, parseNairaPrice, percentFromBps, shortAddress } from "../lib/format";
 import { publicClient } from "../lib/chain";
 import { useRememberedRole } from "../lib/session";
 
@@ -82,15 +82,15 @@ function CropReports({ commodity, reporters, canReport }: { commodity: Commodity
 
   async function submit() {
     setError(null);
-    const trimmed = value.trim();
-    if (!/^\d+(\.\d+)?$/.test(trimmed) || Number(trimmed) <= 0) return setError("Enter today's price in US dollars per kg, such as 3.20.");
+    const price = parseNairaPrice(value);
+    if (!price) return setError("Enter today's price in naira per kilogram, such as 4,800.");
     try {
       await tx.send(
         {
           address: oracle!,
           abi: CommodityPriceOracleAbi,
           functionName: "submitLocalPrice",
-          args: [commodity.id, parseUnits(trimmed, PRICE_DECIMALS)],
+          args: [commodity.id, price],
         },
         `Report ${commodity.name}`,
       );
@@ -105,11 +105,14 @@ function CropReports({ commodity, reporters, canReport }: { commodity: Commodity
       <div className="row" style={{ gap: 12, marginBottom: 12 }}>
         <CropSeal name={commodity.name} size={30} />
         <span>
-          Price in use: <strong>{pricePerKg(commodity.price)}</strong>
+          Price in use:{" "}
+          <strong>
+            <Money value={commodity.price} price />
+          </strong>
           {commodity.heldPrice !== undefined && (
             <>
               {" "}
-              <Badge tone="gold">Held</Badge> {pricePerKg(commodity.heldPrice)} waiting to be confirmed
+              <Badge tone="gold">Held</Badge> <Money value={commodity.heldPrice} price /> waiting to be confirmed
             </>
           )}
         </span>
@@ -127,7 +130,7 @@ function CropReports({ commodity, reporters, canReport }: { commodity: Commodity
             {(reports ?? []).map((r) => (
               <tr key={r.reporter}>
                 <td>{shortAddress(r.reporter)}</td>
-                <td>{r.price > 0n ? pricePerKg(r.price) : "—"}</td>
+                <td>{r.price > 0n ? <Money value={r.price} price /> : "—"}</td>
                 <td className="muted">{r.reportedAt > 0n ? dateTime(r.reportedAt) : "No report yet"}</td>
               </tr>
             ))}
@@ -136,14 +139,14 @@ function CropReports({ commodity, reporters, canReport }: { commodity: Commodity
       </div>
       {canReport && (
         <div style={{ marginTop: 14 }}>
-          <label htmlFor={`report-${commodity.id}`}>Today&apos;s price where you are (US$ per kg)</label>
+          <label htmlFor={`report-${commodity.id}`}>Today&apos;s price where you are (₦ per kg)</label>
           <div className="row" style={{ flexWrap: "nowrap", marginTop: 6 }}>
             <input
               id={`report-${commodity.id}`}
               className="input"
               style={{ maxWidth: 140 }}
               inputMode="decimal"
-              placeholder="3.20"
+              placeholder="4800"
               value={value}
               onChange={(e) => setValue(e.target.value)}
               data-testid={`report-${commodity.id}`}

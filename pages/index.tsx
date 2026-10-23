@@ -19,7 +19,7 @@ import { Logo } from "../components/Logo";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { CropSeal } from "../components/ui";
 import { useCommodities, useLots, usePoolStats } from "../hooks/useProtocolData";
-import { kg, percentFromBps, percentFromWad, pricePerKg, usd } from "../lib/format";
+import { kg, ngn, ngnFromDollars, percentFromBps, percentFromWad, priceNgnPerKg, pricePerKg, usd } from "../lib/format";
 import { TutorialButton } from "../components/help/Tutorial";
 
 const STEPS: Array<{ role: string; tone: string; steps: Array<[string, string]> }> = [
@@ -72,7 +72,7 @@ export default function Home() {
 
   // Live figures from the contracts; nothing on this page is made up.
   const liveStats = [
-    { label: "In the lending pool", value: stats ? usd(stats.totalAssets, 0) : "—" },
+    { label: "In the lending pool", value: stats ? ngn(stats.totalAssets) : "—", sub: stats ? usd(stats.totalAssets, 0) : undefined },
     { label: "Crop in storage", value: lotsLoading ? "—" : kg(storedKg) },
     { label: "Crops accepted", value: commodities.length ? String(commodities.filter((c) => c.active).length) : "—" },
     { label: "Investors earn now", value: stats ? `${percentFromWad(stats.supplyRate)} a year` : "—" },
@@ -180,7 +180,10 @@ export default function Home() {
             <dl className="landing-stats-grid">
               {liveStats.map((s) => (
                 <div key={s.label}>
-                  <dt className="landing-stat-label">{s.label}</dt>
+                  <dt className="landing-stat-label">
+                    {s.label}
+                    {"sub" in s && s.sub && <span className="money-usd">{s.sub}</span>}
+                  </dt>
                   <dd className="num landing-stat-value">{s.value}</dd>
                 </div>
               ))}
@@ -269,8 +272,9 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="num display" style={{ fontSize: 34 }}>
-                      {pricePerKg(c.price)}
+                      {priceNgnPerKg(c.price)}
                     </div>
+                    <div className="muted">{pricePerKg(c.price)}</div>
                     <div className="muted" style={{ marginTop: 6 }}>
                       Borrow up to {percentFromBps(c.maxLtvBps)} · keeps {c.daysToExpiry} days
                     </div>
@@ -512,7 +516,9 @@ function Receipt() {
             </div>
             <div>
               <dt>Worth today</dt>
-              <dd>$4,972</dd>
+              <dd>
+                ₦7,458,000<span className="money-usd">$4,972</span>
+              </dd>
             </div>
           </dl>
           <div className="stamp" aria-hidden="true">
@@ -524,14 +530,14 @@ function Receipt() {
           <div>
             <span>Advance available</span>
             <strong>
-              <CountUp value={2279} format={(v) => `$${Math.round(v).toLocaleString("en-US")}`} delay={1.44} />
+              <CountUp value={2279} format={(v) => ngnFromDollars(Math.round(v))} delay={1.44} />
             </strong>
-            <span>repay within 60 days</span>
+            <span>$2,279 · repay within 60 days</span>
           </div>
           <div>
             <span>Or sell it on the market</span>
-            <strong>$4.97</strong>
-            <span>per kg, from today</span>
+            <strong>₦7,455</strong>
+            <span>per kg ($4.97), from today</span>
           </div>
         </div>
       </m.figure>

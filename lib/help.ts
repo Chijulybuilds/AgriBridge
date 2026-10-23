@@ -77,14 +77,14 @@ export const HELP = {
     title: "Get test dollars",
     what: "This version of AgriBridge uses play money. \"Get test dollars\" gives you some, free.",
     why: "You can try every part of the app, borrowing, investing and buying, without risking real money.",
-    todo: "Tap \"Get test dollars\" at the top of the page, then confirm in MetaMask. Your dollars appear next to the wallet icon.",
+    todo: "Tap \"Get test dollars\" at the top of the page, then confirm in MetaMask. Your money appears next to the wallet icon, in naira.",
   },
   "dollar-balance": {
     group: "Getting started",
-    title: "Your dollars",
-    what: "The number next to the wallet icon at the top is how many dollars you have in your wallet right now. The naira figure beside it uses a fixed demo rate of ₦1,500 to $1, to help you picture it; AgriBridge itself works in dollars.",
-    why: "You need dollars to invest, buy crop, repay an advance or pay a storage fee.",
-    todo: "Check it before you pay for something. If it is too low, get test dollars or receive dollars from a sale.",
+    title: "Your money",
+    what: "The figure next to the wallet icon at the top is the money in your wallet right now, in naira, with the dollars beside it. AgriBridge pays and settles in dollars; every naira figure uses a fixed demo rate of ₦1,500 to $1.",
+    why: "You need money in your wallet to invest, buy crop, repay an advance or pay a storage fee.",
+    todo: "Check it before you pay for something. If it is too low, get test dollars or receive money from a sale.",
   },
   roles: {
     group: "Getting started",
@@ -282,7 +282,7 @@ export const HELP = {
   record: {
     group: "Advances",
     title: "Repayment record",
-    what: "A list, kept in your name, of advances you repaid on time, repaid late, or that had to be settled. Advances of $500 or more, open at least two weeks, count.",
+    what: "A list, kept in your name, of advances you repaid on time, repaid late, or that had to be settled. Advances of ₦750,000 ($500) or more, open at least two weeks, count.",
     why: "A good record raises how much you can borrow. Nobody can change, move or buy it.",
     todo: "Repay in full by the end date to build your record. Your progress is shown on your overview.",
   },
@@ -416,7 +416,7 @@ export const HELP = {
     title: "Where prices come from",
     what: "Prices for world crops like cocoa come from international markets. Prices for local crops like yam come from approved local market reporters who must agree.",
     why: "A sudden big jump is held and checked again before it is used, so one wrong number can't harm anyone.",
-    todo: "Nothing to do. Prices are shown in US dollars per kilogram.",
+    todo: "Nothing to do. Prices are shown in naira per kilogram, with the US dollar price beside it.",
   },
   reporter: {
     group: "Safety and records",

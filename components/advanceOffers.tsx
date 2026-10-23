@@ -13,8 +13,8 @@ import {
 import type { Tx } from "../hooks/useTx";
 import { LendingPoolAbi } from "../lib/contracts/abis";
 import { contracts, WAD } from "../lib/contracts/config";
-import { date, kg, naira, nowSeconds, SECONDS_PER_DAY, usd } from "../lib/format";
-import { Card, KeyValue, Segmented } from "./ui";
+import { date, kg, money, ngn, nowSeconds, SECONDS_PER_DAY, usd } from "../lib/format";
+import { Card, KeyValue, Money, Segmented } from "./ui";
 import { InfoTip } from "./help/InfoTip";
 
 const MIN_ADVANCE = 100n * 10n ** 6n; // LendingPool.MIN_BORROW_AMOUNT
@@ -96,17 +96,21 @@ export function GateAdvance({ lot, commodity, tx }: { lot: Lot; commodity: Commo
       <span className="page-eyebrow with-info">
         Ready today <InfoTip id="gate-advance" />
       </span>
-      <h2 className="display" style={{ fontSize: 32, margin: "2px 0 10px" }} data-testid="gate-amount">
-        {offer === undefined ? "Working out your advance…" : canTake ? `Take up to ${usd(offer, 0)} today` : "Not enough for an advance yet"}
+      <h2 className="display" style={{ fontSize: 32, margin: "2px 0 2px" }} data-testid="gate-amount">
+        {offer === undefined ? "Working out your advance…" : canTake ? `Take up to ${ngn(offer)} today` : "Not enough for an advance yet"}
       </h2>
+      {canTake && (
+        <p className="text-secondary" style={{ margin: "0 0 10px", fontSize: 13 }} data-testid="gate-dollars">
+          {usd(offer, 0)}, paid in dollars at ₦1,500 to $1
+        </p>
+      )}
       <p className="text-secondary" style={{ marginBottom: 14, lineHeight: 1.6 }}>
-        Your {commodity?.name.toLowerCase() ?? "crop"} is verified: {kg(lot.balanceKg)}, worth {usd(value)} today
-        {canTake ? ` (${naira(offer)} available now)` : ""}. Take cash now and sell later at your price. When it sells, the advance is
-        paid back from the sale.
+        Your {commodity?.name.toLowerCase() ?? "crop"} is verified: {kg(lot.balanceKg)}, worth {money(value)} today. Take cash now and
+        sell later at your price. When it sells, the advance is paid back from the sale.
       </p>
       {maturity && <KeyValue label="Repay by" help="end-date" value={`${date(maturity)}, or as soon as it sells`} />}
       <button className="btn btn-block" style={{ marginTop: 12 }} disabled={tx.isBusy || !canTake} onClick={() => void take()} data-testid="gate-take">
-        {tx.isBusy ? "Working…" : canTake ? `Take ${usd(offer, 0)} now` : "Take an advance"}
+        {tx.isBusy ? "Working…" : canTake ? `Take ${ngn(offer)} now` : "Take an advance"}
       </button>
       <Link className="link" href={`/farmer/advance?lot=${lot.id}`} style={{ display: "inline-block", marginTop: 12 }}>
         Choose another amount or date →
@@ -157,7 +161,7 @@ export function SellOrWait({ lot, commodity }: { lot: Lot; commodity: Commodity 
 
   if (choices.length === 0) return null;
   const note = pastSeasons(commodity?.name);
-  const signed = (value: bigint) => (value >= 0n ? `${usd(value)} more` : `${usd(-value)} less`);
+  const signed = (value: bigint) => (value >= 0n ? `${money(value)} more` : `${money(-value)} less`);
 
   return (
     <Card title="Sell now or wait?" help="sell-or-wait" tour="sell-or-wait" testId="sell-or-wait">
@@ -179,9 +183,9 @@ export function SellOrWait({ lot, commodity }: { lot: Lot; commodity: Commodity 
             <div className="card-sunken">
               <span className="page-eyebrow">Sell now</span>
               <div className="display" style={{ fontSize: 30 }} data-testid="sell-now-value">
-                {usd(result.valueNow)}
+                {ngn(result.valueNow)}
               </div>
-              <span className="muted">{naira(result.valueNow)}</span>
+              <span className="muted">{usd(result.valueNow)}</span>
             </div>
             <div className="card-sunken">
               <span className="page-eyebrow">Wait {m === 1 ? "1 month" : `${m} months`}</span>
@@ -206,7 +210,9 @@ export function SellOrWait({ lot, commodity }: { lot: Lot; commodity: Commodity 
                   return (
                     <tr key={rise.toString()}>
                       <td>{rise === 0n ? "the same as today" : `${Number(rise) / 100}% higher`}</td>
-                      <td>{usd(ending)}</td>
+                      <td>
+                        <Money value={ending} />
+                      </td>
                       <td>{signed(ending - result.valueNow)}</td>
                     </tr>
                   );
@@ -215,8 +221,8 @@ export function SellOrWait({ lot, commodity }: { lot: Lot; commodity: Commodity 
             </table>
           </div>
           <p className="hint" style={{ marginTop: 10 }}>
-            Waiting counts the crop&apos;s ageing, storage ({usd(result.storage)}) and interest on a {usd(advance)} advance taken now (
-            {usd(result.interest)}). {note ? `${note} ` : ""}Prices can fall too, and nobody can promise they will rise.
+            Waiting counts the crop&apos;s ageing, {money(result.storage)} of storage, and {money(result.interest)} of interest on a{" "}
+            {money(advance)} advance taken now. {note ? `${note} ` : ""}Prices can fall too, and nobody can promise they will rise.
           </p>
         </>
       ) : (

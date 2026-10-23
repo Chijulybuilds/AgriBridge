@@ -10,6 +10,7 @@ import { m } from "motion/react";
 import { Illustration, type IllustrationName } from "./help/Illustration";
 import { InfoTip } from "./help/InfoTip";
 import { PageTourButton, useSectionTour } from "./help/Tutorial";
+import { ngn, ngnPerKg, priceNgnPerKg, pricePerKg, usd, usdPerKg } from "../lib/format";
 import type { HelpId } from "../lib/help";
 import type { SectionId } from "../lib/tours";
 
@@ -216,6 +217,26 @@ export function Skeleton({ rows = 3, height = 18 }: { rows?: number; height?: nu
         <div key={i} className="skeleton" style={{ height, width: `${100 - i * 12}%` }} />
       ))}
     </div>
+  );
+}
+
+/**
+ * An amount as AgriBridge shows money: naira first, then the dollars it settles in, smaller and
+ * quieter. `perKg` marks a marketplace price per kilogram (USDC per kg), `price` an 8-decimal
+ * oracle price per kilogram.
+ */
+export function Money({ value, perKg, price, testId }: { value: bigint | undefined; perKg?: boolean; price?: boolean; testId?: string }) {
+  if (value === undefined) return <span data-testid={testId}>—</span>;
+  const [main, dollars] = price
+    ? [priceNgnPerKg(value), pricePerKg(value)]
+    : perKg
+      ? [ngnPerKg(value), usdPerKg(value)]
+      : [ngn(value), usd(value)];
+  return (
+    <span className="money" data-testid={testId}>
+      {main}
+      <span className="money-usd">{dollars}</span>
+    </span>
   );
 }
 

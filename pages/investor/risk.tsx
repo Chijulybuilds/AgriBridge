@@ -2,10 +2,10 @@ import { DocumentTextIcon, ExclamationTriangleIcon, ScaleIcon, ShieldCheckIcon }
 
 import AppLayout from "../../components/layout/AppLayout";
 import { loanHealth, LotLabel } from "../../components/lots";
-import { Badge, Card, CropSeal, EmptyState, PageHeader, Stat } from "../../components/ui";
+import { Badge, Card, CropSeal, EmptyState, Money, PageHeader, Stat } from "../../components/ui";
 import { lotValue, useCommodities, useLoans, useLots, usePoolStats } from "../../hooks/useProtocolData";
 import { BPS } from "../../lib/contracts/config";
-import { date, kg, percentFromBps, percentFromWad, pricePerKg, relativeDays, usd } from "../../lib/format";
+import { date, kg, money, ngn, percentFromBps, percentFromWad, relativeDays, usd } from "../../lib/format";
 
 /**
  * The pool's risk, in the open: every active advance with its health, the
@@ -39,9 +39,9 @@ export default function Risk() {
 
       <div className="grid-4">
         <Stat lead alert={atRisk.length > 0} icon={ExclamationTriangleIcon} label="At risk or overdue" help="safety-level" value={String(atRisk.length)} />
-        <Stat icon={DocumentTextIcon} label="Active advances" value={String(loans.length)} sub={`${usd(totalDebt)} owed`} />
+        <Stat icon={DocumentTextIcon} label="Active advances" value={String(loans.length)} sub={`${money(totalDebt)} owed`} />
         <Stat icon={ScaleIcon} label="Average loan-to-value" value={averageLtv !== undefined ? percentFromBps(averageLtv, 1) : "—"} sub="Settled at 80%" />
-        <Stat icon={ShieldCheckIcon} label="Loss cushion" help="cushion" value={usd(stats?.reserves)} sub={stats ? `${percentFromWad(stats.utilization, 0)} of the pool lent out` : undefined} />
+        <Stat icon={ShieldCheckIcon} label="Loss cushion" help="cushion" value={ngn(stats?.reserves)} sub={stats ? `${usd(stats.reserves)} · ${percentFromWad(stats.utilization, 0)} of the pool lent out` : undefined} />
       </div>
 
       <Card title="Active advances" tour="risk-table" help="risk">
@@ -71,9 +71,13 @@ export default function Risk() {
                     <tr key={loan.id.toString()}>
                       <td>{lot ? <LotLabel lot={lot} commodities={byId} /> : `Lot ${loan.lotId}`}</td>
                       <td>{kg(loan.collateralKg)}</td>
-                      <td>{usd(loan.debt)}</td>
-                      <td>{lot ? usd(lotValue(lot, byId.get(lot.commodityId), loan.collateralKg)) : "—"}</td>
-                      <td>{pricePerKg(loan.liquidationPrice)}</td>
+                      <td>
+                        <Money value={loan.debt} />
+                      </td>
+                      <td>{lot ? <Money value={lotValue(lot, byId.get(lot.commodityId), loan.collateralKg)} /> : "—"}</td>
+                      <td>
+                        <Money value={loan.liquidationPrice} price />
+                      </td>
                       <td>
                         {date(loan.maturity)}
                         <div className="muted">{relativeDays(loan.maturity)}</div>
@@ -114,7 +118,9 @@ export default function Risk() {
                       <strong>{c.name}</strong>
                     </span>
                   </td>
-                  <td>{pricePerKg(c.price)}</td>
+                  <td>
+                    <Money value={c.price} price />
+                  </td>
                   <td>{percentFromBps(c.maxLtvBps)}</td>
                   <td>{percentFromBps(c.liquidationLtvBps)}</td>
                   <td>{percentFromBps(c.liquidationBonusBps)}</td>

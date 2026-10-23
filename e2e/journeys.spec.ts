@@ -103,8 +103,10 @@ test("3. the farmer gets an advance, then repays it and gets the crop back", asy
   await page.goto("/farmer/advance");
 
   await page.getByTestId("end-date").fill(isoDay(60));
-  await expect(page.getByTestId("max-advance")).toContainText("Up to $");
-  await page.getByTestId("amount").fill("1000");
+  await expect(page.getByTestId("max-advance")).toContainText("Up to ₦");
+  // ₦1,500,000 is $1,000 at the demo rate.
+  await page.getByTestId("amount").fill("1500000");
+  await expect(page.getByTestId("amount-dollars")).toContainText("$1,000.00");
   await shot(page, "04-advance-form");
   await page.getByTestId("submit-advance").click();
   await confirmed(page, "Take the advance");
@@ -178,17 +180,18 @@ test("5. the buyer collects; the Safe confirms the goods left the warehouse", as
 test("6. an investor invests, then withdraws part", async ({ browser }) => {
   const page = await openAs(browser, "investor");
   await signIn(page, "investor");
-  await page.getByTestId("amount-input").fill("1000");
+  await page.getByTestId("amount-input").fill("1500000");
   await page.getByTestId("submit-tx").click();
   await confirmed(page, "Invest");
-  await expect(page.getByTestId("position")).toContainText("$1,000");
+  await expect(page.getByTestId("position")).toContainText("₦1,");
+  await expect(page.getByTestId("position").locator("..")).toContainText("$1,000");
   await shot(page, "08-investor");
 
   await page.getByTestId("mode-withdraw").click();
-  await page.getByTestId("amount-input").fill("500");
+  await page.getByTestId("amount-input").fill("750000");
   await page.getByTestId("submit-tx").click();
   await confirmed(page, "Withdraw");
-  await expect(page.getByTestId("position")).toContainText("$500");
+  await expect(page.getByTestId("position").locator("..")).toContainText("$500");
 });
 
 test("7. a price crash puts an advance at risk; the keeper settles half, and the farmer repays the rest", async ({ browser }) => {
@@ -196,7 +199,7 @@ test("7. a price crash puts an advance at risk; the keeper settles half, and the
   await signIn(farmer, "farmer");
   await farmer.goto("/farmer/advance");
   await farmer.getByTestId("end-date").fill(isoDay(60));
-  await farmer.getByTestId("amount").fill("1000");
+  await farmer.getByTestId("amount").fill("1500000");
   await farmer.getByTestId("submit-advance").click();
   await confirmed(farmer, "Take the advance");
 
@@ -396,11 +399,13 @@ test("13. get paid today: the farmer lists cashew and takes an advance; each sal
   await farmer.getByTestId("lot").selectOption((await option.getAttribute("value")) ?? "");
   await farmer.locator("#kg").fill("1000");
   await farmer.getByTestId("pricing-fixed").click();
-  await farmer.locator("#fixed").fill("3.40");
+  // ₦5,100 a kilogram is $3.40.
+  await farmer.locator("#fixed").fill("5100");
   await farmer.getByTestId("advance-toggle").check();
-  await expect(farmer.getByTestId("advance-limit")).toContainText("Up to $", { timeout: 30_000 });
-  await farmer.getByTestId("advance-amount").fill("1000");
-  // $1,000 across 1,000 kg, with 10% to spare.
+  await expect(farmer.getByTestId("advance-limit")).toContainText("Up to ₦", { timeout: 30_000 });
+  await farmer.getByTestId("advance-amount").fill("1500000");
+  // ₦1,500,000 ($1,000) across 1,000 kg, with 10% to spare: ₦1,650 ($1.10) a kilogram.
+  await expect(farmer.getByTestId("advance-min-price")).toContainText("₦1,650/kg");
   await expect(farmer.getByTestId("advance-min-price")).toContainText("$1.10");
   await expect(farmer.getByTestId("advance-summary")).toContainText("$3,400");
   await shot(farmer, "13-get-paid-today");
@@ -444,7 +449,8 @@ test("14. the advance at the gate: cash on delivery, then the crop sells at the 
   await farmer.goto("/farmer");
   await expect(farmer.getByTestId("sell-or-wait")).toBeVisible({ timeout: 30_000 });
   await expect(farmer.getByTestId("break-even")).toContainText(/Needs prices up|Pays even/);
-  await expect(farmer.getByTestId("gate-amount")).toContainText("Take up to $", { timeout: 30_000 });
+  await expect(farmer.getByTestId("gate-amount")).toContainText("Take up to ₦", { timeout: 30_000 });
+  await expect(farmer.getByTestId("gate-dollars")).toContainText("$");
   await shot(farmer, "14-gate-offer");
   await farmer.getByTestId("gate-take").click();
   await confirmed(farmer, "Take the advance");

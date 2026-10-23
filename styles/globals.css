@@ -227,7 +227,7 @@ code {
 .num,
 .table td,
 .stat-value,
-.kv span:last-child {
+.kv > span:last-child {
   font-variant-numeric: tabular-nums;
 }
 
@@ -938,13 +938,24 @@ input[type="radio"] {
   border-bottom: none;
 }
 
-.kv span:first-child {
+/* The row's own label and value: nested spans (badges, money) keep their own look. */
+.kv > span:first-child {
   color: var(--text-secondary);
 }
 
-.kv span:last-child {
+.kv > span:last-child {
   font-weight: 700;
   text-align: right;
+}
+
+/* Money: naira leads; the dollars it settles in follow, smaller and quieter, and may wrap below. */
+.money-usd {
+  display: inline-block;
+  margin-inline-start: 0.4em;
+  font-size: 0.82em;
+  font-weight: 400;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 /* ─── Tabs and notices ───────────────────────────────────────────────────── */

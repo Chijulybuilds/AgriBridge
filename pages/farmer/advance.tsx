@@ -7,7 +7,7 @@ import { BanknotesIcon } from "@heroicons/react/24/outline";
 import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, lotName } from "../../components/lots";
 import { TxStatus } from "../../components/TxStatus";
-import { Card, EmptyState, KeyValue, Notice, PageHeader } from "../../components/ui";
+import { Card, EmptyState, KeyValue, Money, Notice, PageHeader } from "../../components/ui";
 import { lotValue, useCommodities, useLots, useMaxBorrow, useMaxLtvFor, usePoolStats } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { LendingPoolAbi } from "../../lib/contracts/abis";
@@ -18,10 +18,11 @@ import {
   kg,
   kgInput,
   maturityTimestamp,
-  naira,
+  money,
+  nairaInput,
   nowSeconds,
   parseKgUpTo,
-  parseUsd,
+  parseNaira,
   percentFromBps,
   percentFromWad,
   SECONDS_PER_DAY,
@@ -72,7 +73,7 @@ export default function Advance() {
   const { data: maxBorrow } = useMaxBorrow(lot?.id, kgAmount, maturity, address);
   const { data: myLtv } = useMaxLtvFor(address, lot?.id);
   const recordBonus = commodity && myLtv !== undefined ? myLtv - commodity.maxLtvBps : 0;
-  const advance = parseUsd(amount);
+  const advance = parseNaira(amount);
 
   const days = maturity ? Math.max(0, Math.round((maturity - nowSeconds()) / SECONDS_PER_DAY)) : 0;
   const interest = useMemo(() => {
@@ -88,9 +89,9 @@ export default function Advance() {
     if (!maturity || !maxDay || endDay < minDay || endDay > maxDay) {
       return setFormError(`Choose an end date between ${date(maturityTimestamp(minDay))} and ${date(maturityTimestamp(maxDay ?? minDay))}.`);
     }
-    if (!advance || advance < MIN_ADVANCE) return setFormError("Advances start at $100.");
-    if (maxBorrow !== undefined && advance > maxBorrow) return setFormError(`The most this crop can borrow is ${usd(maxBorrow)}.`);
-    if (stats && advance > stats.availableCash) return setFormError(`The pool has ${usd(stats.availableCash)} available right now.`);
+    if (!advance || advance < MIN_ADVANCE) return setFormError(`Advances start at ${money(MIN_ADVANCE)}.`);
+    if (maxBorrow !== undefined && advance > maxBorrow) return setFormError(`The most this crop can borrow is ${money(maxBorrow)}.`);
+    if (stats && advance > stats.availableCash) return setFormError(`The pool has ${money(stats.availableCash)} available right now.`);
 
     try {
       await tx.ensureCropApproval(contracts.pool!);
@@ -109,7 +110,7 @@ export default function Advance() {
       <PageHeader section="advance"
         eyebrow="Farmer"
         title="Get an advance"
-        subtitle="Borrow dollars against crop in storage. The crop stays in the warehouse as security and comes back to you when you repay."
+        subtitle="Borrow money against crop in storage. The crop stays in the warehouse as security and comes back to you when you repay."
       />
 
       {/* Outside the form, which empties once all the crop is pledged. */}
@@ -155,20 +156,25 @@ export default function Advance() {
                 {lot && <span className="hint">At least a month before the crop expires on {date(lot.expiresAt)}.</span>}
               </div>
               <div className="field">
-                <label htmlFor="amount">Amount (US$)</label>
+                <label htmlFor="amount">Amount (₦)</label>
                 <div className="row" style={{ flexWrap: "nowrap" }}>
                   <input id="amount" className="input" inputMode="decimal" data-testid="amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
                   <button
                     type="button"
                     className="btn btn-secondary"
                     disabled={!maxBorrow}
-                    onClick={() => maxBorrow && setAmount((Number(maxBorrow) / 1e6).toFixed(2))}
+                    onClick={() => maxBorrow && setAmount(nairaInput(maxBorrow))}
                   >
                     Max
                   </button>
                 </div>
+                {advance !== undefined && (
+                  <span className="hint" data-testid="amount-dollars">
+                    You receive {usd(advance)} (dollars, at ₦1,500 to $1).
+                  </span>
+                )}
                 <span className="hint" data-testid="max-advance" data-tour="advance-limit">
-                  {maxBorrow !== undefined ? `Up to ${usd(maxBorrow)} (${naira(maxBorrow)}) for this crop and date.` : "Choose the crop, kilograms and date to see your limit."}
+                  {maxBorrow !== undefined ? `Up to ${money(maxBorrow)} for this crop and date.` : "Choose the crop, kilograms and date to see your limit."}
                 </span>
               </div>
               {formError && <p className="form-error" role="alert" data-testid="form-error">{formError}</p>}
@@ -182,7 +188,7 @@ export default function Advance() {
             {lot && commodity && (
               <div style={{ marginBottom: 14 }}>
                 <KeyValue label="Crop" value={<><GradeBadge grade={lot.currentGrade} /> {commodity.name}</>} />
-                <KeyValue label="Worth today" help="worth-today" value={usd(lotValue(lot, commodity, kgAmount ?? 0n))} />
+                <KeyValue label="Worth today" help="worth-today" value={<Money value={lotValue(lot, commodity, kgAmount ?? 0n)} />} />
                 <KeyValue
                   label="Borrow limit"
                   help="borrow-limit"
@@ -194,7 +200,7 @@ export default function Advance() {
                   }
                 />
                 <KeyValue label="Interest now" help="interest" value={stats ? `${percentFromWad(stats.borrowRate)} a year` : "—"} />
-                {interest !== undefined && days > 0 && <KeyValue label={`Interest for ${days} days (estimate)`} value={usd(interest)} />}
+                {interest !== undefined && days > 0 && <KeyValue label={`Interest for ${days} days (estimate)`} value={<Money value={interest} />} />}
               </div>
             )}
             <Notice tone="warn">

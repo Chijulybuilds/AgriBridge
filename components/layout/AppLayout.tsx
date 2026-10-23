@@ -32,7 +32,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { REGULATOR_ROLE } from "../../lib/contracts/config";
-import { naira, usd } from "../../lib/format";
+import { ngn, usd } from "../../lib/format";
 import { APP_ROLES, storeRole, type AppRole } from "../../lib/session";
 import { useHasRegistryRole, useIsReporter, useUsdc } from "../../hooks/useProtocolData";
 import { DemoFaucet } from "../DemoFaucet";
@@ -179,8 +179,8 @@ export default function AppLayout({
               {isConnected && (
                 <span className="chip hide-mobile" data-testid="usdc-balance" data-tour="dollar-balance" title="Your dollars (USDC)">
                   <WalletIcon style={{ width: 15, height: 15, color: "var(--brand)" }} />
-                  <span className="num">{usd(balance)}</span>
-                  <span className="muted hide-small" style={{ fontSize: 12.5 }}>{naira(balance)}</span>
+                  <span className="num">{ngn(balance)}</span>
+                  <span className="muted hide-small" style={{ fontSize: 12.5 }}>{usd(balance)}</span>
                   <InfoTip id="dollar-balance" />
                 </span>
               )}

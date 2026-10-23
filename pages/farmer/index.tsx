@@ -10,7 +10,7 @@ import { Badge, Card, EmptyState, KeyValue, PageHeader, Skeleton, Stat, StatusBa
 import { TxStatus } from "../../components/TxStatus";
 import { lotValue, useCommodities, useCredit, useLoans, useLots, usePoolStats, useWarehouses } from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
-import { date, kg, naira, percentFromBps, usd } from "../../lib/format";
+import { date, kg, money, ngn, percentFromBps, usd } from "../../lib/format";
 
 /** The farmer's home: what is stored, what is owed, and the next thing to do. */
 export default function FarmerOverview() {
@@ -49,10 +49,10 @@ export default function FarmerOverview() {
       <TxStatus tx={gateTx} success={GATE_ADVANCE_DONE} />
 
       <div className="grid-4" data-tour="farmer-stats">
-        <Stat lead icon={ArchiveBoxIcon} label="Crop in storage" help="worth-today" value={usd(stockValue)} sub={`${naira(stockValue)} · ${held.length} lot${held.length === 1 ? "" : "s"}`} testId="stat-stock" />
+        <Stat lead icon={ArchiveBoxIcon} label="Crop in storage" help="worth-today" value={ngn(stockValue)} sub={`${usd(stockValue)} · ${held.length} lot${held.length === 1 ? "" : "s"}`} testId="stat-stock" />
         <Stat icon={ClockIcon} label="Waiting for checks" help="pending" value={String(pending.length)} sub="Deliveries not yet graded" />
-        <Stat icon={BanknotesIcon} label="Owed on advances" help="advance" value={usd(owed)} sub={`${naira(owed)} · ${active.length} active`} />
-        <Stat icon={BuildingLibraryIcon} label="Pool cash available" help="available-cash" value={usd(stats?.availableCash)} sub="What can be advanced now" />
+        <Stat icon={BanknotesIcon} label="Owed on advances" help="advance" value={ngn(owed)} sub={`${usd(owed)} · ${active.length} active`} />
+        <Stat icon={BuildingLibraryIcon} label="Pool cash available" help="available-cash" value={ngn(stats?.availableCash)} sub={stats ? `${usd(stats.availableCash)} · what can be advanced now` : "What can be advanced now"} />
       </div>
 
       <div className="grid-2 grid-2-lead">
@@ -108,7 +108,7 @@ export default function FarmerOverview() {
 
       <Card title="Your repayment record" testId="credit-record" tour="credit-record" help="record">
         <p className="text-secondary" style={{ marginTop: 0 }}>
-          Every advance of {credit ? usd(credit.minAmount, 0) : "$500"} or more that you repay in full by its end date, once it has
+          Every advance of {credit ? money(credit.minAmount) : "₦750,000 ($500)"} or more that you repay in full by its end date, once it has
           been open {credit ? Math.round(credit.minAgeSeconds / 86_400) : 14}{" "}days, adds to your record. A good record raises how much
           you can borrow. It is kept on the blockchain in your name and can&apos;t be moved or bought.
         </p>
