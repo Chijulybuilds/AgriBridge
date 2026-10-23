@@ -756,12 +756,18 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
 
     /**
      * @notice What the welcome fund would pay up front if `_farmer` borrowed `_amount` against
-     *         `_lotId` now: the first WELCOME_PERIOD of interest, up to WELCOME_MAX_CREDIT. Zero once
-     *         the farmer has had it, for crop someone else delivered, or while the fund is empty.
-     *         Estimated at today's rate; the rate the loan starts at sets the exact amount.
+     *         `_lotId` now: the first WELCOME_PERIOD of interest at the rate the advance would start
+     *         at, up to WELCOME_MAX_CREDIT. Zero once the farmer has had it, for crop someone else
+     *         delivered, or while the fund is empty.
      */
     function welcomeCreditFor(address _farmer, uint256 _lotId, uint256 _amount) external view returns (uint256) {
-        return _welcomeCredit(_farmer, _lotId, _amount, getBorrowRate());
+        // A loan moves `_amount` from cash to debt: what investors can lend stays the same, and
+        // only the share of it lent out grows. Held money is counted as the next accrual will.
+        (uint256 owed, uint256 pendingToReserves) = _pendingAccrual();
+        uint256 held = reserves + pendingToReserves + lockedIncome - _unlockedIncome();
+        uint256 liquidity = (cash > held ? cash - held : 0) + owed;
+        uint256 u = liquidity == 0 ? 0 : ((owed + _amount) * WAD) / liquidity;
+        return _welcomeCredit(_farmer, _lotId, _amount, _rateAt(u));
     }
 
     /**
@@ -1117,9 +1123,13 @@ contract LendingPool is AccessControl, Pausable, ReentrancyGuard, ERC1155Holder 
     }
 
     function _rate(uint256 _owed) internal view returns (uint256) {
-        uint256 u = _utilization(_owed);
-        if (u <= KINK) return BASE_RATE + (u * SLOPE_BELOW_KINK) / WAD;
-        return BASE_RATE + (KINK * SLOPE_BELOW_KINK) / WAD + ((u - KINK) * SLOPE_ABOVE_KINK) / WAD;
+        return _rateAt(_utilization(_owed));
+    }
+
+    /// @dev The kink model: the annual rate (WAD) at utilisation `_u` (WAD).
+    function _rateAt(uint256 _u) internal pure returns (uint256) {
+        if (_u <= KINK) return BASE_RATE + (_u * SLOPE_BELOW_KINK) / WAD;
+        return BASE_RATE + (KINK * SLOPE_BELOW_KINK) / WAD + ((_u - KINK) * SLOPE_ABOVE_KINK) / WAD;
     }
 
     /**

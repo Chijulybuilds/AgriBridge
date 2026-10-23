@@ -66,7 +66,7 @@ contract WelcomeCreditTest is ProtocolFixture {
     function test_FirstAdvance_TheWelcomeFundPaysTheFirstMonth() public {
         uint256 credit = _month(ADVANCE, STARTING_RATE);
         assertEq(credit, 1_552_654, "about $1.55");
-        assertEq(pool.welcomeCreditFor(farmer, lotId, ADVANCE), _month(ADVANCE, 5e16), "quoted at today's 5%");
+        assertEq(pool.welcomeCreditFor(farmer, lotId, ADVANCE), credit, "quoted at the rate it will start at");
 
         vm.startPrank(farmer);
         d.commodityToken.setApprovalForAll(address(pool), true);
@@ -293,8 +293,10 @@ contract WelcomeCreditTest is ProtocolFixture {
         _fund = bound(_fund, 0, 100e6);
         if (_fund > 0) _fundWelcome(_fund);
 
+        uint256 quoted = pool.welcomeCreditFor(farmer, cocoaLot, _amount);
         uint256 loanId = _borrow(farmer, cocoaLot, 10_000e18, _amount, 90);
         uint256 credit = pool.welcomeCredit(loanId);
+        assertEq(credit, quoted, "the quote is what the advance gets");
 
         // The rate the advance starts at: 5% plus a tenth of the share of the pool it puts out on loan.
         uint256 rate = 5e16 + (((_amount * 1e18) / POOL_LIQUIDITY) * 10e16) / 1e18;
