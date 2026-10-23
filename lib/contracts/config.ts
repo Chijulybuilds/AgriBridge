@@ -121,3 +121,6 @@ export const PRICE_DECIMALS = 8;
 export const BPS = 10_000n;
 /** Interest rates on-chain are annual, 1e18-scaled. */
 export const WAD = 10n ** 18n;
+
+/** The smallest advance, $25 (USDC, 6 decimals): LendingPool.MIN_BORROW_AMOUNT. */
+export const MIN_ADVANCE = 25_000_000n;

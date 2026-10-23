@@ -18,6 +18,7 @@ import {
   useLots,
   useMarketSettings,
   useMaxBorrow,
+  useWelcomeCredit,
   usePoolStats,
   type Commodity,
   type Listing,
@@ -26,7 +27,7 @@ import {
 } from "../../hooks/useProtocolData";
 import { useTx, type Tx } from "../../hooks/useTx";
 import { MarketplaceAbi } from "../../lib/contracts/abis";
-import { contracts, PriceMode, WAD } from "../../lib/contracts/config";
+import { contracts, MIN_ADVANCE, PriceMode, WAD } from "../../lib/contracts/config";
 import {
   date,
   isoDay,
@@ -54,7 +55,6 @@ type Pricing = "market" | "fixed";
 
 /** Marketplace.ADVANCE_PRICE_HEADROOM_BPS: with an advance, ask at least 110% of its share of each kilogram. */
 const ADVANCE_HEADROOM_BPS = 11_000n;
-const MIN_ADVANCE = 100n * 10n ** 6n; // LendingPool.MIN_BORROW_AMOUNT
 const MATURITY_BUFFER_DAYS = 30; // LendingPool.MATURITY_BUFFER
 const DEFAULT_TERM_DAYS = 60;
 const ONE_KG = 10n ** 18n;
@@ -235,6 +235,7 @@ export default function Sell() {
   const maturity = endDay ? maturityTimestamp(endDay) : undefined;
   const { data: maxBorrow } = useMaxBorrow(withAdvance ? lot?.id : undefined, kgAmount, maturity, address);
   const advance = parseNaira(advanceAmount);
+  const { data: welcome } = useWelcomeCredit(withAdvance ? address : undefined, lot?.id, advance);
   const floor = withAdvance && advance && kgAmount ? minPricePerKg(advance, kgAmount) : undefined;
   const lowest = terms.lowestPerKg(referencePerKg);
   const totalAtPrice = lowest !== undefined && kgAmount ? (lowest * kgAmount) / ONE_KG : undefined;
@@ -388,6 +389,12 @@ export default function Sell() {
                           : "Choose the stock and kilograms to see how much you can take."}
                       </span>
                     </div>
+                    {welcome !== undefined && welcome > 0n && (
+                      <Notice tone="ok" testId="welcome-offer">
+                        Your first advance: AgriBridge pays the first 30 days of interest, about {money(welcome)}.{" "}
+                        <InfoTip id="welcome-credit" />
+                      </Notice>
+                    )}
                     <div className="field">
                       <label htmlFor="advance-end">If it hasn&apos;t all sold, repay by</label>
                       <input
@@ -436,7 +443,11 @@ export default function Sell() {
                   <KeyValue
                     label="Interest"
                     help="interest"
-                    value={stats ? `${percentFromWad(stats.borrowRate)} a year, only until it sells (about ${money(monthInterest)} a month)` : "—"}
+                    value={
+                      stats
+                        ? `${percentFromWad(stats.borrowRate)} a year, only until it sells (about ${money(monthInterest)} a month)${welcome ? "; the first 30 days are paid for you" : ""}`
+                        : "—"
+                    }
                   />
                 </div>
               )}
@@ -444,8 +455,8 @@ export default function Sell() {
           )}
           <Notice>
             Buyers pay AgriBridge&apos;s {settings ? percentFromBps(settings.feeBps) : "1%"}{" "}fee on top of your price, so you get your full
-            price, in dollars, as it sells. Half the fee goes to the investors whose money funds farmers&apos; advances. Unsold crop comes
-            back when you take the listing down.
+            price, in dollars, as it sells. Half the fee goes to the investors whose money funds farmers&apos; advances, and a tenth pays
+            new farmers&apos; first month of interest. Unsold crop comes back when you take the listing down.
           </Notice>
         </Card>
       </div>

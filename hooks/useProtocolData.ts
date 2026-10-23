@@ -424,6 +424,8 @@ export type Loan = {
   liquidatable?: boolean;
   /** The open marketplace listing selling this advance's crop, or 0n. */
   listingId: bigint;
+  /** Interest the welcome fund paid up front on this advance (a farmer's first), or 0n. */
+  welcomeCredit: bigint;
 };
 
 /** Loans of one borrower, or every active loan when `borrower` is "all-active". */
@@ -441,7 +443,7 @@ export function useLoans(borrower: Address | "all-active" | undefined) {
       const loans = await Promise.all(
         [...loanIds].map(async (id): Promise<Loan> => {
           const marketplace = contracts.marketplace;
-          const [loan, debt, healthFactor, liquidationPrice, liquidatable, listingId] = await Promise.all([
+          const [loan, debt, healthFactor, liquidationPrice, liquidatable, listingId, welcomeCredit] = await Promise.all([
             publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "getLoan", args: [id] }),
             publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "debtOf", args: [id] }),
             orUndefined(publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "getHealthFactor", args: [id] })),
@@ -450,6 +452,7 @@ export function useLoans(borrower: Address | "all-active" | undefined) {
             marketplace
               ? publicClient.readContract({ address: marketplace, abi: MarketplaceAbi, functionName: "listingOfLoan", args: [id] })
               : Promise.resolve(0n),
+            publicClient.readContract({ address: pool!, abi: LendingPoolAbi, functionName: "welcomeCredit", args: [id] }),
           ]);
           return {
             id,
@@ -465,6 +468,7 @@ export function useLoans(borrower: Address | "all-active" | undefined) {
             liquidationPrice,
             liquidatable,
             listingId,
+            welcomeCredit,
           };
         }),
       );
@@ -492,6 +496,25 @@ export function useMaxBorrow(
         abi: LendingPoolAbi,
         functionName: "maxBorrowFor",
         args: [account!, lotId!, kgAmount!, BigInt(maturity!)],
+      }),
+  });
+}
+
+/**
+ * What the welcome fund would pay up front if `account` took `amount` against a lot now: their first
+ * 30 days of interest, on their first advance against crop they delivered. 0n when it doesn't apply.
+ */
+export function useWelcomeCredit(account: Address | undefined, lotId: bigint | undefined, amount: bigint | undefined) {
+  const pool = contracts.pool;
+  return useQuery({
+    queryKey: ["welcome-credit", pool, account, lotId?.toString(), amount?.toString()],
+    enabled: Boolean(pool && account && lotId && amount),
+    queryFn: () =>
+      publicClient.readContract({
+        address: pool!,
+        abi: LendingPoolAbi,
+        functionName: "welcomeCreditFor",
+        args: [account!, lotId!, amount!],
       }),
   });
 }

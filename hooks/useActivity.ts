@@ -113,6 +113,15 @@ function describe(log: DecodedLog, commodityNames: Map<bigint, string>): string 
         : `A sale of ${kg(a.kg as bigint)} repaid ${money(a.repaid as bigint)} of advance ${a.loanId}; ${money(a.remainingDebt as bigint)} is still owed`;
     case "IncomeAdded":
       return `Investors earned ${money(a.amount as bigint)} from marketplace fees`;
+    case "WelcomeCreditPaid":
+      return `The welcome fund paid the first 30 days of interest on ${who("farmer")}'s first advance (${a.loanId}): ${money(a.amount as bigint)}`;
+    // Every sale tops the fund up; only other top-ups and withdrawals get a line.
+    case "WelcomeFunded":
+      return (a.from as Address).toLowerCase() === contracts.marketplace?.toLowerCase()
+        ? null
+        : `${who("from")} added ${money(a.amount as bigint)} to the welcome fund for new farmers`;
+    case "WelcomeWithdrawn":
+      return `${money(a.amount as bigint)} was moved out of the welcome fund`;
     case "ExpiredStockSold":
       return `${who("seller")} sold ${kg(a.kg as bigint)} of expired lot ${a.lotId} to AgriBridge for ${money(a.paid as bigint)}`;
     case "WithdrawalRequested":

@@ -97,7 +97,7 @@ test("2. the Safe weighs, grades and approves it", async ({ browser }) => {
   await shot(farmer, "03-farmer-stock");
 });
 
-test("3. the farmer gets an advance, then repays it and gets the crop back", async ({ browser }) => {
+test("3. the farmer gets a first advance with 30 days free, then repays it and gets the crop back", async ({ browser }) => {
   const page = await openAs(browser, "farmer");
   await signIn(page, "farmer");
   await page.goto("/farmer/advance");
@@ -107,12 +107,16 @@ test("3. the farmer gets an advance, then repays it and gets the crop back", asy
   // ₦1,500,000 is $1,000 at the demo rate.
   await page.getByTestId("amount").fill("1500000");
   await expect(page.getByTestId("amount-dollars")).toContainText("$1,000.00");
+  // The farmer's first advance: $1,000 starts the demo pool at 5.2% a year, and the welcome fund
+  // pays 30 days of that, $4.27, the moment it opens.
+  await expect(page.getByTestId("welcome-offer")).toContainText("$4.27");
   await shot(page, "04-advance-form");
   await page.getByTestId("submit-advance").click();
   await confirmed(page, "Take the advance");
 
   await page.goto("/farmer/loans");
-  await expect(page.getByTestId("owed")).toContainText("$1,000");
+  await expect(page.getByTestId("welcome-credit")).toContainText("$4.27");
+  await expect(page.getByTestId("owed")).toContainText("$995.73");
   await shot(page, "05-my-advances");
   // A $1,000 advance repaid on time, after more than two weeks, so it counts on the farmer's record.
   await passMinutes(15 * 24 * 60);

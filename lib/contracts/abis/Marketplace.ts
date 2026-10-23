@@ -1034,6 +1034,19 @@ export const MarketplaceAbi = [
   },
   {
     "type": "function",
+    "name": "setWelcomeShare",
+    "inputs": [
+      {
+        "name": "_welcomeShareBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "supportsInterface",
     "inputs": [
       {
@@ -1057,6 +1070,19 @@ export const MarketplaceAbi = [
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "welcomeShareBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1244,6 +1270,12 @@ export const MarketplaceAbi = [
       },
       {
         "name": "toInvestors",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toWelcome",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1479,6 +1511,19 @@ export const MarketplaceAbi = [
         "type": "address",
         "indexed": false,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WelcomeShareUpdated",
+    "inputs": [
+      {
+        "name": "welcomeShareBps",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false

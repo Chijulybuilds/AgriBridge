@@ -8,10 +8,19 @@ import AppLayout from "../../components/layout/AppLayout";
 import { GradeBadge, lotName } from "../../components/lots";
 import { TxStatus } from "../../components/TxStatus";
 import { Card, EmptyState, KeyValue, Money, Notice, PageHeader } from "../../components/ui";
-import { lotValue, useCommodities, useLots, useMaxBorrow, useMaxLtvFor, usePoolStats } from "../../hooks/useProtocolData";
+import { InfoTip } from "../../components/help/InfoTip";
+import {
+  lotValue,
+  useCommodities,
+  useLots,
+  useMaxBorrow,
+  useMaxLtvFor,
+  usePoolStats,
+  useWelcomeCredit,
+} from "../../hooks/useProtocolData";
 import { useTx } from "../../hooks/useTx";
 import { LendingPoolAbi } from "../../lib/contracts/abis";
-import { contracts, WAD } from "../../lib/contracts/config";
+import { contracts, MIN_ADVANCE, WAD } from "../../lib/contracts/config";
 import {
   date,
   isoDay,
@@ -29,7 +38,6 @@ import {
   usd,
 } from "../../lib/format";
 
-const MIN_ADVANCE = 100n * 10n ** 6n; // $100, LendingPool.MIN_BORROW_AMOUNT
 const MATURITY_BUFFER_DAYS = 30; // LendingPool.MATURITY_BUFFER
 
 /**
@@ -74,6 +82,7 @@ export default function Advance() {
   const { data: myLtv } = useMaxLtvFor(address, lot?.id);
   const recordBonus = commodity && myLtv !== undefined ? myLtv - commodity.maxLtvBps : 0;
   const advance = parseNaira(amount);
+  const { data: welcome } = useWelcomeCredit(address, lot?.id, advance);
 
   const days = maturity ? Math.max(0, Math.round((maturity - nowSeconds()) / SECONDS_PER_DAY)) : 0;
   const interest = useMemo(() => {
@@ -177,6 +186,12 @@ export default function Advance() {
                   {maxBorrow !== undefined ? `Up to ${money(maxBorrow)} for this crop and date.` : "Choose the crop, kilograms and date to see your limit."}
                 </span>
               </div>
+              {welcome !== undefined && welcome > 0n && (
+                <Notice tone="ok" testId="welcome-offer">
+                  Your first advance: AgriBridge pays the first 30 days of interest, about {money(welcome)}.{" "}
+                  <InfoTip id="welcome-credit" />
+                </Notice>
+              )}
               {formError && <p className="form-error" role="alert" data-testid="form-error">{formError}</p>}
               <button className="btn btn-block" type="submit" disabled={tx.isBusy} data-testid="submit-advance" data-tour="advance-submit">
                 {tx.isBusy ? "Working…" : "Get the advance"}
@@ -200,7 +215,15 @@ export default function Advance() {
                   }
                 />
                 <KeyValue label="Interest now" help="interest" value={stats ? `${percentFromWad(stats.borrowRate)} a year` : "—"} />
-                {interest !== undefined && days > 0 && <KeyValue label={`Interest for ${days} days (estimate)`} value={<Money value={interest} />} />}
+                {interest !== undefined && days > 0 && (
+                  <KeyValue
+                    label={welcome ? `Your interest for ${days} days (estimate)` : `Interest for ${days} days (estimate)`}
+                    value={<Money value={welcome ? (interest > welcome ? interest - welcome : 0n) : interest} />}
+                  />
+                )}
+                {welcome !== undefined && welcome > 0n && (
+                  <KeyValue label="First 30 days, paid for you" help="welcome-credit" value={<Money value={welcome} />} />
+                )}
               </div>
             )}
             <Notice tone="warn">

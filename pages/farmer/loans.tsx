@@ -145,6 +145,14 @@ function AdvanceCard({
         <div>
           <KeyValue label="Owed now" value={<Money value={loan.debt} />} testId="owed" />
           <KeyValue label="Borrowed" value={<Money value={loan.principal} />} />
+          {loan.welcomeCredit > 0n && (
+            <KeyValue
+              label="First 30 days' interest, paid for you"
+              help="welcome-credit"
+              value={<Money value={loan.welcomeCredit} />}
+              testId="welcome-credit"
+            />
+          )}
           <KeyValue label="Crop held as security" value={kg(loan.collateralKg)} />
           <KeyValue label="Repay by" help="end-date" value={`${date(loan.maturity)} (${relativeDays(loan.maturity)})`} />
           <KeyValue

@@ -205,7 +205,7 @@ export const HELP = {
   advance: {
     group: "Advances",
     title: "Advance",
-    what: "A loan of dollars backed by crop in the warehouse. The crop stays there as security until you pay back.",
+    what: "A loan of dollars backed by crop in the warehouse, from ₦37,500 ($25). The crop stays there as security until you pay back.",
     why: "You get cash now without selling your crop at a low harvest-time price.",
     todo: "Go to \"Get an advance\", choose the crop, the kilograms and the repay date, then the amount.",
   },
@@ -229,6 +229,13 @@ export const HELP = {
     what: "The cost of borrowing, a small amount added every second the advance is open. It is about 5% a year when little money is lent out, and more when a lot is.",
     why: "The interest pays the investors who lent the dollars.",
     todo: "Repay early to pay less. The estimate is shown before you take the advance.",
+  },
+  "welcome-credit": {
+    group: "Advances",
+    title: "First 30 days free",
+    what: "On your first advance against crop you delivered yourself, AgriBridge pays the first 30 days of interest for you, up to ₦75,000 ($50).",
+    why: "It makes your first advance cheap to try. The money comes from a tenth of every market fee, so the investors who lend to you are still paid.",
+    todo: "Nothing to do. It is paid the moment you take the advance, so at first you owe a little less than you received. By day 30 you owe what you borrowed.",
   },
   "get-paid-today": {
     group: "Advances",
@@ -392,7 +399,7 @@ export const HELP = {
     group: "Buying and selling",
     title: "Market fee",
     what: "1% of each sale, paid by the buyer on top of the price.",
-    why: "Sellers get their full asking price. Half the fee goes to the investors whose money funds farmers' advances, and half runs the market.",
+    why: "Sellers get their full asking price. Half the fee goes to the investors whose money funds farmers' advances, a tenth pays new farmers' first month of interest, and the rest runs the market.",
     todo: "Nothing to do. Buyers see the fee and the total before they confirm.",
   },
   buy: {

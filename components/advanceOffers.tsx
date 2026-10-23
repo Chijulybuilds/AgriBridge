@@ -7,17 +7,17 @@ import {
   useLotTimeline,
   useMaxBorrow,
   usePoolStats,
+  useWelcomeCredit,
   type Commodity,
   type Lot,
 } from "../hooks/useProtocolData";
 import type { Tx } from "../hooks/useTx";
 import { LendingPoolAbi } from "../lib/contracts/abis";
-import { contracts, WAD } from "../lib/contracts/config";
+import { contracts, MIN_ADVANCE, WAD } from "../lib/contracts/config";
 import { date, kg, money, ngn, nowSeconds, SECONDS_PER_DAY, usd } from "../lib/format";
-import { Card, KeyValue, Money, Segmented } from "./ui";
+import { Card, KeyValue, Money, Notice, Segmented } from "./ui";
 import { InfoTip } from "./help/InfoTip";
 
-const MIN_ADVANCE = 100n * 10n ** 6n; // LendingPool.MIN_BORROW_AMOUNT
 const MATURITY_BUFFER_DAYS = 30; // LendingPool.MATURITY_BUFFER
 const GATE_TERM_DAYS = 60;
 const MONTH = 30 * SECONDS_PER_DAY;
@@ -77,6 +77,7 @@ export function GateAdvance({ lot, commodity, tx }: { lot: Lot; commodity: Commo
   const offer = cap !== undefined ? (cap / 1_000_000n) * 1_000_000n : undefined;
   const value = lotValue(lot, commodity, lot.balanceKg);
   const canTake = offer !== undefined && offer >= MIN_ADVANCE;
+  const { data: welcome } = useWelcomeCredit(address, lot.id, canTake ? offer : undefined);
 
   async function take() {
     if (!canTake || !maturity) return;
@@ -103,6 +104,12 @@ export function GateAdvance({ lot, commodity, tx }: { lot: Lot; commodity: Commo
         <p className="text-secondary" style={{ margin: "0 0 10px", fontSize: 13 }} data-testid="gate-dollars">
           {usd(offer, 0)}, paid in dollars at ₦1,500 to $1
         </p>
+      )}
+      {canTake && welcome !== undefined && welcome > 0n && (
+        <Notice tone="ok" testId="gate-welcome">
+          Your first 30 days are free: AgriBridge pays about {money(welcome)} of the interest.{" "}
+          <InfoTip id="welcome-credit" />
+        </Notice>
       )}
       <p className="text-secondary" style={{ marginBottom: 14, lineHeight: 1.6 }}>
         Your {commodity?.name.toLowerCase() ?? "crop"} is verified: {kg(lot.balanceKg)}, worth {money(value)} today. Take cash now and
@@ -144,6 +151,7 @@ export function SellOrWait({ lot, commodity }: { lot: Lot; commodity: Commodity 
   const end = start + m * MONTH;
   const { data: factors } = useLotTimeline(lot.id, [start, end]);
   const { data: advance } = useMaxBorrow(lot.id, lot.balanceKg, end, address);
+  const { data: welcome } = useWelcomeCredit(address, lot.id, advance);
 
   const result = useMemo(() => {
     const valueNow = lotValue(lot, commodity, lot.balanceKg);
@@ -151,13 +159,16 @@ export function SellOrWait({ lot, commodity }: { lot: Lot; commodity: Commodity 
     // The same crop in m months at today's price, after its ageing.
     const valueLater = (valueNow * factors[1]) / factors[0];
     const storage = (commodity.storageFeePerTonMonth * lot.balanceKg * BigInt(m)) / 10n ** 21n;
-    const interest = advance && stats ? (advance * stats.borrowRate * BigInt(m * 30)) / (WAD * 365n) : 0n;
+    const fullInterest = advance && stats ? (advance * stats.borrowRate * BigInt(m * 30)) / (WAD * 365n) : 0n;
+    // On a farmer's first advance, the welcome fund pays the first 30 days.
+    const free = welcome ?? 0n;
+    const interest = fullInterest > free ? fullInterest - free : 0n;
     const costs = storage + interest;
     if (valueLater === 0n) return undefined;
     const breakEvenBps = ((valueNow + costs) * 10_000n) / valueLater - 10_000n;
     const outcome = (riseBps: bigint) => (valueLater * (10_000n + riseBps)) / 10_000n - costs;
     return { valueNow, valueLater, storage, interest, breakEvenBps, outcome };
-  }, [lot, commodity, factors, advance, stats, m]);
+  }, [lot, commodity, factors, advance, welcome, stats, m]);
 
   if (choices.length === 0) return null;
   const note = pastSeasons(commodity?.name);
@@ -222,7 +233,8 @@ export function SellOrWait({ lot, commodity }: { lot: Lot; commodity: Commodity 
           </div>
           <p className="hint" style={{ marginTop: 10 }}>
             Waiting counts the crop&apos;s ageing, {money(result.storage)} of storage, and {money(result.interest)} of interest on a{" "}
-            {money(advance)} advance taken now. {note ? `${note} ` : ""}Prices can fall too, and nobody can promise they will rise.
+            {money(advance)} advance taken now{welcome ? ", after your free first month" : ""}. {note ? `${note} ` : ""}Prices can fall too,
+            and nobody can promise they will rise.
           </p>
         </>
       ) : (
