@@ -101,8 +101,12 @@ export function useTx() {
       setState("signing");
       try {
         if (chainId !== activeChain.id) await switchChain({ chainId: activeChain.id });
-        await publicClient.estimateGas({ account: address, to, value });
-        const txHash = await sendTransaction({ to, value, chainId: activeChain.id });
+        // The estimate is passed on, with the same headroom as `send`: a transfer no longer costs a
+        // fixed 21,000 gas on every network (on Sepolia, sending to a new, empty address costs about
+        // ten times that), and a wallet that assumes 21,000 sends one that runs out of gas.
+        const estimate = await publicClient.estimateGas({ account: address, to, value });
+        const gas = (estimate * 13n) / 10n + 20_000n;
+        const txHash = await sendTransaction({ to, value, gas, chainId: activeChain.id });
         setHash(txHash);
         setState("confirming");
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
