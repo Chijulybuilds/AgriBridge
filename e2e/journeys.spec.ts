@@ -65,10 +65,9 @@ test("1. a farmer books a delivery of cocoa", async ({ browser }) => {
   await signIn(page, "farmer");
   await page.goto("/farmer/deliver");
 
-  await page.getByTestId("commodity").selectOption({ label: "Cocoa" });
-  await page.getByTestId("warehouse").selectOption({ index: 1 });
+  await page.getByTestId("crop-cocoa").click();
+  await page.getByTestId("unit-kg").click();
   await page.getByTestId("quantity").fill("1000");
-  await page.getByTestId("harvest-date").fill(isoDay(0));
   await page.getByTestId("submit-delivery").click();
 
   await confirmed(page, "Book the delivery");
@@ -364,10 +363,9 @@ async function freshCashewLot(browser: Browser, inspection: string): Promise<Pag
   const farmer = await openAs(browser, "farmer");
   await signIn(farmer, "farmer");
   await farmer.goto("/farmer/deliver");
-  await farmer.getByTestId("commodity").selectOption({ label: "Cashew" });
-  await farmer.getByTestId("warehouse").selectOption({ index: 1 });
+  await farmer.getByTestId("crop-cashew").click();
+  await farmer.getByTestId("unit-kg").click();
   await farmer.getByTestId("quantity").fill("1000");
-  await farmer.getByTestId("harvest-date").fill(isoDay(0));
   await farmer.getByTestId("submit-delivery").click();
   await confirmed(farmer, "Book the delivery");
 

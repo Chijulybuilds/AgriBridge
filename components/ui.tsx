@@ -68,7 +68,7 @@ export function Card({ title, children, actions, testId, help, tour }: {
   return (
     <section className="card" data-testid={testId} data-tour={tour}>
       {(title || actions) && (
-        <div className="spread" style={{ marginBottom: 16, flexWrap: "wrap" }}>
+        <div className="spread" style={{ marginBottom: 24, flexWrap: "wrap" }}>
           {title && (
             // The "i" sits beside the heading, not inside it, so the heading keeps its own name.
             <span className="with-info">

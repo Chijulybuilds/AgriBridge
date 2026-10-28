@@ -190,7 +190,7 @@ export function SellOrWait({ lot, commodity }: { lot: Lot; commodity: Commodity 
       </div>
       {result ? (
         <>
-          <div className="grid-2" style={{ marginBottom: 6 }}>
+          <div className="grid-2" style={{ marginBottom: 24 }}>
             <div className="card-sunken">
               <span className="page-eyebrow">Sell now</span>
               <div className="display" style={{ fontSize: 30 }} data-testid="sell-now-value">

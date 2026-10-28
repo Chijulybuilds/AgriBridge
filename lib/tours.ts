@@ -331,8 +331,8 @@ export const SECTION_TOURS: Record<SectionId, Tour> = {
     { target: "crop-rules", title: "The rules for each crop", body: "How much can be borrowed against each crop, when an advance is settled, and the reward for settling it." },
   ]),
   wallet: section("wallet", "Your wallet", [
+    { target: "wallet-holdings", title: "Your money", body: "The big figure is your own money, ready to spend or send. Next to it: your crop, your investment and the ETH that pays network fees.", picture: "money" },
     { target: "wallet-receive", title: "Receive money", body: "This is your wallet address. Anyone can send you dollars, ETH or crop here: copy it, or let them scan the QR code.", picture: "wallet" },
-    { target: "wallet-holdings", title: "What you hold", body: "Your dollars, the ETH that pays network fees, your crop and your investment, all in one place.", picture: "money" },
     { target: "wallet-send", title: "Send money", body: "Send dollars or ETH to any wallet address. You check the address and the amount once more before anything is sent." },
     { target: "wallet-export", title: "Use this wallet elsewhere", body: "If you signed in with Google, email or phone, you can move this wallet into MetaMask. Read the warning first: the key it shows controls everything." },
   ]),

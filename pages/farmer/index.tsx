@@ -107,7 +107,7 @@ export default function FarmerOverview() {
       {offerLot && <SellOrWait key={`wait-${offerLot.id}`} lot={offerLot} commodity={commodities.get(offerLot.commodityId)} />}
 
       <Card title="Your repayment record" testId="credit-record" tour="credit-record" help="record">
-        <p className="text-secondary" style={{ marginTop: 0 }}>
+        <p className="text-secondary" style={{ marginTop: 0, marginBottom: 12 }}>
           Every advance of {credit ? money(credit.minAmount) : "₦750,000 ($500)"} or more that you repay in full by its end date, once it has
           been open {credit ? Math.round(credit.minAgeSeconds / 86_400) : 14}{" "}days, adds to your record. A good record raises how much
           you can borrow. It is kept on the blockchain in your name and can&apos;t be moved or bought.

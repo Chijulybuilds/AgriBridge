@@ -177,7 +177,7 @@ export default function AppLayout({
                 <DemoFaucet />
               </span>
               {isConnected && (
-                <span className="chip hide-mobile" data-testid="usdc-balance" data-tour="dollar-balance">
+                <span className="chip chip-money hide-mobile" data-testid="usdc-balance" data-tour="dollar-balance">
                   <Link href="/wallet" className="chip-link" title="Open your wallet">
                     <span className="visually-hidden">Your wallet: </span>
                     <WalletIcon style={{ width: 15, height: 15, color: "var(--brand)" }} />
@@ -189,10 +189,11 @@ export default function AppLayout({
               )}
               <ThemeToggle />
               {isConnected ? (
-                <span className="chip hide-small" data-testid="account">
+                <Link href="/wallet" className="chip chip-account hide-small" data-testid="account" title="Open your wallet">
                   <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--ok)" }} />
+                  <span className="visually-hidden">Your wallet: </span>
                   <AccountName />
-                </span>
+                </Link>
               ) : (
                 <Link className="btn btn-small" href={`/login?role=${role}`}>
                   Sign in

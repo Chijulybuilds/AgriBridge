@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useConnection } from "wagmi";
 import { formatEther, getAddress, isAddress, zeroAddress, type Address } from "viem";
 import qrcode from "qrcode-generator";
+import { ArchiveBoxIcon, BoltIcon, BuildingLibraryIcon, WalletIcon } from "@heroicons/react/24/outline";
 
 import AppLayout from "../components/layout/AppLayout";
 import { TxStatus } from "../components/TxStatus";
-import { Card, KeyValue, Money, Notice, PageHeader, Segmented } from "../components/ui";
+import { Card, KeyValue, Money, Notice, PageHeader, Segmented, Stat } from "../components/ui";
 import { ExportKey } from "../components/wallet";
 import { lotValue, useCommodities, useEthBalance, useInvestorPosition, useLots, useUsdc } from "../hooks/useProtocolData";
 import { useTx } from "../hooks/useTx";
@@ -36,12 +37,12 @@ export default function WalletPage() {
       />
       {address && (
         <>
+          <Holdings address={address} usdc={usdc} ethBalance={ethBalance} />
           <div className="grid-2">
             <Receive address={address} />
-            <Holdings address={address} usdc={usdc} ethBalance={ethBalance} />
-          </div>
-          <div className="grid-2">
             <SendMoney address={address} usdc={usdc} ethBalance={ethBalance} />
+          </div>
+          <div>
             <Card title="Use this wallet in other apps" help="export-key" tour="wallet-export" testId="wallet-export">
               <p className="text-secondary" style={{ marginTop: 0 }}>
                 To buy, sell or send money in other apps, the wallet needs to be in a wallet app such as MetaMask. Anyone can already
@@ -133,30 +134,33 @@ function Holdings({ address, usdc, ethBalance }: { address: Address; usdc: bigin
   const cropKg = held.reduce((sum, lot) => sum + lot.balanceKg, 0n);
   const cropValue = held.reduce((sum, lot) => sum + (lotValue(lot, commodities.get(lot.commodityId), lot.balanceKg) ?? 0n), 0n);
 
+  // The person's own money leads the page, the largest figure on it; the rest of what they hold follows.
   return (
-    <Card title="What you hold" tour="wallet-holdings" testId="wallet-holdings">
-      <KeyValue label="Dollars (USDC)" help="dollar-balance" value={<Money value={usdc} />} testId="hold-usdc" />
-      <KeyValue label="ETH for network fees" help="network-fee" value={eth(ethBalance)} testId="hold-eth" />
-      <KeyValue
-        label="Crop you hold"
-        help="stock"
-        value={
-          cropKg > 0n ? (
-            <>
-              {kg(cropKg)} · <Money value={cropValue} />
-            </>
-          ) : (
-            "None yet"
-          )
-        }
-      />
-      <KeyValue label="Invested in the pool" help="shares" value={position && position.shares > 0n ? <Money value={position.value} /> : "Nothing yet"} />
+    <>
+      <div className="grid-4" data-tour="wallet-holdings" data-testid="wallet-holdings">
+        <Stat lead icon={WalletIcon} label="Your money" help="dollar-balance" value={ngn(usdc)} sub={`${usd(usdc)} · ready to spend or send`} testId="hold-usdc" />
+        <Stat
+          icon={ArchiveBoxIcon}
+          label="Crop you hold"
+          help="stock"
+          value={cropKg > 0n ? ngn(cropValue) : "None yet"}
+          sub={cropKg > 0n ? `${usd(cropValue)} · ${kg(cropKg)}` : "Deliver or buy crop to see it here"}
+        />
+        <Stat
+          icon={BuildingLibraryIcon}
+          label="Invested in the pool"
+          help="shares"
+          value={position && position.shares > 0n ? ngn(position.value) : "Nothing yet"}
+          sub={position && position.shares > 0n ? usd(position.value) : "Earn from farmers' interest"}
+        />
+        <Stat icon={BoltIcon} label="ETH for network fees" help="network-fee" value={eth(ethBalance)} sub="Pays for each transaction" testId="hold-eth" />
+      </div>
       {ethBalance === 0n && (
         <Notice tone="warn">
           You have no ETH yet, so you can&apos;t pay network fees. Ask the AgriBridge team to send a little to your address.
         </Notice>
       )}
-    </Card>
+    </>
   );
 }
 

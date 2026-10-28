@@ -88,13 +88,12 @@ test("capture the demo screens", async ({ browser }) => {
 
   // 4. A farmer books a delivery
   await farmer.goto("/farmer/deliver");
-  await farmer.getByTestId("commodity").selectOption({ label: "Cocoa" });
-  await farmer.getByTestId("warehouse").selectOption({ index: 1 });
+  await farmer.getByTestId("crop-cocoa").click();
+  await farmer.getByTestId("unit-kg").click();
   await farmer.getByTestId("quantity").fill("1000");
-  await farmer.getByTestId("harvest-date").fill(isoDay(0));
   await snap(farmer, "04-deliver-form", {
     commodity: farmer.getByTestId("commodity"),
-    warehouse: farmer.getByTestId("warehouse"),
+    warehouse: farmer.getByTestId("warehouse-chosen"),
     quantity: farmer.getByTestId("quantity"),
     submit: farmer.getByTestId("submit-delivery"),
   });
