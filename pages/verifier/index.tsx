@@ -17,6 +17,7 @@ import { CollectionsTab } from "../../components/verifier/Collections";
 import { CropsTab } from "../../components/verifier/Crops";
 import { IntakeTab } from "../../components/verifier/Intake";
 import { PricesTab } from "../../components/verifier/Prices";
+import { SafeQueuePanel } from "../../components/verifier/SafeQueue";
 import { WarehousesTab } from "../../components/verifier/Warehouses";
 import { publicClient } from "../../lib/chain";
 import { VERIFIER_SAFE } from "../../lib/contracts/config";
@@ -75,7 +76,7 @@ export default function Verifier() {
   );
 }
 
-function Console({ safe }: { safe: string }) {
+function Console({ safe }: { safe: Address }) {
   const [tab, setTab] = useState<TabId>("intake");
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-primary)" }}>
@@ -105,6 +106,7 @@ function Console({ safe }: { safe: string }) {
           <p>Every action here becomes a transaction from the Safe; inside Safe{"{"}Wallet{"}"} the owners confirm it.</p>
         </div>
         <NetworkGuard />
+        <SafeQueuePanel safe={safe} />
         <Tabs tabs={TABS} value={tab} onChange={setTab} label="Verifier work" />
         <TabPanel id={tab}>
           {tab === "intake" && <IntakeTab />}

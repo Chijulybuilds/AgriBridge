@@ -92,8 +92,8 @@ function FundCard({ balance, discountBps }: { balance?: bigint; discountBps?: bi
     if (!value) return setError("Enter an amount in US dollars, such as 5000.");
     try {
       if (tx.viaSafe) {
-        // Safe transactions run in order, so the approval is queued just ahead of the top-up.
-        await tx.send({ address: contracts.usdc!, abi: ERC20Abi, functionName: "approve", args: [contracts.marketplace!, value] }, "Approve");
+        // Safe transactions run in order, so the approval is queued just ahead of the top-up (which depends on it).
+        await tx.send({ address: contracts.usdc!, abi: ERC20Abi, functionName: "approve", args: [contracts.marketplace!, value] }, "Approve", true);
       } else {
         await tx.ensureUsdc(contracts.marketplace!, value);
       }

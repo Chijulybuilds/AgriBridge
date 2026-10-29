@@ -1,14 +1,17 @@
 import { useId, useState, type ReactNode } from "react";
+import { useConnection } from "wagmi";
 import { ClockIcon, TruckIcon } from "@heroicons/react/24/outline";
 
 import { useCommodities, useLots, useWarehouses, useWithdrawalRequests, type WithdrawalRequest } from "../../hooks/useProtocolData";
+import { findQueued, useSafeQueue, type CheckedTx } from "../../hooks/useSafeQueue";
 import { useTx, type Tx } from "../../hooks/useTx";
 import { WarehouseDeskAbi } from "../../lib/contracts/abis";
 import { contracts } from "../../lib/contracts/config";
 import { date, kg, parseUsd, shortAddress, textToBytes32, usd } from "../../lib/format";
+import { requestAction } from "../../lib/safeQueue";
 import { LotLabel, lotName } from "../lots";
 import { TxStatus } from "../TxStatus";
-import { Card, EmptyState, StatusBadge } from "../ui";
+import { Card, EmptyState, Notice, StatusBadge } from "../ui";
 
 /**
  * Requests to take goods out of the warehouses. When the goods have left (picked
@@ -26,6 +29,9 @@ export function CollectionsTab() {
   const tx = useTx();
   const pending = requests.filter((r) => r.status === "Pending");
   const done = requests.filter((r) => r.status !== "Pending").slice(0, 10);
+  // A request already waiting in the Safe can't be released or rejected a second time: the second would revert.
+  const { address } = useConnection();
+  const queue = useSafeQueue(tx.viaSafe ? address : undefined);
 
   return (
     <div className="stack">
@@ -42,6 +48,7 @@ export function CollectionsTab() {
                   key={r.id.toString()}
                   tx={tx}
                   request={r}
+                  queued={findQueued(queue.data?.queued, requestAction(r.id))}
                   label={
                     <LotLabel
                       lot={lot ?? { id: r.lotId, commodityId: 0n }}
@@ -85,7 +92,7 @@ export function CollectionsTab() {
   );
 }
 
-function CollectionItem({ tx, request, label }: { tx: Tx; request: WithdrawalRequest; label: ReactNode }) {
+function CollectionItem({ tx, request, label, queued }: { tx: Tx; request: WithdrawalRequest; label: ReactNode; queued?: CheckedTx }) {
   const id = useId();
   const delivery = request.deliveryBudget > 0n;
   const [fee, setFee] = useState("");
@@ -128,6 +135,12 @@ function CollectionItem({ tx, request, label }: { tx: Tx; request: WithdrawalReq
           <span className="badge badge-muted badge-plain">Storage paid {usd(request.storageFee)}</span>
         </span>
       </div>
+      {queued && (
+        <Notice tone="info" testId="already-queued">
+          Waiting in the Safe queue as #{queued.nonce} ({queued.signatures} of {queued.threshold} signed). Execute it in Safe{"{"}Wallet{"}"}, or
+          reject it there to decide again.
+        </Notice>
+      )}
       <div className="spread" style={{ alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
         <div className="row" style={{ alignItems: "flex-end", gap: 10 }}>
           {delivery && (
@@ -136,7 +149,7 @@ function CollectionItem({ tx, request, label }: { tx: Tx; request: WithdrawalReq
               <input id={`${id}-fee`} className="input" placeholder="25" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} />
             </div>
           )}
-          <button className="btn" disabled={tx.isBusy} onClick={() => void release()}>
+          <button className="btn" disabled={tx.isBusy || Boolean(queued)} onClick={() => void release()}>
             Confirm the goods have left
           </button>
         </div>
@@ -152,7 +165,7 @@ function CollectionItem({ tx, request, label }: { tx: Tx; request: WithdrawalReq
               onChange={(e) => setReason(e.target.value)}
             />
           </div>
-          <button className="btn btn-danger" disabled={tx.isBusy} onClick={() => void reject()}>
+          <button className="btn btn-danger" disabled={tx.isBusy || Boolean(queued)} onClick={() => void reject()}>
             Reject and refund
           </button>
         </div>

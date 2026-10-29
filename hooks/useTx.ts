@@ -1,11 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useConnection, useSendTransaction, useSwitchChain, useWriteContract } from "wagmi";
-import type { Address, Hash } from "viem";
+import { encodeFunctionData, type Address, type Hash } from "viem";
 
 import { CommodityTokenAbi, ERC20Abi } from "../lib/contracts/abis";
 import { contracts } from "../lib/contracts/config";
 import { publicClient } from "../lib/chain";
+import { decode, fetchSafeQueue, safeQueueAvailable } from "../lib/safeQueue";
 import { activeChain } from "../lib/wagmi";
 
 /** "proposed": sent to the Safe, which executes it once enough owners confirm in Safe{Wallet}. */
@@ -32,6 +33,8 @@ export function useTx() {
   const [hash, setHash] = useState<Hash>();
   const [error, setError] = useState<Error | null>(null);
   const [step, setStep] = useState<string>();
+  // Set after a Safe proposal that the next one depends on (an approval queued before a top-up).
+  const queuedAhead = useRef(false);
 
   type Request = Parameters<typeof writeContract>[0];
 
@@ -48,6 +51,11 @@ export function useTx() {
       setState("signing");
       try {
         if (chainId !== activeChain.id) await switchChain({ chainId: activeChain.id });
+        if (viaSafe) {
+          const dependsOnQueued = queuedAhead.current;
+          queuedAhead.current = false;
+          await checkSafeProposal(request, address!, dependsOnQueued);
+        }
         // Simulate first: a call that would fail shows its reason before any wallet prompt. The gas
         // limit gets 30% headroom, because by the time the transaction is mined the pool may have
         // interest to accrue first, which a node's exact estimate didn't include. (The Safe sets
@@ -64,7 +72,9 @@ export function useTx() {
         setHash(txHash);
         if (viaSafe) {
           // The hash is the Safe's own transaction id, not an on-chain one: nothing to wait for here.
+          queuedAhead.current = intermediate;
           setState("proposed");
+          void queryClient.invalidateQueries({ queryKey: ["safe-queue"] });
           return txHash;
         }
         setState("confirming");
@@ -187,6 +197,33 @@ export function useTx() {
 export type Tx = ReturnType<typeof useTx>;
 
 /**
+ * Stops a Safe proposal that could only fail when the owners execute it. It is run as the Safe
+ * against the current state first (unless it depends on a proposal queued just before it, which
+ * hasn't run yet), and refused if the same delivery, collection or listing is already waiting in
+ * the Safe's queue: of two proposals that settle one item, the second always reverts (GS013).
+ */
+async function checkSafeProposal(request: { address: Address; abi: unknown; functionName: string; args?: readonly unknown[] }, safe: Address, dependsOnQueued: boolean) {
+  if (!dependsOnQueued) {
+    await publicClient.simulateContract({ ...(request as Parameters<typeof publicClient.simulateContract>[0]), account: safe });
+  }
+  if (!safeQueueAvailable) return;
+  const action = decode(request.address, encodeFunctionData(request as Parameters<typeof encodeFunctionData>[0]))?.action;
+  if (!action) return;
+  let queued;
+  try {
+    ({ queued } = await fetchSafeQueue(safe));
+  } catch {
+    return; // The queue service being down shouldn't stop the warehouse; the simulation above still ran.
+  }
+  const waiting = queued.find((t) => t.action === action && !t.isRejection);
+  if (waiting) {
+    throw new Error(
+      `This is already in the Safe queue as #${waiting.nonce} (${waiting.signatures} of ${waiting.threshold} signed). Execute or reject that one in Safe{Wallet}.`,
+    );
+  }
+}
+
+/**
  * Keeps only what the screens show from a wallet or contract error.
  *
  * viem errors carry the call's arguments, usually bigints, and React's dev-only
@@ -206,7 +243,7 @@ const PLAIN_ERRORS: Record<string, string> = {
   CommodityRegistry__CommodityNotActive: "This crop is not being accepted right now.",
   CommodityRegistry__InvalidHarvestDate: "The harvest date can't be in the future.",
   CommodityRegistry__InvalidQuantity: "Enter a quantity above zero.",
-  CommodityRegistry__InvalidStatus: "This delivery has already been handled.",
+  CommodityRegistry__InvalidStatus: "This delivery is no longer waiting: it was already handled or cancelled.",
   CommodityRegistry__MissingEvidence: "Add the inspection report before approving.",
   CommodityRegistry__NotLotFarmer: "Only the farmer who booked this delivery can do that.",
   CommodityRegistry__OverCapacity: "That warehouse doesn't have room for this much.",
@@ -248,7 +285,7 @@ const PLAIN_ERRORS: Record<string, string> = {
   WarehouseDesk__LotFrozen: "This lot is frozen by the regulator.",
   WarehouseDesk__LotNotVerified: "Only verified stock can be collected.",
   WarehouseDesk__NotHolder: "Only the person who asked can cancel this.",
-  WarehouseDesk__NotPending: "This request has already been handled.",
+  WarehouseDesk__NotPending: "This request is no longer waiting: it was already handled or cancelled.",
   WarehouseDesk__DeliveryOverBudget: "The delivery fee is above the buyer's budget.",
 };
 

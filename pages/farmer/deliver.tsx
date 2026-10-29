@@ -8,9 +8,11 @@ import { GradeBadge, LotLabel } from "../../components/lots";
 import { TxStatus } from "../../components/TxStatus";
 import { Card, CropSeal, EmptyState, PageHeader, Segmented, StatusBadge } from "../../components/ui";
 import { useCommodities, useLots, useWarehouses } from "../../hooks/useProtocolData";
+import { findQueued, useSafeQueue } from "../../hooks/useSafeQueue";
 import { useTx } from "../../hooks/useTx";
 import { CommodityRegistryAbi } from "../../lib/contracts/abis";
-import { contracts } from "../../lib/contracts/config";
+import { contracts, VERIFIER_SAFE } from "../../lib/contracts/config";
+import { lotAction } from "../../lib/safeQueue";
 import { bytes32ToText, date, harvestTimestamp, isoDay, kg, nowSeconds, parseKg } from "../../lib/format";
 import { InfoTip } from "../../components/help/InfoTip";
 
@@ -70,6 +72,8 @@ export default function Deliver() {
   const openCommodities = commodities.filter((c) => c.active);
   const openWarehouses = warehouses.filter((w) => w.active && !w.frozen);
   const mine = lots.filter((l) => address && l.farmer.toLowerCase() === address.toLowerCase()).reverse();
+  // The warehouse's decisions waiting in its Safe; read only while a delivery of theirs is still waiting.
+  const safeQueue = useSafeQueue(mine.some((l) => l.status === "Pending") ? VERIFIER_SAFE : undefined, { check: false });
   const now = nowSeconds();
   const today = isoDay(now);
   const harvestDay =
@@ -369,11 +373,16 @@ export default function Deliver() {
                     </td>
                     <td className="muted">{date(lot.requestedAt)}</td>
                     <td>
-                      {lot.status === "Pending" && (
-                        <button className="btn btn-secondary btn-small" disabled={tx.isBusy} onClick={() => void cancel(lot.id)}>
-                          Cancel
-                        </button>
-                      )}
+                      {lot.status === "Pending" &&
+                        (findQueued(safeQueue.data?.queued, lotAction(lot.id)) ? (
+                          <span className="muted" data-testid="being-checked">
+                            Being signed off
+                          </span>
+                        ) : (
+                          <button className="btn btn-secondary btn-small" disabled={tx.isBusy} onClick={() => void cancel(lot.id)}>
+                            Cancel
+                          </button>
+                        ))}
                     </td>
                   </tr>
                 ))}

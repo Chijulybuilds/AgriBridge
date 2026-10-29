@@ -1,12 +1,15 @@
 import { useId, useState } from "react";
+import { useConnection } from "wagmi";
 import { keccak256, toHex, type Hex } from "viem";
 import { InboxArrowDownIcon } from "@heroicons/react/24/outline";
 
 import { useCommodities, useLots, useWarehouses, type Commodity, type Lot } from "../../hooks/useProtocolData";
+import { findQueued, useSafeQueue, type CheckedTx } from "../../hooks/useSafeQueue";
 import { useTx, type Tx } from "../../hooks/useTx";
 import { CommodityRegistryAbi } from "../../lib/contracts/abis";
 import { contracts, GRADES } from "../../lib/contracts/config";
 import { date, kg, kgInput, parseKg, shortAddress, textToBytes32 } from "../../lib/format";
+import { lotAction } from "../../lib/safeQueue";
 import { LotLabel } from "../lots";
 import { TxStatus } from "../TxStatus";
 import { Card, EmptyState, Notice, Skeleton } from "../ui";
@@ -23,6 +26,9 @@ export function IntakeTab() {
   // One status for the whole queue: a delivery leaves the list once it's handled, and the result must stay on screen.
   const tx = useTx();
   const pending = lots.filter((l) => l.status === "Pending");
+  // A delivery already waiting in the Safe can't be approved or rejected a second time: the second would revert.
+  const { address } = useConnection();
+  const queue = useSafeQueue(tx.viaSafe ? address : undefined);
 
   return (
     <Card title={`Waiting for weighing and grading (${pending.length})`} testId="verifier-intake">
@@ -33,7 +39,14 @@ export function IntakeTab() {
       ) : (
         <div className="stack">
           {pending.map((lot) => (
-            <IntakeItem key={lot.id.toString()} tx={tx} lot={lot} commodities={commodities} warehouse={warehouses.get(lot.warehouseId)?.name} />
+            <IntakeItem
+              key={lot.id.toString()}
+              tx={tx}
+              lot={lot}
+              commodities={commodities}
+              warehouse={warehouses.get(lot.warehouseId)?.name}
+              queued={findQueued(queue.data?.queued, lotAction(lot.id))}
+            />
           ))}
         </div>
       )}
@@ -45,7 +58,13 @@ export function IntakeTab() {
   );
 }
 
-function IntakeItem({ tx, lot, commodities, warehouse }: { tx: Tx; lot: Lot; commodities: Map<bigint, Commodity>; warehouse?: string }) {
+function IntakeItem({ tx, lot, commodities, warehouse, queued }: {
+  tx: Tx;
+  lot: Lot;
+  commodities: Map<bigint, Commodity>;
+  warehouse?: string;
+  queued?: CheckedTx;
+}) {
   const id = useId();
   const [measured, setMeasured] = useState(kgInput(lot.estimatedKg));
   const [grade, setGrade] = useState(0);
@@ -133,9 +152,15 @@ function IntakeItem({ tx, lot, commodities, warehouse }: { tx: Tx; lot: Lot; com
           {evidence && <span className="hint">Fingerprint {evidence.slice(0, 10)}…{evidenceLabel ? ` of ${evidenceLabel}` : ""}</span>}
         </div>
       </div>
+      {queued && (
+        <Notice tone="info" testId="already-queued">
+          Waiting in the Safe queue as #{queued.nonce} ({queued.signatures} of {queued.threshold} signed). Execute it in Safe{"{"}Wallet{"}"}, or
+          reject it there to decide again.
+        </Notice>
+      )}
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="spread" style={{ alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
-        <button className="btn" disabled={tx.isBusy} onClick={() => void approve()} data-testid="approve">
+        <button className="btn" disabled={tx.isBusy || Boolean(queued)} onClick={() => void approve()} data-testid="approve">
           Approve and create the stock
         </button>
         <div className="row" style={{ alignItems: "flex-end", gap: 10 }}>
@@ -150,7 +175,7 @@ function IntakeItem({ tx, lot, commodities, warehouse }: { tx: Tx; lot: Lot; com
               onChange={(e) => setReason(e.target.value)}
             />
           </div>
-          <button className="btn btn-danger" disabled={tx.isBusy} onClick={() => void reject()}>
+          <button className="btn btn-danger" disabled={tx.isBusy || Boolean(queued)} onClick={() => void reject()}>
             Reject delivery
           </button>
         </div>
